@@ -294,6 +294,13 @@ class StatisGravityApp {
       });
     });
 
+    document.querySelectorAll('.btn-export-docx').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const tab = e.currentTarget.dataset.tab;
+        this.exportDocx(tab);
+      });
+    });
+
     document.querySelectorAll('.btn-save-plot').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const canvasId = e.currentTarget.dataset.canvasId;
@@ -485,6 +492,7 @@ class StatisGravityApp {
     if (this.engines.descViolinCanvas) {
       Plots.renderViolinPlot(this.engines.descViolinCanvas, [{ name: 'Sample Data', stats, color: this.engines.descViolinCanvas.palette.secondary }], 'Violin Density Plot (KDE & Quartiles)');
     }
+    this.results = this.results || {}; this.results.descriptive = stats;
   }
 
   runHypothesis() {
@@ -549,6 +557,7 @@ class StatisGravityApp {
         title: `${nameA} vs ${nameB}`
       });
     }
+    this.results = this.results || {}; this.results.hypothesis = res;
   }
 
   runAnova() {
@@ -595,6 +604,7 @@ class StatisGravityApp {
         title: 'Multi-Cohort Comparison'
       });
     }
+    this.results = this.results || {}; this.results.anova = res;
   }
 
   runCategorical() {
@@ -719,6 +729,7 @@ class StatisGravityApp {
 
       document.getElementById('catReportText').innerText = Exporter.formatCategoricalReport(res);
     }
+    this.results = this.results || {}; this.results.categorical = res;
   }
 
   runCorrelation() {
@@ -795,6 +806,7 @@ class StatisGravityApp {
       const plotTitle = assump && assump.isUShaped ? `Curvilinear Regression (${assump.shape})` : 'Scatter Plot & Linear Regression';
       Plots.renderScatterRegression(this.engines.corrCanvas, pairs, reg, plotTitle, assump?.quad);
     }
+    this.results = this.results || {}; this.results.correlation = { n: xs.length, correlation: p, regression: reg, morphology: assump };
   }
 
   runDiagnostic() {
@@ -836,6 +848,7 @@ class StatisGravityApp {
     if (this.engines.rocCanvas) {
       Plots.renderROC(this.engines.rocCanvas, roc, `ROC Curve (AUC = ${roc.auc.toFixed(3)})`);
     }
+    this.results = this.results || {}; this.results.diagnostic = { eval2x2: d, roc, best };
   }
 
   runPower() {
@@ -994,3 +1007,148 @@ window.addEventListener('DOMContentLoaded', () => {
   window.sgApp = new StatisGravityApp();
   window.app = window.sgApp;
 });
+  exportDocx(tabId) {
+    if (!this.results || !this.results[tabId]) {
+      switch (tabId) {
+        case 'descriptive': this.runDescriptive(); break;
+        case 'hypothesis': this.runHypothesis(); break;
+        case 'anova': this.runAnova(); break;
+        case 'categorical': this.runCategorical(); break;
+        case 'correlation': this.runCorrelation(); break;
+        case 'diagnostic': this.runROC(); break;
+        case 'power': this.runPower(); break;
+      }
+    }
+    const res = this.results ? this.results[tabId] : null;
+    if (!res) {
+      alert('Please run the analysis first before exporting the report.');
+      return;
+    }
+
+    let exportData = {};
+    if (tabId === 'descriptive') {
+      exportData = {
+        name: 'Continuous Variable',
+        n: res.n,
+        mean: res.mean,
+        ci95: res.ci95,
+        sd: res.sd,
+        variance: res.variance,
+        sem: res.sem,
+        median: res.median,
+        q1: res.q1,
+        q3: res.q3,
+        iqr: res.iqr,
+        modes: res.modes,
+        maxFreq: res.maxFreq,
+        min: res.min,
+        max: res.max,
+        skewness: res.skewness,
+        skewnessInterpretation: res.skewnessInterpretation,
+        kurtosis: res.kurtosis,
+        kurtosisInterpretation: res.kurtosisInterpretation,
+        normality: res.normality,
+        lowerFence: res.lowerFence,
+        upperFence: res.upperFence,
+        outliers: res.outliers,
+        reportText: document.getElementById('descReportText')?.innerText,
+        values: res.values
+      };
+    } else if (tabId === 'hypothesis') {
+      exportData = {
+        nameA: document.getElementById('hypoNameA')?.value || 'Cohort A',
+        nameB: document.getElementById('hypoNameB')?.value || 'Cohort B',
+        testName: res.testName,
+        statistic: res.statistic,
+        df: res.df,
+        pValue: res.pValue,
+        isSignificant: res.isSignificant,
+        meanDiff: res.meanDiff,
+        ci95: res.ci95,
+        cohensD: res.cohensD,
+        rankBiserial: res.rankBiserial,
+        reportText: document.getElementById('hypoReportText')?.innerText,
+        groupA: res.groupA,
+        groupB: res.groupB
+      };
+    } else if (tabId === 'anova') {
+      exportData = {
+        k: res.k,
+        totalN: res.totalN,
+        grandMean: res.grandMean,
+        ssBetween: res.ssBetween,
+        dfBetween: res.dfBetween,
+        msBetween: res.msBetween,
+        ssWithin: res.ssWithin,
+        dfWithin: res.dfWithin,
+        msWithin: res.msWithin,
+        ssTotal: res.ssTotal,
+        fStatistic: res.fStatistic,
+        pValue: res.pValue,
+        etaSquared: res.etaSquared,
+        omegaSquared: res.omegaSquared,
+        reportText: document.getElementById('anovaReportText')?.innerText,
+        groups: res.groups,
+        pairwise: res.pairwise
+      };
+    } else if (tabId === 'categorical') {
+      const mode = document.getElementById('catAnalysisMode')?.value || 'diagnostic';
+      const a = parseFloat(document.getElementById('catA')?.value) || 0;
+      const b = parseFloat(document.getElementById('catB')?.value) || 0;
+      const c = parseFloat(document.getElementById('catC')?.value) || 0;
+      const d = parseFloat(document.getElementById('catD')?.value) || 0;
+      exportData = {
+        mode,
+        a, b, c, d,
+        totalN: a + b + c + d,
+        reportText: document.getElementById('catReportText')?.innerText,
+        diag: res.diagnostic,
+        chiSquare: res.chiSquare,
+        fishersExact: res.fishersExact,
+        risk: res.riskMetrics
+      };
+    } else if (tabId === 'correlation') {
+      exportData = {
+        xName: 'Independent Variable X',
+        yName: 'Dependent Variable Y',
+        n: res.n,
+        reportText: document.getElementById('corrReportText')?.innerText,
+        corr: res.correlation,
+        reg: res.regression,
+        morphology: res.morphology
+      };
+    } else if (tabId === 'diagnostic') {
+      exportData = {
+        name: 'Clinical Biomarker Evaluation',
+        totalN: res.eval2x2.total,
+        posCount: res.eval2x2.tp + res.eval2x2.fn,
+        negCount: res.eval2x2.fp + res.eval2x2.tn,
+        reportText: document.getElementById('rocReportText')?.innerText,
+        auc: res.roc.auc,
+        aucCI95: res.roc.aucCI95,
+        seAuc: res.roc.seAuc,
+        optimalCutoff: res.roc.optimalCutoff,
+        sensitivity: res.eval2x2.sensitivity,
+        specificity: res.eval2x2.specificity,
+        plr: res.eval2x2.plr,
+        nlr: res.eval2x2.nlr
+      };
+    } else if (tabId === 'power') {
+      exportData = {
+        designLabel: document.getElementById('pwrStudyDesign')?.selectedOptions?.[0]?.text || 'Study Design',
+        goal: document.getElementById('pwrCalcGoal')?.value || 'sample_size',
+        alpha: parseFloat(document.getElementById('pwrAlpha')?.value) || 0.05,
+        effectSize: res.effectSize || 0.5,
+        effectSizeLabel: res.effectSizeLabel || "Cohen's d",
+        nPerGroup: res.nPerGroup || res.nPairs || 0,
+        totalN: res.totalN || 0,
+        targetPower: parseFloat(document.getElementById('pwrPower')?.value) || 0.80,
+        achievedPower: res.achievedPower || 0.80,
+        reportText: document.getElementById('pwrReportText')?.innerText,
+        additionalMetrics: res.additionalMetrics || {}
+      };
+    }
+
+    Exporter.exportTabToDocx(tabId, exportData);
+  }
+

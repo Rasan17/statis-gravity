@@ -3,6 +3,8 @@
  * Generates APA/ICMJE compliant statistical summaries and downloadable exports.
  */
 
+import { DocxReports } from '../export/docx-generator.js';
+
 export const Exporter = {
   /**
    * Formats a p-value according to AMA/APA guidelines:
@@ -133,5 +135,54 @@ export const Exporter = {
     link.href = URL.createObjectURL(blob);
     link.download = filename;
     link.click();
+  },
+
+  /**
+   * Downloads a Blob object with automatic URL cleanup
+   */
+  downloadBlob(filename, blob) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+
+  /**
+   * Exports specified tab analysis data to .docx
+   */
+  exportTabToDocx(tabId, data) {
+    let builder;
+    switch (tabId) {
+      case 'descriptive':
+        builder = DocxReports.createDescriptiveDocx(data);
+        break;
+      case 'hypothesis':
+        builder = DocxReports.createHypothesisDocx(data);
+        break;
+      case 'anova':
+        builder = DocxReports.createAnovaDocx(data);
+        break;
+      case 'categorical':
+        builder = DocxReports.createCategoricalDocx(data);
+        break;
+      case 'correlation':
+        builder = DocxReports.createCorrelationDocx(data);
+        break;
+      case 'diagnostic':
+        builder = DocxReports.createDiagnosticDocx(data);
+        break;
+      case 'power':
+        builder = DocxReports.createPowerDocx(data);
+        break;
+      default:
+        console.error('Unknown tab for DOCX export:', tabId);
+        return;
+    }
+    const blob = builder.generateBlob();
+    this.downloadBlob(`statis-gravity-${tabId}-report.docx`, blob);
   }
 };

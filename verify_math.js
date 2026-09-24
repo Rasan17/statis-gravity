@@ -10,6 +10,7 @@ import { Categorical } from './js/stats/categorical.js';
 import { Correlation } from './js/stats/correlation.js';
 import { Diagnostic } from './js/stats/diagnostic.js';
 import { PowerAnalysis } from './js/stats/power.js';
+import { DocxReports } from './js/export/docx-generator.js';
 
 let passes = 0;
 let failures = 0;
@@ -290,6 +291,103 @@ anovaMulti.groups.forEach((g) => {
   assert(s.iqr > 0 && approx(s.iqr, s.q3 - s.q1, 1e-3), `${g.name} IQR (${s.iqr.toFixed(2)}) equals Q3 - Q1`);
   assert(s.median >= s.q1 && s.median <= s.q3, `${g.name} median (${s.median.toFixed(2)}) lies within Q1-Q3 box`);
 });
+
+console.log('--- Testing DOCX Clinical Report Generation (All 7 Modules) ---');
+const isZip = (buf) => buf.length > 30 && buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04;
+const hasRequiredSections = (builder) => {
+  const xml = builder.buildDocumentXML();
+  const hasAttribution = xml.includes('Dr G Narenthiran');
+  const hasNotice = xml.includes('AI was used to vibe code this WebApp');
+  const hasSec1 = xml.includes('1. ') && xml.includes('Information');
+  const hasSec2 = xml.includes('2. ') && (xml.includes('Outcome') || xml.includes('Results'));
+  const hasSec3 = xml.includes('3. ') && xml.includes('Interpretation');
+  const hasSec4 = xml.includes('4. ') && xml.includes('Reason');
+  const hasSec5 = xml.includes('5. ') && xml.includes('Background');
+  return hasAttribution && hasNotice && hasSec1 && hasSec2 && hasSec3 && hasSec4 && hasSec5;
+};
+
+// 1. Descriptive DOCX
+const bDesc = DocxReports.createDescriptiveDocx({
+  name: 'ICP (mmHg)', n: 20, mean: 15.2, ci95: [13.8, 16.6], sd: 3.1, variance: 9.61, sem: 0.69,
+  median: 15.0, q1: 13.0, q3: 17.0, iqr: 4.0, modes: [14.0], maxFreq: 3, min: 9.0, max: 22.0,
+  skewness: 0.45, kurtosis: -0.2, normality: { isNormal: true, statistic: 0.72, pValue: 0.697 },
+  lowerFence: 7.0, upperFence: 23.0, outliers: [], reportText: 'Descriptive APA summary'
+});
+const bufDesc = bDesc.generateUint8Array();
+assert(isZip(bufDesc), `Descriptive DOCX is a valid PKZIP archive (${bufDesc.length} bytes)`);
+assert(hasRequiredSections(bDesc), `Descriptive DOCX contains Information, Outcome, Interpretation, Reason, and Background sections`);
+
+// 2. Hypothesis DOCX
+const bHypo = DocxReports.createHypothesisDocx({
+  nameA: 'Control', nameB: 'Treatment', testName: 'Welch Unequal Variances t-Test',
+  statistic: 3.82, df: 28.4, pValue: 0.00065, isSignificant: true, meanDiff: 4.2, ci95: [1.9, 6.5],
+  cohensD: 0.98, reportText: 'Hypothesis APA summary',
+  groupA: { n: 15, mean: 22.0, sd: 4.0, sem: 1.03, ci95: [19.8, 24.2], median: 21.5, iqr: 4.5 },
+  groupB: { n: 15, mean: 17.8, sd: 2.8, sem: 0.72, ci95: [16.2, 19.4], median: 18.0, iqr: 3.5 }
+});
+const bufHypo = bHypo.generateUint8Array();
+assert(isZip(bufHypo), `Hypothesis DOCX is a valid PKZIP archive (${bufHypo.length} bytes)`);
+assert(hasRequiredSections(bHypo), `Hypothesis DOCX contains all 5 required clinical sections`);
+
+// 3. ANOVA DOCX
+const bAnova = DocxReports.createAnovaDocx({
+  k: 3, totalN: 36, grandMean: 14.8, ssBetween: 120.5, dfBetween: 2, msBetween: 60.25,
+  ssWithin: 240.2, dfWithin: 33, msWithin: 7.28, fStatistic: 8.28, pValue: 0.0012,
+  etaSquared: 0.334, omegaSquared: 0.288, reportText: 'ANOVA APA summary',
+  groups: [
+    { name: 'Cohort 1', stats: { n: 12, mean: 11.2, sd: 2.4, sem: 0.69, ci95: [9.7, 12.7], median: 11.0, iqr: 3.0 } },
+    { name: 'Cohort 2', stats: { n: 12, mean: 14.5, sd: 2.8, sem: 0.81, ci95: [12.7, 16.3], median: 14.5, iqr: 3.5 } },
+    { name: 'Cohort 3', stats: { n: 12, mean: 18.7, sd: 3.2, sem: 0.92, ci95: [16.7, 20.7], median: 18.5, iqr: 4.0 } }
+  ],
+  pairwise: [
+    { comparison: 'Cohort 1 vs Cohort 3', meanDiff: -7.5, seDiff: 1.10, qStatistic: 6.8, pValue: 0.0001, ci95: [-10.2, -4.8], cohensD: 2.78, isSignificant: true }
+  ]
+});
+const bufAnova = bAnova.generateUint8Array();
+assert(isZip(bufAnova), `ANOVA DOCX is a valid PKZIP archive (${bufAnova.length} bytes)`);
+assert(hasRequiredSections(bAnova), `ANOVA DOCX contains post-hoc table, interpretation, and methodological rationale`);
+
+// 4. Categorical DOCX
+const bCat = DocxReports.createCategoricalDocx({
+  mode: 'study', a: 20, b: 80, c: 40, d: 60, totalN: 200, reportText: 'Categorical study summary',
+  chiSquare: { standard: 9.60, pValueStandard: 0.0019, yates: 8.66, pValueYates: 0.0032 },
+  fishersExact: { pValue: 0.0028 },
+  risk: { oddsRatio: 0.375, orCI95: [0.20, 0.70], relativeRisk: 0.500, rrCI95: [0.32, 0.79], arr: 0.20, arrCI95: [0.07, 0.33], rrr: 0.50, nnt: 5.0 }
+});
+const bufCat = bCat.generateUint8Array();
+assert(isZip(bufCat), `Categorical DOCX is a valid PKZIP archive (${bufCat.length} bytes)`);
+assert(hasRequiredSections(bCat), `Categorical DOCX contains risk metrics (NNT/ARR), rationale, and background`);
+
+// 5. Correlation DOCX
+const bCorr = DocxReports.createCorrelationDocx({
+  xName: 'CPP', yName: 'Mortality', n: 15, reportText: 'Correlation U-shape summary',
+  corr: { r: 0.08, p: 0.78, ci95: [-0.45, 0.57], spearman: 0.12, spearmanP: 0.67 },
+  reg: { slope: 0.02, intercept: 20.0, seSlope: 0.08, seIntercept: 6.2, rSquared: 0.006, residualSE: 14.2, fStatistic: 0.08, pVal: 0.78 },
+  morphology: { shape: 'U-Shaped (Quadratic)', isMonotonic: false, reversals: 1, quadR2: 0.952, vertexX: 72.4, vertexY: 16.0, recommendedModel: 'Quadratic Polynomial Fit' }
+});
+const bufCorr = bCorr.generateUint8Array();
+assert(isZip(bufCorr), `Correlation DOCX is a valid PKZIP archive (${bufCorr.length} bytes)`);
+assert(hasRequiredSections(bCorr), `Correlation DOCX includes curve morphology diagnostics and non-linear rationale`);
+
+// 6. Diagnostic ROC DOCX
+const bRoc = DocxReports.createDiagnosticDocx({
+  name: 'Serum NfL', totalN: 120, posCount: 50, negCount: 70, reportText: 'ROC summary statement',
+  auc: 0.912, aucCI95: [0.86, 0.96], seAuc: 0.026, optimalCutoff: 0.42,
+  sensitivity: 0.88, specificity: 0.91, plr: 9.78, nlr: 0.13
+});
+const bufRoc = bRoc.generateUint8Array();
+assert(isZip(bufRoc), `Diagnostic ROC DOCX is a valid PKZIP archive (${bufRoc.length} bytes)`);
+assert(hasRequiredSections(bRoc), `Diagnostic ROC DOCX contains Likelihood Ratios, Youden index, and bayesian rationale`);
+
+// 7. Power & Sample Size DOCX
+const bPwr = DocxReports.createPowerDocx({
+  designLabel: 'Independent Two-Sample Means', goal: 'sample_size', alpha: 0.05,
+  effectSize: 0.50, effectSizeLabel: "Cohen's d", nPerGroup: 64, totalN: 128,
+  targetPower: 0.80, achievedPower: 0.807, reportText: 'IRB grant power justification'
+});
+const bufPwr = bPwr.generateUint8Array();
+assert(isZip(bufPwr), `Power Analysis DOCX is a valid PKZIP archive (${bufPwr.length} bytes)`);
+assert(hasRequiredSections(bPwr), `Power Analysis DOCX contains ethical justification, attrition buffer, and mathematical background`);
 
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);

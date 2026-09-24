@@ -68,9 +68,10 @@
                 <h2 class="card-title">Dataset Input</h2>
                 <p class="card-subtitle">Paste numeric values or load clinical sample</p>
               </div>
-              <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+              <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center;">
                 <button id="descSampleBtn" class="btn btn-secondary btn-sm">Normal Sample</button>
                 <button id="descOutlierSampleBtn" class="btn btn-secondary btn-sm" title="Load sample with positive skew and mild/extreme outliers">Sample Skew &amp; Outliers</button>
+                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="descriptive" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
               </div>
             </div>
             <div class="form-group">
@@ -190,7 +191,10 @@
             <div class="report-box" style="margin-top: 1.25rem;">
               <div class="report-title">
                 <span>Descriptive Statistical Summary (ICMJE &amp; APA Ready)</span>
-                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="descReportText">Copy</button>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="descReportText">Copy</button>
+                  <button class="btn btn-primary btn-sm btn-export-docx" data-tab="descriptive" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+                </div>
               </div>
               <p id="descReportText" class="report-text">--</p>
             </div>
@@ -207,7 +211,10 @@
                 <h2 class="card-title">Two-Group Comparison</h2>
                 <p class="card-subtitle">Select parametric or non-parametric test</p>
               </div>
-              <button id="hypoSampleBtn" class="btn btn-secondary btn-sm">Load Pre/Post ICP</button>
+              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button id="hypoSampleBtn" class="btn btn-secondary btn-sm">Load Pre/Post ICP</button>
+                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="hypothesis" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+              </div>
             </div>
 
             <div class="form-group">
@@ -287,7 +294,10 @@
             <div class="report-box">
               <div class="report-title">
                 <span>Clinical / Publication Summary (APA Style)</span>
-                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="hypoReportText">Copy</button>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="hypoReportText">Copy</button>
+                  <button class="btn btn-primary btn-sm btn-export-docx" data-tab="hypothesis" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+                </div>
               </div>
               <p id="hypoReportText" class="report-text">--</p>
             </div>
@@ -304,7 +314,10 @@
                 <h2 class="card-title">Multi-Cohort Analysis</h2>
                 <p class="card-subtitle">One-Way ANOVA &amp; Kruskal-Wallis</p>
               </div>
-              <button id="anovaSampleBtn" class="btn btn-secondary btn-sm">Load Cranial Cohorts</button>
+              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button id="anovaSampleBtn" class="btn btn-secondary btn-sm">Load Cranial Cohorts</button>
+                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="anova" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+              </div>
             </div>
 
             <div class="form-group">
@@ -398,7 +411,10 @@
             <div class="report-box" style="margin-top: 1.25rem;">
               <div class="report-title">
                 <span>ANOVA &amp; Post-Hoc Clinical Summary</span>
-                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="anovaReportText">Copy</button>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="anovaReportText">Copy</button>
+                  <button class="btn btn-primary btn-sm btn-export-docx" data-tab="anova" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+                </div>
               </div>
               <p id="anovaReportText" class="report-text">--</p>
             </div>
@@ -418,6 +434,7 @@
               </div>
               <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                 <button id="catSampleBtn" class="btn btn-secondary btn-sm">Sample Data</button>
+                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="categorical" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
               </div>
             </div>
 
@@ -535,7 +552,10 @@
             <div class="report-box" style="margin-top: 1rem;">
               <div class="report-title">
                 <span id="catReportHeaderTitle">Clinical Diagnostic / Epidemiological Summary</span>
-                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="catReportText">Copy</button>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="catReportText">Copy</button>
+                  <button class="btn btn-primary btn-sm btn-export-docx" data-tab="categorical" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+                </div>
               </div>
               <p id="catReportText" class="report-text">--</p>
             </div>
@@ -552,10 +572,11 @@
                 <h2 class="card-title">Bivariate Relationship</h2>
                 <p class="card-subtitle">Pearson, Spearman &amp; OLS Regression</p>
               </div>
-              <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+              <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center;">
                 <button id="corrSampleBtn" class="btn btn-secondary btn-sm">Sample Linear</button>
                 <button id="corrUShapeBtn" class="btn btn-secondary btn-sm" title="Load classic neurosurgical U-shaped dataset (Cerebral Perfusion Pressure vs Mortality)">Sample U-Curve</button>
                 <button id="corrNCurveBtn" class="btn btn-secondary btn-sm" title="Load tri-phasic non-monotonic dataset (Increase → Decrease → Increase)">Sample N-Curve</button>
+                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="correlation" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
               </div>
             </div>
 
@@ -650,7 +671,10 @@
             <div class="report-box" style="margin-top: 1.25rem;">
               <div class="report-title">
                 <span>Correlation &amp; Regression Clinical Statement</span>
-                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="corrReportText">Copy</button>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="corrReportText">Copy</button>
+                  <button class="btn btn-primary btn-sm btn-export-docx" data-tab="correlation" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+                </div>
               </div>
               <p id="corrReportText" class="report-text">--</p>
             </div>
@@ -667,7 +691,10 @@
                 <h2 class="card-title">Biomarker &amp; Diagnostic Test</h2>
                 <p class="card-subtitle">Continuous score and true disease status (0 or 1)</p>
               </div>
-              <button id="rocSampleBtn" class="btn btn-secondary btn-sm">Sample NfL Biomarker</button>
+              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button id="rocSampleBtn" class="btn btn-secondary btn-sm">Sample NfL Biomarker</button>
+                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="diagnostic" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+              </div>
             </div>
 
             <div class="form-group">
@@ -717,7 +744,10 @@
             <div class="report-box">
               <div class="report-title">
                 <span>Diagnostic Accuracy Statement</span>
-                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="rocReportText">Copy</button>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="rocReportText">Copy</button>
+                  <button class="btn btn-primary btn-sm btn-export-docx" data-tab="diagnostic" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+                </div>
               </div>
               <p id="rocReportText" class="report-text">--</p>
             </div>
@@ -729,11 +759,12 @@
       <section id="tab-power" class="tab-pane">
         <div class="analysis-grid">
           <div class="card">
-            <div class="card-header">
+            <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
               <div>
                 <h2 class="card-title">Power &amp; Sample Size Determination</h2>
                 <p id="pwrSubtitle" class="card-subtitle">A-priori sample size planning &amp; post-hoc power calculation</p>
               </div>
+              <button class="btn btn-primary btn-sm btn-export-docx" data-tab="power" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
             </div>
 
             <div class="form-group" style="margin-bottom: 1rem;">
@@ -885,7 +916,10 @@
             <div class="report-box" style="margin-top: 1rem;">
               <div class="report-title">
                 <span id="pwrReportTitle">Study Protocol Justification (Grant / Ethics / IRB Ready)</span>
-                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="pwrReportText">Copy</button>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="pwrReportText">Copy</button>
+                  <button class="btn btn-primary btn-sm btn-export-docx" data-tab="power" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+                </div>
               </div>
               <p id="pwrReportText" class="report-text">--</p>
             </div>
@@ -925,6 +959,6 @@
     </div>
   </div>
 
-  <script src="js/statis-gravity.js?v=2.5.0"></script>
+  <script src="js/statis-gravity.js?v=2.6.0"></script>
 </body>
 </html>
