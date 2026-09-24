@@ -7674,13 +7674,13 @@ const DocxReports = {
         const max = rangeEl.max !== '' ? rangeEl.max : (options.max !== undefined ? options.max : '');
         const step = rangeEl.step !== '' ? rangeEl.step : (options.step !== undefined ? options.step : 'any');
 
-        // Create inline input
+        // Create inline input - use step 'any' to allow arbitrary decimals like 11.8 or 4.76
         const input = document.createElement('input');
         input.type = 'number';
         input.className = 'editable-number-input';
         if (min !== '') input.min = min;
         if (max !== '') input.max = max;
-        if (step !== '') input.step = step;
+        input.step = 'any';
         input.value = currentVal;
 
         // Match styles with span
@@ -7721,9 +7721,24 @@ const DocxReports = {
               if (!isNaN(minNum) && val < minNum) val = minNum;
               if (!isNaN(maxNum) && val > maxNum) val = maxNum;
 
+              // Prevent native <input type="range"> from snapping custom decimals to coarse step
+              const prevStep = rangeEl.step;
+              rangeEl.step = 'any';
               rangeEl.value = val;
               rangeEl.dispatchEvent(new Event('input', { bubbles: true }));
               rangeEl.dispatchEvent(new Event('change', { bubbles: true }));
+
+              // When user later drags slider by mouse/touch, revert to original slider step
+              const restoreSliderStep = () => {
+                if (prevStep) rangeEl.step = prevStep;
+                rangeEl.removeEventListener('pointerdown', restoreSliderStep);
+                rangeEl.removeEventListener('touchstart', restoreSliderStep);
+                rangeEl.removeEventListener('mousedown', restoreSliderStep);
+              };
+              rangeEl.addEventListener('pointerdown', restoreSliderStep, { once: true });
+              rangeEl.addEventListener('touchstart', restoreSliderStep, { once: true });
+              rangeEl.addEventListener('mousedown', restoreSliderStep, { once: true });
+
               if (typeof options.onCommit === 'function') {
                 options.onCommit(val);
               }
@@ -9581,41 +9596,69 @@ const DocxReports = {
       const viewMode = this.currentBayesView || 'square';
       const preset = overrideParams.preset || this.currentBayesPreset || 'steve';
 
+      // Smart percentage formatter preserving exact user-entered precision (e.g. 11.8% instead of rounding to 12%)
+      const formatPercentSmart = (rate) => {
+        if (rate === undefined || rate === null || isNaN(rate)) return '0.0%';
+        const pct = rate * 100;
+        const rounded1 = Math.round(pct * 10) / 10;
+        if (Math.abs(pct - rounded1) < 1e-4) {
+          return `${rounded1.toFixed(1)}%`;
+        }
+        const rounded2 = Math.round(pct * 100) / 100;
+        if (Math.abs(pct - rounded2) < 1e-4) {
+          return `${rounded2.toFixed(2)}%`;
+        }
+        return `${parseFloat(pct.toFixed(3))}%`;
+      };
+
+      const getSliderDisplayVal = (rate) => {
+        const pct = rate * 100;
+        const rounded1 = Math.round(pct * 10) / 10;
+        if (Math.abs(pct - rounded1) < 1e-4) {
+          return rounded1.toFixed(1);
+        }
+        const rounded2 = Math.round(pct * 100) / 100;
+        if (Math.abs(pct - rounded2) < 1e-4) {
+          return rounded2.toFixed(2);
+        }
+        return parseFloat(pct.toFixed(3)).toString();
+      };
+
       // Synchronize UI slider values and numeric display labels
       if (priorInput && overrideParams.prior !== undefined) {
-        priorInput.value = (prior * 100).toFixed(1);
+        priorInput.value = getSliderDisplayVal(prior);
       }
       if (sampleInput && overrideParams.sampleSize !== undefined) {
         sampleInput.value = sampleSize;
       }
       if (likInput && overrideParams.likelihood !== undefined) {
-        likInput.value = (likelihood * 100).toFixed(1);
+        likInput.value = getSliderDisplayVal(likelihood);
       }
       if (fpInput && overrideParams.falsePositive !== undefined) {
-        fpInput.value = (falsePositive * 100).toFixed(1);
+        fpInput.value = getSliderDisplayVal(falsePositive);
       }
 
       const priorValEl = document.getElementById('bayesPriorVal');
-      if (priorValEl) priorValEl.innerText = `${(prior * 100).toFixed(1)}%`;
+      if (priorValEl) priorValEl.innerText = formatPercentSmart(prior);
 
       const sampleValEl = document.getElementById('bayesSampleVal');
       if (sampleValEl) sampleValEl.innerText = `N = ${sampleSize} people`;
 
       const likValEl = document.getElementById('bayesLikelihoodVal');
-      if (likValEl) likValEl.innerText = `${(likelihood * 100).toFixed(1)}%`;
+      if (likValEl) likValEl.innerText = formatPercentSmart(likelihood);
 
       const fpValEl = document.getElementById('bayesFalsePosVal');
-      if (fpValEl) fpValEl.innerText = `${(falsePositive * 100).toFixed(1)}%`;
+      if (fpValEl) fpValEl.innerText = formatPercentSmart(falsePositive);
 
       const priorSumEl = document.getElementById('bayesPriorSummary');
       if (priorSumEl) {
         const priorOddsRatio = (1 - prior) / prior;
-        priorSumEl.innerText = `Prior: ${(prior * 100).toFixed(1)}% (1:${priorOddsRatio.toFixed(1)})`;
+        priorSumEl.innerText = `Prior: ${formatPercentSmart(prior)} (1:${priorOddsRatio.toFixed(1)})`;
       }
 
       const likSumEl = document.getElementById('bayesLikelihoodSummary');
       if (likSumEl) {
-        likSumEl.innerText = `P(E|H): ${(likelihood * 100).toFixed(0)}% | P(E|¬H): ${(falsePositive * 100).toFixed(0)}%`;
+        likSumEl.innerText = `P(E|H): ${formatPercentSmart(likelihood)} | P(E|¬H): ${formatPercentSmart(falsePositive)}`;
       }
 
       // Calculate metrics
@@ -9631,17 +9674,17 @@ const DocxReports = {
       // Update real-time Metric Cards
       const statusPriorVal = document.getElementById('bayesStatusPriorVal');
       const statusPriorSub = document.getElementById('bayesStatusPriorSub');
-      if (statusPriorVal) statusPriorVal.innerText = `${(metrics.prior * 100).toFixed(1)}%`;
+      if (statusPriorVal) statusPriorVal.innerText = formatPercentSmart(metrics.prior);
       if (statusPriorSub) statusPriorSub.innerText = `Prior Odds: 1 : ${(1 / metrics.priorOdds).toFixed(1)}`;
 
       const statusLikVal = document.getElementById('bayesStatusLikelihoodVal');
       const statusLikSub = document.getElementById('bayesStatusLikelihoodSub');
-      if (statusLikVal) statusLikVal.innerText = `${(metrics.likelihood * 100).toFixed(1)}%`;
+      if (statusLikVal) statusLikVal.innerText = formatPercentSmart(metrics.likelihood);
       if (statusLikSub) statusLikSub.innerText = `True Positive Probability`;
 
       const statusFPVal = document.getElementById('bayesStatusFalsePosVal');
       const statusFPSub = document.getElementById('bayesStatusFalsePosSub');
-      if (statusFPVal) statusFPVal.innerText = `${(metrics.falsePositive * 100).toFixed(1)}%`;
+      if (statusFPVal) statusFPVal.innerText = formatPercentSmart(metrics.falsePositive);
       if (statusFPSub) statusFPSub.innerText = `False Positive Probability`;
 
       const statusPEVal = document.getElementById('bayesStatusPEvidenceVal');

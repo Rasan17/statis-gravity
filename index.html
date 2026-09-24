@@ -1762,7 +1762,7 @@
                     <label for="bayesLikelihoodRange">Likelihood P(E|H) (True Positive Rate):</label>
                     <span id="bayesLikelihoodVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #10b981;">40.0%</span>
                   </div>
-                  <input type="range" id="bayesLikelihoodRange" min="1.0" max="100.0" step="1.0" value="40.0" style="width: 100%;">
+                  <input type="range" id="bayesLikelihoodRange" min="0.1" max="100.0" step="0.1" value="40.0" style="width: 100%;">
                   <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Probability of evidence if H is true (e.g. 40% of librarians fit meek/tidy description).</span>
                 </div>
 
@@ -1772,7 +1772,7 @@
                     <label for="bayesFalsePosRange">False Positive Rate P(E|¬H) (False Alarm):</label>
                     <span id="bayesFalsePosVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #f59e0b;">10.0%</span>
                   </div>
-                  <input type="range" id="bayesFalsePosRange" min="0.5" max="100.0" step="0.5" value="10.0" style="width: 100%;">
+                  <input type="range" id="bayesFalsePosRange" min="0.1" max="100.0" step="0.1" value="10.0" style="width: 100%;">
                   <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Probability of evidence if H is false (e.g. 10% of farmers fit meek/tidy description).</span>
                 </div>
               </div>
@@ -1883,6 +1883,6 @@
     </div>
   </div>
 
-  <script src="js/statis-gravity.js?v=2.9.4"></script>
+  <script src="js/statis-gravity.js?v=2.9.5"></script>
 </body>
 </html>
