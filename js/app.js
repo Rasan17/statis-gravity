@@ -10,6 +10,7 @@ import { Categorical } from './stats/categorical.js';
 import { Correlation } from './stats/correlation.js';
 import { Diagnostic } from './stats/diagnostic.js';
 import { PowerAnalysis } from './stats/power.js';
+import { Teaching } from './stats/teaching.js';
 
 import { ChartEngine } from './visualization/chart-engine.js';
 import { Plots } from './visualization/plots.js';
@@ -81,7 +82,10 @@ class StatisGravityApp {
       'hypoCanvas',
       'anovaCanvas',
       'corrCanvas',
-      'rocCanvas'
+      'rocCanvas',
+      'teachingDistCanvas',
+      'teachingCltParentCanvas',
+      'teachingCltSamplingCanvas'
     ];
 
     canvasIds.forEach(id => {
@@ -310,6 +314,78 @@ class StatisGravityApp {
       });
     });
 
+    // 8. Teaching & Simulation Events
+    document.getElementById('teachingDistSelect')?.addEventListener('change', () => {
+      this.renderTeachingParams();
+      this.runTeachingDistribution();
+    });
+
+    document.getElementById('teachingNRange')?.addEventListener('input', (e) => {
+      const val = e.target.value;
+      const el = document.getElementById('teachingNVal');
+      if (el) el.innerText = val;
+      this.runTeachingDistribution();
+    });
+
+    document.getElementById('teachingGenBtn')?.addEventListener('click', () => {
+      this.runTeachingDistribution();
+    });
+
+    document.getElementById('teachingCopyBtn')?.addEventListener('click', (e) => {
+      if (this.currentTeachingData) {
+        navigator.clipboard.writeText(this.currentTeachingData.join(', '));
+        const orig = e.currentTarget.innerText;
+        e.currentTarget.innerText = 'Copied!';
+        setTimeout(() => { e.currentTarget.innerText = orig; }, 1500);
+      }
+    });
+
+    document.getElementById('teachingSendToDescBtn')?.addEventListener('click', () => {
+      if (this.currentTeachingData) {
+        const descInput = document.getElementById('descInput');
+        if (descInput) {
+          descInput.value = this.currentTeachingData.join(', ');
+        }
+        const descTabBtn = document.querySelector('.tab-btn[data-target="tab-descriptive"]');
+        if (descTabBtn) descTabBtn.click();
+        this.runDescriptive();
+      }
+    });
+
+    // CLT Simulation Controls
+    document.getElementById('cltPopSelect')?.addEventListener('change', (e) => {
+      Teaching.clt.setPopulation(e.target.value);
+      this.updateCltUI(Teaching.clt.getSummary());
+    });
+
+    document.getElementById('cltNRange')?.addEventListener('input', (e) => {
+      const n = parseInt(e.target.value);
+      const el = document.getElementById('cltNVal');
+      if (el) el.innerText = n;
+      Teaching.clt.setSampleSize(n);
+      this.updateCltUI(Teaching.clt.getSummary());
+    });
+
+    document.getElementById('cltStepBtn')?.addEventListener('click', () => {
+      const summary = Teaching.clt.drawSamples(1);
+      this.updateCltUI(summary);
+    });
+
+    document.getElementById('cltDraw100Btn')?.addEventListener('click', () => {
+      const summary = Teaching.clt.drawSamples(100);
+      this.updateCltUI(summary);
+    });
+
+    document.getElementById('cltDraw1000Btn')?.addEventListener('click', () => {
+      const summary = Teaching.clt.drawSamples(1000);
+      this.updateCltUI(summary);
+    });
+
+    document.getElementById('cltResetBtn')?.addEventListener('click', () => {
+      Teaching.clt.reset();
+      this.updateCltUI(Teaching.clt.getSummary());
+    });
+
     // Disclaimer Modal Dismissal
     document.getElementById('disclaimerDismissBtn')?.addEventListener('click', () => {
       document.getElementById('disclaimerModal')?.classList.add('hidden');
@@ -335,6 +411,7 @@ class StatisGravityApp {
     document.getElementById('corrSampleBtn')?.click();
     document.getElementById('rocSampleBtn')?.click();
     this.runPower();
+    this.initTeachingModule();
   }
 
   // --- Run Modules ---
@@ -1017,6 +1094,7 @@ window.addEventListener('DOMContentLoaded', () => {
         case 'correlation': this.runCorrelation(); break;
         case 'diagnostic': this.runROC(); break;
         case 'power': this.runPower(); break;
+        case 'teaching': this.runTeaching(); break;
       }
     }
     const res = this.results ? this.results[tabId] : null;
@@ -1147,8 +1225,476 @@ window.addEventListener('DOMContentLoaded', () => {
         reportText: document.getElementById('pwrReportText')?.innerText,
         additionalMetrics: res.additionalMetrics || {}
       };
+    } else if (tabId === 'teaching') {
+      const dist = res.dist || {};
+      const clt = res.clt || {};
+      exportData = {
+        distName: dist.name,
+        distN: dist.n,
+        clinicalExample: dist.clinicalExample,
+        sampleMean: dist.mean,
+        theoMean: dist.theoMean,
+        sampleSD: dist.sd,
+        theoSD: dist.theoSD,
+        skewness: dist.skewness,
+        skewnessLabel: dist.skewnessInterpretation,
+        kurtosis: dist.kurtosis,
+        kurtosisLabel: dist.kurtosisInterpretation,
+        jbStat: dist.normality?.statistic,
+        jbP: dist.normality?.pValue,
+        isNormal: dist.normality?.isNormal,
+        cltParentName: clt.population?.name,
+        cltN: clt.sampleSize,
+        cltK: clt.samplesDrawn,
+        cltResults: {
+          theoMean: clt.theoreticalMean,
+          obsMean: clt.observedMean,
+          theoSE: clt.theoreticalSE,
+          obsSE: clt.observedSE,
+          skewness: clt.skewness,
+          normalityP: clt.normality?.pValue,
+          isNormal: clt.normality?.isNormal
+        },
+        reportText: document.getElementById('teachingReportText')?.innerText
+      };
     }
 
     Exporter.exportTabToDocx(tabId, exportData);
+  }
+
+  // --- Teaching & Simulation Module ---
+
+  initTeachingModule() {
+    this.renderTeachingParams();
+    this.runTeachingDistribution();
+    this.updateCltUI(Teaching.clt.getSummary());
+  }
+
+  renderTeachingParams() {
+    const distKey = document.getElementById('teachingDistSelect')?.value || 'normal';
+    const container = document.getElementById('teachingParamsContainer');
+    if (!container) return;
+
+    let html = '';
+    switch (distKey) {
+      case 'normal':
+        html = `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label class="form-label" style="font-size: 0.78rem;">Mean (μ):</label>
+              <input id="tp_norm_mean" type="number" step="0.5" value="12" class="form-control" style="padding: 0.35rem 0.5rem;">
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 0.78rem;">Std Dev (σ):</label>
+              <input id="tp_norm_sd" type="number" min="0.1" step="0.5" value="3" class="form-control" style="padding: 0.35rem 0.5rem;">
+            </div>
+          </div>
+        `;
+        break;
+      case 'studentsT':
+        html = `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label class="form-label" style="font-size: 0.78rem;">Degrees of Freedom (ν):</label>
+              <input id="tp_t_df" type="number" min="1" max="100" step="1" value="4" class="form-control" style="padding: 0.35rem 0.5rem;">
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 0.78rem;">Scale (s):</label>
+              <input id="tp_t_scale" type="number" min="0.1" step="0.5" value="2" class="form-control" style="padding: 0.35rem 0.5rem;">
+            </div>
+          </div>
+        `;
+        break;
+      case 'logNormal':
+        html = `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label class="form-label" style="font-size: 0.78rem;">Log-Mean (μ):</label>
+              <input id="tp_log_mu" type="number" step="0.1" value="1.5" class="form-control" style="padding: 0.35rem 0.5rem;">
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 0.78rem;">Log-SD (σ):</label>
+              <input id="tp_log_sigma" type="number" min="0.1" step="0.1" value="0.6" class="form-control" style="padding: 0.35rem 0.5rem;">
+            </div>
+          </div>
+        `;
+        break;
+      case 'exponential':
+        html = `
+          <div>
+            <label class="form-label" style="font-size: 0.78rem;">Rate Parameter (λ):</label>
+            <input id="tp_exp_rate" type="number" min="0.05" step="0.1" value="0.4" class="form-control" style="padding: 0.35rem 0.5rem;">
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">Theoretical Mean = 1/λ = 2.50</div>
+          </div>
+        `;
+        break;
+      case 'bimodal':
+        html = `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <div>
+              <label class="form-label" style="font-size: 0.75rem;">Peak 1 Mean:</label>
+              <input id="tp_bim_m1" type="number" value="10" class="form-control" style="padding: 0.3rem 0.4rem;">
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 0.75rem;">Peak 1 SD:</label>
+              <input id="tp_bim_s1" type="number" min="0.1" value="2" class="form-control" style="padding: 0.3rem 0.4rem;">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+            <div>
+              <label class="form-label" style="font-size: 0.75rem;">Peak 2 Mean:</label>
+              <input id="tp_bim_m2" type="number" value="25" class="form-control" style="padding: 0.3rem 0.4rem;">
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 0.75rem;">Peak 2 SD:</label>
+              <input id="tp_bim_s2" type="number" min="0.1" value="3" class="form-control" style="padding: 0.3rem 0.4rem;">
+            </div>
+          </div>
+        `;
+        break;
+      case 'uniform':
+        html = `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label class="form-label" style="font-size: 0.78rem;">Lower Bound (a):</label>
+              <input id="tp_uni_min" type="number" value="0" class="form-control" style="padding: 0.35rem 0.5rem;">
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 0.78rem;">Upper Bound (b):</label>
+              <input id="tp_uni_max" type="number" value="20" class="form-control" style="padding: 0.35rem 0.5rem;">
+            </div>
+          </div>
+        `;
+        break;
+      case 'poisson':
+        html = `
+          <div>
+            <label class="form-label" style="font-size: 0.78rem;">Event Rate Parameter (λ):</label>
+            <input id="tp_pois_lambda" type="number" min="0.5" step="0.5" value="5" class="form-control" style="padding: 0.35rem 0.5rem;">
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">Mean = Variance = λ = 5.0</div>
+          </div>
+        `;
+        break;
+      case 'chiSquare':
+        html = `
+          <div>
+            <label class="form-label" style="font-size: 0.78rem;">Degrees of Freedom (k):</label>
+            <input id="tp_chi_df" type="number" min="1" max="50" step="1" value="4" class="form-control" style="padding: 0.35rem 0.5rem;">
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">Mean = k = 4.0, Variance = 2k = 8.0</div>
+          </div>
+        `;
+        break;
+    }
+
+    container.innerHTML = html;
+
+    // Attach reactive input listeners to all inputs in container
+    container.querySelectorAll('input').forEach(input => {
+      input.addEventListener('input', () => this.runTeachingDistribution());
+    });
+  }
+
+  runTeachingDistribution() {
+    const distKey = document.getElementById('teachingDistSelect')?.value || 'normal';
+    const n = parseInt(document.getElementById('teachingNRange')?.value) || 500;
+    const meta = Teaching.distMetadata[distKey] || {};
+
+    let data = [];
+    const params = {};
+    let theoMean = 0;
+    let theoSD = 0;
+    let theoSkew = '0.000';
+    let theoKurt = '0.000';
+
+    switch (distKey) {
+      case 'normal': {
+        const mean = parseFloat(document.getElementById('tp_norm_mean')?.value) || 12;
+        const sd = Math.max(0.1, parseFloat(document.getElementById('tp_norm_sd')?.value) || 3);
+        params.mean = mean;
+        params.sd = sd;
+        theoMean = mean;
+        theoSD = sd;
+        theoSkew = '0.000 (Symmetric)';
+        theoKurt = '0.000 (Mesokurtic)';
+        data = Teaching.generators.normal(n, mean, sd);
+        break;
+      }
+      case 'studentsT': {
+        const df = Math.max(1, parseInt(document.getElementById('tp_t_df')?.value) || 4);
+        const scale = Math.max(0.1, parseFloat(document.getElementById('tp_t_scale')?.value) || 2);
+        params.df = df;
+        params.scale = scale;
+        params.mean = 0;
+        theoMean = 0;
+        theoSD = df > 2 ? scale * Math.sqrt(df / (df - 2)) : NaN;
+        theoSkew = '0.000';
+        theoKurt = df > 4 ? (6 / (df - 4)).toFixed(2) + ' (Heavy tails)' : '∞ (Fat tails)';
+        data = Teaching.generators.studentsT(n, df, 0, scale);
+        break;
+      }
+      case 'logNormal': {
+        const mu = parseFloat(document.getElementById('tp_log_mu')?.value) || 1.5;
+        const sigma = Math.max(0.1, parseFloat(document.getElementById('tp_log_sigma')?.value) || 0.6);
+        params.mu = mu;
+        params.sigma = sigma;
+        theoMean = Math.exp(mu + 0.5 * sigma * sigma);
+        theoSD = Math.sqrt((Math.exp(sigma * sigma) - 1) * Math.exp(2 * mu + sigma * sigma));
+        theoSkew = ((Math.exp(sigma * sigma) + 2) * Math.sqrt(Math.exp(sigma * sigma) - 1)).toFixed(2) + ' (Right skew)';
+        theoKurt = 'Positive (Leptokurtic)';
+        data = Teaching.generators.logNormal(n, mu, sigma);
+        break;
+      }
+      case 'exponential': {
+        const rate = Math.max(0.01, parseFloat(document.getElementById('tp_exp_rate')?.value) || 0.4);
+        params.rate = rate;
+        theoMean = 1 / rate;
+        theoSD = 1 / rate;
+        theoSkew = '2.000 (Strong right skew)';
+        theoKurt = '6.000 (Heavy tails)';
+        data = Teaching.generators.exponential(n, rate);
+        break;
+      }
+      case 'bimodal': {
+        const m1 = parseFloat(document.getElementById('tp_bim_m1')?.value) || 10;
+        const s1 = Math.max(0.1, parseFloat(document.getElementById('tp_bim_s1')?.value) || 2);
+        const m2 = parseFloat(document.getElementById('tp_bim_m2')?.value) || 25;
+        const s2 = Math.max(0.1, parseFloat(document.getElementById('tp_bim_s2')?.value) || 3);
+        params.m1 = m1;
+        params.s1 = s1;
+        params.m2 = m2;
+        params.s2 = s2;
+        params.p = 0.5;
+        theoMean = 0.5 * (m1 + m2);
+        theoSD = Math.sqrt(0.5 * (s1 * s1 + s2 * s2) + 0.25 * Math.pow(m1 - m2, 2));
+        theoSkew = '~0.000 (Symmetric Peaks)';
+        theoKurt = 'Platykurtic (Bimodal Trough)';
+        data = Teaching.generators.bimodal(n, m1, s1, m2, s2, 0.5);
+        break;
+      }
+      case 'uniform': {
+        const min = parseFloat(document.getElementById('tp_uni_min')?.value) || 0;
+        const max = parseFloat(document.getElementById('tp_uni_max')?.value) || 20;
+        params.min = min;
+        params.max = max;
+        theoMean = (min + max) / 2;
+        theoSD = Math.sqrt(Math.pow(max - min, 2) / 12);
+        theoSkew = '0.000 (Flat)';
+        theoKurt = '-1.200 (Platykurtic)';
+        data = Teaching.generators.uniform(n, min, max);
+        break;
+      }
+      case 'poisson': {
+        const lambda = Math.max(0.1, parseFloat(document.getElementById('tp_pois_lambda')?.value) || 5);
+        params.lambda = lambda;
+        theoMean = lambda;
+        theoSD = Math.sqrt(lambda);
+        theoSkew = (1 / Math.sqrt(lambda)).toFixed(2);
+        theoKurt = (1 / lambda).toFixed(2);
+        data = Teaching.generators.poisson(n, lambda);
+        break;
+      }
+      case 'chiSquare': {
+        const df = Math.max(1, parseInt(document.getElementById('tp_chi_df')?.value) || 4);
+        params.df = df;
+        theoMean = df;
+        theoSD = Math.sqrt(2 * df);
+        theoSkew = Math.sqrt(8 / df).toFixed(2);
+        theoKurt = (12 / df).toFixed(2);
+        data = Teaching.generators.chiSquare(n, df);
+        break;
+      }
+    }
+
+    this.currentTeachingData = data;
+
+    // Calculate empirical descriptive statistics
+    const stats = Descriptive.calculate(data);
+
+    // Update Metrics Cards
+    const meanEl = document.getElementById('teachingSampleMean');
+    if (meanEl) meanEl.innerText = stats.mean.toFixed(2);
+    const theoMeanEl = document.getElementById('teachingTheoMean');
+    if (theoMeanEl) theoMeanEl.innerText = `Theo: ${isNaN(theoMean) ? 'N/A' : theoMean.toFixed(2)}`;
+
+    const sdEl = document.getElementById('teachingSampleSD');
+    if (sdEl) sdEl.innerText = stats.sd.toFixed(2);
+    const theoSDEl = document.getElementById('teachingTheoSD');
+    if (theoSDEl) theoSDEl.innerText = `Theo: ${isNaN(theoSD) ? 'N/A' : theoSD.toFixed(2)}`;
+
+    const skewEl = document.getElementById('teachingSkewness');
+    if (skewEl) skewEl.innerText = stats.skewness.toFixed(2);
+    const skewSubEl = document.getElementById('teachingSkewnessSub');
+    if (skewSubEl) skewSubEl.innerText = stats.skewnessInterpretation;
+
+    const kurtEl = document.getElementById('teachingKurtosis');
+    if (kurtEl) kurtEl.innerText = stats.kurtosis.toFixed(2);
+    const kurtSubEl = document.getElementById('teachingKurtosisSub');
+    if (kurtSubEl) kurtSubEl.innerText = stats.kurtosisInterpretation;
+
+    const normEl = document.getElementById('teachingNormality');
+    const normSubEl = document.getElementById('teachingNormalitySub');
+    if (normEl) {
+      normEl.innerText = stats.normality.isNormal ? 'Normal ✓' : 'Non-Normal ✗';
+      normEl.style.color = stats.normality.isNormal ? '#22c55e' : '#ef4444';
+    }
+    if (normSubEl) {
+      normSubEl.innerText = `JB p = ${stats.normality.pValue.toFixed(4)}`;
+    }
+
+    // Update Context Card
+    const titleEl = document.getElementById('teachingContextTitle');
+    const bodyEl = document.getElementById('teachingContextBody');
+    if (titleEl) titleEl.innerText = `${meta.name || 'Distribution'} [${meta.symbol || ''}]`;
+    if (bodyEl) {
+      bodyEl.innerHTML = `
+        <strong>Clinical Example:</strong> ${meta.clinicalExample || ''}<br>
+        <strong>Theoretical Behavior:</strong> ${meta.properties || ''}<br>
+        <strong>Methodological Guideline:</strong> ${meta.testNote || ''}
+      `;
+    }
+
+    // Update Data Preview (first 50 values)
+    const previewEl = document.getElementById('teachingDataPreview');
+    if (previewEl) {
+      previewEl.value = data.slice(0, 50).map(v => v.toFixed(2)).join(', ') + (data.length > 50 ? ` ... (+${data.length - 50} more)` : '');
+    }
+
+    // Render Canvas
+    const canvas = document.getElementById('teachingDistCanvas');
+    if (canvas && this.engines['teachingDistCanvas']) {
+      Plots.renderTeachingDistribution(
+        this.engines['teachingDistCanvas'],
+        data,
+        distKey,
+        params,
+        `${meta.name || 'Distribution'} (Empirical N = ${n} vs Theoretical PDF)`
+      );
+    }
+
+    // Cache result
+    this.results.teachingDist = {
+      name: meta.name || distKey,
+      clinicalExample: meta.clinicalExample,
+      n,
+      mean: stats.mean,
+      theoMean,
+      sd: stats.sd,
+      theoSD,
+      skewness: stats.skewness,
+      skewnessInterpretation: stats.skewnessInterpretation,
+      theoSkewness: theoSkew,
+      kurtosis: stats.kurtosis,
+      kurtosisInterpretation: stats.kurtosisInterpretation,
+      theoKurtosis: theoKurt,
+      normality: stats.normality
+    };
+
+    if (!this.results.teaching) this.results.teaching = {};
+    this.results.teaching.dist = this.results.teachingDist;
+  }
+
+  updateCltUI(summary) {
+    if (!summary) return;
+
+    // Update Metrics
+    const kEl = document.getElementById('cltSamplesCount');
+    if (kEl) kEl.innerText = summary.samplesDrawn.toLocaleString();
+
+    const nSubEl = document.getElementById('cltNSub');
+    if (nSubEl) nSubEl.innerText = `Each of size n = ${summary.sampleSize}`;
+
+    const muEl = document.getElementById('cltTrueMu');
+    if (muEl) muEl.innerText = summary.theoreticalMean.toFixed(2);
+
+    const sigmaSubEl = document.getElementById('cltTrueSigmaSub');
+    if (sigmaSubEl) sigmaSubEl.innerText = `Pop SD: ${summary.population.sd.toFixed(2)}`;
+
+    const obsMeanEl = document.getElementById('cltObsMean');
+    const meanDiffEl = document.getElementById('cltMeanDiffSub');
+    if (obsMeanEl) {
+      obsMeanEl.innerText = summary.observedMean !== null ? summary.observedMean.toFixed(2) : '--';
+    }
+    if (meanDiffEl) {
+      meanDiffEl.innerText = summary.observedMean !== null
+        ? `|Diff|: ${Math.abs(summary.observedMean - summary.theoreticalMean).toFixed(3)}`
+        : '|Diff|: --';
+    }
+
+    const theoSEEl = document.getElementById('cltTheoSE');
+    if (theoSEEl) theoSEEl.innerText = summary.theoreticalSE.toFixed(3);
+
+    const obsSEEl = document.getElementById('cltObsSE');
+    const seDiffEl = document.getElementById('cltSEDiffSub');
+    if (obsSEEl) {
+      obsSEEl.innerText = summary.observedSE !== null ? summary.observedSE.toFixed(3) : '--';
+    }
+    if (seDiffEl) {
+      seDiffEl.innerText = summary.observedSE !== null
+        ? `Diff: ${(summary.observedSE - summary.theoreticalSE).toFixed(3)}`
+        : 'Formula: σ / √n';
+    }
+
+    const normEl = document.getElementById('cltNormality');
+    const normSubEl = document.getElementById('cltNormalitySub');
+    if (normEl) {
+      if (summary.normality) {
+        normEl.innerText = summary.normality.isNormal ? 'Normal ✓' : 'Non-Normal';
+        normEl.style.color = summary.normality.isNormal ? '#22c55e' : '#f59e0b';
+      } else {
+        normEl.innerText = '--';
+        normEl.style.color = 'inherit';
+      }
+    }
+    if (normSubEl) {
+      normSubEl.innerText = summary.normality ? `JB p = ${summary.normality.pValue.toFixed(3)}` : 'JB Test: --';
+    }
+
+    // Render Canvas Charts
+    if (this.engines['teachingCltParentCanvas']) {
+      Plots.renderCltParent(
+        this.engines['teachingCltParentCanvas'],
+        summary.population,
+        summary.lastSample,
+        'Parent Population Distribution'
+      );
+    }
+
+    if (this.engines['teachingCltSamplingCanvas']) {
+      Plots.renderCltSampling(
+        this.engines['teachingCltSamplingCanvas'],
+        summary,
+        'Sampling Distribution of Mean (x̄)'
+      );
+    }
+
+    // Update Report Text
+    const reportEl = document.getElementById('teachingReportText');
+    if (reportEl) {
+      if (summary.samplesDrawn === 0) {
+        reportEl.innerText = `Simulation initialized with ${summary.population.name} and sample size n = ${summary.sampleSize}. Click "▶ Step (Draw 1 Sample)" or "⚡ Draw 100" to begin demonstrating convergence.`;
+      } else {
+        const normStatement = summary.normality?.isNormal
+          ? 'conforms strictly to a Gaussian bell curve (Jarque-Bera p ≥ 0.05), mathematically proving the Central Limit Theorem.'
+          : 'is rapidly converging toward Gaussian symmetry as iterations accumulate.';
+
+        reportEl.innerText =
+          `A Central Limit Theorem simulation was conducted using a ${summary.population.name} (True μ = ${summary.theoreticalMean.toFixed(2)}, σ = ${summary.population.sd.toFixed(2)}). ` +
+          `A total of k = ${summary.samplesDrawn.toLocaleString()} independent samples (each of size n = ${summary.sampleSize}) were drawn. ` +
+          `The grand mean of sample means was x̄̄ = ${summary.observedMean.toFixed(2)} (bias = ${Math.abs(summary.observedMean - summary.theoreticalMean).toFixed(3)}), ` +
+          `with an empirical Standard Error of s_x̄ = ${summary.observedSE.toFixed(3)} compared to theoretical SE = σ/√n = ${summary.theoreticalSE.toFixed(3)}. ` +
+          `The sampling distribution displays Skewness G₁ = ${summary.skewness.toFixed(3)} and ${normStatement} ` +
+          `In clinical trials, this proves why parametric t-tests and ANOVA remain robust for sample sizes n ≥ 30 even when raw clinical metrics are non-normal.`;
+      }
+    }
+
+    // Cache
+    this.results.teachingClt = summary;
+    if (!this.results.teaching) this.results.teaching = {};
+    this.results.teaching.clt = summary;
+  }
+
+  runTeaching() {
+    this.runTeachingDistribution();
+    this.updateCltUI(Teaching.clt.getSummary());
   }
 

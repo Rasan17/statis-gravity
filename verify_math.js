@@ -10,6 +10,7 @@ import { Categorical } from './js/stats/categorical.js';
 import { Correlation } from './js/stats/correlation.js';
 import { Diagnostic } from './js/stats/diagnostic.js';
 import { PowerAnalysis } from './js/stats/power.js';
+import { Teaching } from './js/stats/teaching.js';
 import { DocxReports } from './js/export/docx-generator.js';
 
 let passes = 0;
@@ -388,6 +389,83 @@ const bPwr = DocxReports.createPowerDocx({
 const bufPwr = bPwr.generateUint8Array();
 assert(isZip(bufPwr), `Power Analysis DOCX is a valid PKZIP archive (${bufPwr.length} bytes)`);
 assert(hasRequiredSections(bPwr), `Power Analysis DOCX contains ethical justification, attrition buffer, and mathematical background`);
+
+// 8. Teaching & CLT DOCX
+const bTeach = DocxReports.createTeachingDocx({
+  distName: 'Exponential Distribution',
+  distN: 500,
+  clinicalExample: 'Emergency Department Length of Stay (ED LOS)',
+  sampleMean: 2.48,
+  theoMean: 2.50,
+  sampleSD: 2.45,
+  theoSD: 2.50,
+  skewness: 1.95,
+  skewnessLabel: 'High Right Skew',
+  kurtosis: 5.82,
+  kurtosisLabel: 'Leptokurtic',
+  jbStat: 485.2,
+  jbP: 0.00001,
+  isNormal: false,
+  cltParentName: 'Exponential Distribution (Right-Skewed, λ = 0.4)',
+  cltN: 36,
+  cltK: 1000,
+  cltResults: {
+    theoMean: 2.50,
+    obsMean: 2.502,
+    theoSE: 0.417,
+    obsSE: 0.415,
+    skewness: 0.082,
+    normalityP: 0.421,
+    isNormal: true
+  },
+  reportText: 'CLT simulation summary text'
+});
+const bufTeach = bTeach.generateUint8Array();
+assert(isZip(bufTeach), `Teaching DOCX is a valid PKZIP archive (${bufTeach.length} bytes)`);
+assert(hasRequiredSections(bTeach), `Teaching DOCX contains all 5 required sections, attribution, and disclaimer`);
+
+console.log('--- Testing Teaching & Distribution Generators ---');
+const normData = Teaching.generators.normal(1000, 10, 2);
+const normDesc = Descriptive.calculate(normData);
+assert(approx(normDesc.mean, 10, 0.25), `Normal generator mean ~ 10, got ${normDesc.mean.toFixed(3)}`);
+assert(approx(normDesc.sd, 2, 0.25), `Normal generator SD ~ 2, got ${normDesc.sd.toFixed(3)}`);
+
+const expData = Teaching.generators.exponential(1000, 0.5);
+const expDesc = Descriptive.calculate(expData);
+assert(approx(expDesc.mean, 2.0, 0.25), `Exponential generator mean ~ 2.0 (1/λ), got ${expDesc.mean.toFixed(3)}`);
+assert(expDesc.min >= 0, `Exponential variates are strictly non-negative`);
+
+const uniData = Teaching.generators.uniform(1000, 0, 10);
+const uniDesc = Descriptive.calculate(uniData);
+assert(approx(uniDesc.mean, 5.0, 0.25), `Uniform generator mean ~ 5.0, got ${uniDesc.mean.toFixed(3)}`);
+assert(uniDesc.min >= 0 && uniDesc.max <= 10, `Uniform variates bounded in [0, 10]`);
+
+const bimData = Teaching.generators.bimodal(1000, 10, 1, 20, 1, 0.5);
+const bimDesc = Descriptive.calculate(bimData);
+assert(approx(bimDesc.mean, 15.0, 0.35), `Bimodal generator mean ~ 15.0, got ${bimDesc.mean.toFixed(3)}`);
+
+console.log('--- Testing Teaching Theoretical PDFs ---');
+const normPdf = Teaching.pdf.normal(10, 10, 2);
+assert(approx(normPdf, 0.19947, 1e-4), `Normal theoretical peak PDF at mean ~ 0.19947, got ${normPdf.toFixed(5)}`);
+
+const expPdf = Teaching.pdf.exponential(2, 0.5);
+assert(approx(expPdf, 0.5 * Math.exp(-1), 1e-4), `Exponential PDF at x=2 (λ=0.5) ~ 0.18394, got ${expPdf.toFixed(5)}`);
+
+const uniPdf = Teaching.pdf.uniform(5, 0, 10);
+assert(approx(uniPdf, 0.1, 1e-4), `Uniform PDF inside [0, 10] is 0.1, got ${uniPdf.toFixed(5)}`);
+
+console.log('--- Testing Central Limit Theorem (CLT) Convergence ---');
+Teaching.clt.reset();
+Teaching.clt.setPopulation('exponential'); // True mu = 2.0, sigma = 2.0
+Teaching.clt.setSampleSize(36); // Theoretical SE = 2.0 / sqrt(36) = 2.0 / 6 = 0.33333
+const cltSummary = Teaching.clt.drawSamples(1000);
+
+assert(cltSummary.samplesDrawn === 1000, `CLT simulated exactly 1,000 samples`);
+assert(cltSummary.sampleSize === 36, `CLT sample size is n = 36`);
+assert(approx(cltSummary.theoreticalSE, 0.3333, 1e-3), `Theoretical SE is ~0.3333, got ${cltSummary.theoreticalSE.toFixed(4)}`);
+assert(approx(cltSummary.observedMean, 2.00, 0.10), `Observed grand mean converges to theoretical mean ~2.00, got ${cltSummary.observedMean.toFixed(3)}`);
+assert(approx(cltSummary.observedSE, 0.3333, 0.05), `Observed SE converges to theoretical SE ~0.3333, got ${cltSummary.observedSE.toFixed(3)}`);
+assert(Math.abs(cltSummary.skewness) < 0.50, `Sampling distribution skewness is close to theoretical skewness (2/sqrt(n) ~ 0.33), got ${cltSummary.skewness.toFixed(3)}`);
 
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);

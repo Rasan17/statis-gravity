@@ -5,6 +5,7 @@
 
 import { ChartEngine } from './chart-engine.js';
 import { Distributions } from '../stats/distributions.js';
+import { Teaching } from '../stats/teaching.js';
 
 export const Plots = {
   /**
@@ -1041,5 +1042,482 @@ export const Plots = {
         optY - 8
       );
     }
+  },
+
+  /**
+   * Renders Teaching Distribution: Empirical Histogram + Theoretical PDF Overlay Curve
+   */
+  renderTeachingDistribution(engine, data, distKey, params = {}, title = 'Generated Distribution & Theoretical PDF') {
+    engine.lastRenderFn = () => this.renderTeachingDistribution(engine, data, distKey, params, title);
+    engine.clear();
+    const b = engine.getPlotBounds();
+    const ctx = engine.ctx;
+    const pal = engine.palette;
+
+    if (!data || data.length < 5) {
+      ctx.fillStyle = pal.textDim || '#94a3b8';
+      ctx.font = `14px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText('Click "Generate New Sample" to simulate distribution data.', b.x + b.width / 2, b.y + b.height / 2);
+      return;
+    }
+
+    const n = data.length;
+    let minVal = Infinity;
+    let maxVal = -Infinity;
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
+      const v = data[i];
+      if (v < minVal) minVal = v;
+      if (v > maxVal) maxVal = v;
+      sum += v;
+    }
+    const sampleMean = sum / n;
+
+    const span = maxVal - minVal || 1;
+    const plotMin = minVal - 0.05 * span;
+    const plotMax = maxVal + 0.05 * span;
+    const plotSpan = plotMax - plotMin;
+
+    // Number of bins via Freedman-Diaconis or Sturges
+    const numBins = Math.max(12, Math.min(35, Math.round(1 + 3.322 * Math.log10(n) * 1.5)));
+    const binWidth = plotSpan / numBins;
+
+    const bins = new Array(numBins).fill(0);
+    for (let i = 0; i < n; i++) {
+      const idx = Math.min(numBins - 1, Math.max(0, Math.floor((data[i] - plotMin) / binWidth)));
+      bins[idx]++;
+    }
+
+    const maxCount = Math.max(...bins, 1);
+    const yMax = maxCount * 1.25;
+
+    // Build Axes Ticks
+    const yTicks = [
+      { norm: 0, label: '0' },
+      { norm: 0.5, label: (yMax * 0.5).toFixed(0) },
+      { norm: 1.0, label: yMax.toFixed(0) }
+    ];
+
+    const xTicks = [];
+    for (let i = 0; i <= 5; i++) {
+      const v = plotMin + (i / 5) * plotSpan;
+      xTicks.push({ norm: i / 5, label: v.toFixed(1) });
+    }
+
+    engine.drawAxes({
+      yTicks,
+      xTicks,
+      title,
+      xLabel: 'Observation Value (X)',
+      yLabel: 'Frequency Count'
+    });
+
+    const toX = (val) => b.x + ((val - plotMin) / plotSpan) * b.width;
+    const toY = (count) => b.y + b.height - (count / yMax) * b.height;
+
+    // 1. Draw Histogram Bars
+    const barWidth = b.width / numBins;
+    for (let i = 0; i < numBins; i++) {
+      const count = bins[i];
+      if (count === 0) continue;
+      const h = (count / yMax) * b.height;
+      const x = b.x + i * barWidth;
+      const y = b.y + b.height - h;
+
+      ctx.fillStyle = `${pal.primary}33`;
+      ctx.strokeStyle = pal.primary;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.rect(x + 1, y, Math.max(1, barWidth - 2), h);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // 2. Draw Theoretical PDF Overlay Curve
+    if (Teaching.pdf && Teaching.pdf[distKey]) {
+      const pdfFn = Teaching.pdf[distKey];
+      const densityScale = n * binWidth; // Converts density f(x) to frequency count
+
+      ctx.strokeStyle = pal.accent || '#38bdf8';
+      ctx.lineWidth = 2.8;
+      ctx.beginPath();
+
+      const steps = 180;
+      let started = false;
+      for (let s = 0; s <= steps; s++) {
+        const xVal = plotMin + (s / steps) * plotSpan;
+        let pdfVal = 0;
+
+        switch (distKey) {
+          case 'normal':
+            pdfVal = pdfFn.call(Teaching.pdf, xVal, params.mean, params.sd);
+            break;
+          case 'studentsT':
+            pdfVal = pdfFn.call(Teaching.pdf, xVal, params.df, params.mean, params.scale);
+            break;
+          case 'uniform':
+            pdfVal = pdfFn.call(Teaching.pdf, xVal, params.min, params.max);
+            break;
+          case 'exponential':
+            pdfVal = pdfFn.call(Teaching.pdf, xVal, params.rate);
+            break;
+          case 'logNormal':
+            pdfVal = pdfFn.call(Teaching.pdf, xVal, params.mu, params.sigma);
+            break;
+          case 'bimodal':
+            pdfVal = pdfFn.call(Teaching.pdf, xVal, params.m1, params.s1, params.m2, params.s2, params.p);
+            break;
+          case 'poisson':
+            pdfVal = pdfFn.call(Teaching.pdf, Math.round(xVal), params.lambda);
+            break;
+          case 'chiSquare':
+            pdfVal = pdfFn.call(Teaching.pdf, xVal, params.df);
+            break;
+          default:
+            pdfVal = 0;
+        }
+
+        const countVal = pdfVal * densityScale;
+        const px = toX(xVal);
+        const py = Math.max(b.y - 10, toY(countVal));
+
+        if (!started) {
+          ctx.moveTo(px, py);
+          started = true;
+        } else {
+          ctx.lineTo(px, py);
+        }
+      }
+      ctx.stroke();
+    }
+
+    // 3. Mark Sample Mean
+    if (isFinite(sampleMean)) {
+      const meanX = toX(sampleMean);
+      if (meanX >= b.x && meanX <= b.x + b.width) {
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(meanX, b.y);
+        ctx.lineTo(meanX, b.y + b.height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = `600 11px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`M = ${sampleMean.toFixed(2)}`, meanX, b.y + 14);
+      }
+    }
+
+    // Legend
+    ctx.textAlign = 'right';
+    ctx.font = `500 11px ${engine.options.fontFamily}`;
+    ctx.fillStyle = pal.primary;
+    ctx.fillText('■ Empirical Sample Histogram', b.x + b.width - 10, b.y + 15);
+    ctx.fillStyle = pal.accent || '#38bdf8';
+    ctx.fillText('— Theoretical PDF Overlay', b.x + b.width - 10, b.y + 32);
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText('┆ Sample Mean', b.x + b.width - 10, b.y + 49);
+  },
+
+  /**
+   * Renders CLT Parent Population Distribution
+   */
+  renderCltParent(engine, parentInfo, lastSample = [], title = 'CLT Parent Population Distribution') {
+    engine.lastRenderFn = () => this.renderCltParent(engine, parentInfo, lastSample, title);
+    engine.clear();
+    const b = engine.getPlotBounds();
+    const ctx = engine.ctx;
+    const pal = engine.palette;
+
+    if (!parentInfo) return;
+
+    const minX = parentInfo.min;
+    const maxX = parentInfo.max;
+    const span = maxX - minX;
+
+    // Evaluate PDF to find peak for Y-scaling
+    const steps = 150;
+    let maxDensity = 0;
+    const densities = [];
+    for (let i = 0; i <= steps; i++) {
+      const x = minX + (i / steps) * span;
+      const d = parentInfo.pdf(x);
+      densities.push({ x, d });
+      if (d > maxDensity) maxDensity = d;
+    }
+    const yMax = (maxDensity || 0.5) * 1.3;
+
+    const toX = (val) => b.x + ((val - minX) / span) * b.width;
+    const toY = (d) => b.y + b.height - (d / yMax) * b.height;
+
+    // Draw Axes
+    const xTicks = [];
+    for (let i = 0; i <= 4; i++) {
+      const v = minX + (i / 4) * span;
+      xTicks.push({ norm: i / 4, label: v.toFixed(1) });
+    }
+    const yTicks = [
+      { norm: 0, label: '0' },
+      { norm: 0.5, label: (yMax * 0.5).toFixed(2) },
+      { norm: 1.0, label: yMax.toFixed(2) }
+    ];
+
+    engine.drawAxes({
+      yTicks,
+      xTicks,
+      title: `${title} (${parentInfo.name})`,
+      xLabel: 'Observation Value (X)',
+      yLabel: 'Probability Density f(X)'
+    });
+
+    // Fill Distribution Area
+    ctx.fillStyle = `${pal.secondary || '#94a3b8'}22`;
+    ctx.beginPath();
+    ctx.moveTo(b.x, b.y + b.height);
+    for (const pt of densities) {
+      ctx.lineTo(toX(pt.x), toY(pt.d));
+    }
+    ctx.lineTo(b.x + b.width, b.y + b.height);
+    ctx.closePath();
+    ctx.fill();
+
+    // Stroke Distribution Curve
+    ctx.strokeStyle = pal.secondary || '#94a3b8';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (let i = 0; i < densities.length; i++) {
+      const pt = densities[i];
+      if (i === 0) ctx.moveTo(toX(pt.x), toY(pt.d));
+      else ctx.lineTo(toX(pt.x), toY(pt.d));
+    }
+    ctx.stroke();
+
+    // Mark True Population Mean (μ)
+    const muX = toX(parentInfo.mean);
+    if (muX >= b.x && muX <= b.x + b.width) {
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(muX, b.y);
+      ctx.lineTo(muX, b.y + b.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#ef4444';
+      ctx.font = `600 11px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`True μ = ${parentInfo.mean.toFixed(2)}`, muX, b.y + 14);
+    }
+
+    // Draw Last Sample Draw points if present
+    if (lastSample && lastSample.length > 0) {
+      let sampleSum = 0;
+      for (const val of lastSample) {
+        sampleSum += val;
+        const ptX = toX(val);
+        const ptD = parentInfo.pdf(val);
+        const ptY = toY(ptD);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(ptX, ptY, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // Mark the mean of this single sample
+      const sampleMean = sampleSum / lastSample.length;
+      const sMeanX = toX(sampleMean);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(sMeanX, b.y + b.height - 25);
+      ctx.lineTo(sMeanX, b.y + b.height);
+      ctx.stroke();
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = `600 10px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`Sample x̄ = ${sampleMean.toFixed(2)}`, sMeanX, b.y + b.height - 28);
+    }
+
+    // Legend
+    ctx.textAlign = 'right';
+    ctx.font = `500 11px ${engine.options.fontFamily}`;
+    ctx.fillStyle = pal.secondary || '#94a3b8';
+    ctx.fillText('— Parent Density f(X)', b.x + b.width - 10, b.y + 15);
+    ctx.fillStyle = '#ef4444';
+    ctx.fillText('┆ True Population Mean (μ)', b.x + b.width - 10, b.y + 32);
+    if (lastSample && lastSample.length > 0) {
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText(`● Current Draw (n = ${lastSample.length})`, b.x + b.width - 10, b.y + 49);
+    }
+  },
+
+  /**
+   * Renders CLT Sampling Distribution of Sample Means with Gaussian Overlay
+   */
+  renderCltSampling(engine, cltData, title = 'Sampling Distribution of the Mean (x̄)') {
+    engine.lastRenderFn = () => this.renderCltSampling(engine, cltData, title);
+    engine.clear();
+    const b = engine.getPlotBounds();
+    const ctx = engine.ctx;
+    const pal = engine.palette;
+
+    if (!cltData || cltData.samplesDrawn === 0) {
+      ctx.fillStyle = pal.textDim || '#94a3b8';
+      ctx.font = `14px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText('No samples drawn yet. Click "▶ Draw 1 Sample" or "⚡ Draw 100 Samples" above.', b.x + b.width / 2, b.y + b.height / 2);
+      return;
+    }
+
+    const means = cltData.values;
+    const k = means.length;
+    const n = cltData.sampleSize;
+    const trueMu = cltData.theoreticalMean;
+    const trueSE = cltData.theoreticalSE;
+
+    let minM = Infinity;
+    let maxM = -Infinity;
+    for (let i = 0; i < k; i++) {
+      if (means[i] < minM) minM = means[i];
+      if (means[i] > maxM) maxM = means[i];
+    }
+
+    // Bounds centered around trueMu with at least 3.5 SE on each side
+    const seSpan = 3.5 * trueSE;
+    const plotMin = Math.min(minM - 0.2 * trueSE, trueMu - seSpan);
+    const plotMax = Math.max(maxM + 0.2 * trueSE, trueMu + seSpan);
+    const plotSpan = plotMax - plotMin || 1;
+
+    // Binning
+    const numBins = Math.max(15, Math.min(40, Math.round(1 + 3.322 * Math.log10(k) * 2)));
+    const binWidth = plotSpan / numBins;
+
+    const bins = new Array(numBins).fill(0);
+    for (let i = 0; i < k; i++) {
+      const idx = Math.min(numBins - 1, Math.max(0, Math.floor((means[i] - plotMin) / binWidth)));
+      bins[idx]++;
+    }
+
+    const maxCount = Math.max(...bins, 1);
+    const yMax = maxCount * 1.25;
+
+    const toX = (val) => b.x + ((val - plotMin) / plotSpan) * b.width;
+    const toY = (count) => b.y + b.height - (count / yMax) * b.height;
+
+    // Draw Axes
+    const xTicks = [];
+    for (let i = 0; i <= 5; i++) {
+      const v = plotMin + (i / 5) * plotSpan;
+      xTicks.push({ norm: i / 5, label: v.toFixed(2) });
+    }
+    const yTicks = [
+      { norm: 0, label: '0' },
+      { norm: 0.5, label: (yMax * 0.5).toFixed(0) },
+      { norm: 1.0, label: yMax.toFixed(0) }
+    ];
+
+    engine.drawAxes({
+      yTicks,
+      xTicks,
+      title: `${title} (k = ${k.toLocaleString()} samples, n = ${n})`,
+      xLabel: 'Sample Mean Value (x̄)',
+      yLabel: 'Frequency of Means'
+    });
+
+    // 1. Draw Histogram Bars
+    const barWidth = b.width / numBins;
+    for (let i = 0; i < numBins; i++) {
+      const count = bins[i];
+      if (count === 0) continue;
+      const h = (count / yMax) * b.height;
+      const x = b.x + i * barWidth;
+      const y = b.y + b.height - h;
+
+      ctx.fillStyle = `${pal.primary}44`;
+      ctx.strokeStyle = pal.primary;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.rect(x + 1, y, Math.max(1, barWidth - 2), h);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // 2. Theoretical CLT Normal Curve Overlay: N(μ, σ/√n)
+    if (trueSE > 0) {
+      const densityScale = k * binWidth;
+      ctx.strokeStyle = '#22c55e'; // Bright Emerald Green
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+
+      const steps = 150;
+      let started = false;
+      for (let s = 0; s <= steps; s++) {
+        const xVal = plotMin + (s / steps) * plotSpan;
+        const z = (xVal - trueMu) / trueSE;
+        const normDensity = (1.0 / (trueSE * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * z * z);
+        const countVal = normDensity * densityScale;
+        const px = toX(xVal);
+        const py = toY(countVal);
+
+        if (!started) {
+          ctx.moveTo(px, py);
+          started = true;
+        } else {
+          ctx.lineTo(px, py);
+        }
+      }
+      ctx.stroke();
+    }
+
+    // 3. Mark Theoretical Mean (μ)
+    const muX = toX(trueMu);
+    if (muX >= b.x && muX <= b.x + b.width) {
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(muX, b.y);
+      ctx.lineTo(muX, b.y + b.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // 4. Mark Observed Mean of Means (x̄̄)
+    if (cltData.observedMean !== null) {
+      const obsX = toX(cltData.observedMean);
+      if (obsX >= b.x && obsX <= b.x + b.width) {
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(obsX, b.y);
+        ctx.lineTo(obsX, b.y + b.height);
+        ctx.stroke();
+      }
+    }
+
+    // Legend
+    ctx.textAlign = 'right';
+    ctx.font = `500 11px ${engine.options.fontFamily}`;
+    ctx.fillStyle = pal.primary;
+    ctx.fillText(`■ Simulated Means (k = ${k.toLocaleString()})`, b.x + b.width - 10, b.y + 15);
+    ctx.fillStyle = '#22c55e';
+    ctx.fillText(`— CLT Normal Fit N(μ, σ/√n)`, b.x + b.width - 10, b.y + 32);
+    ctx.fillStyle = '#ef4444';
+    ctx.fillText(`┆ True Mean μ = ${trueMu.toFixed(2)}`, b.x + b.width - 10, b.y + 49);
+    if (cltData.observedMean !== null) {
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText(`— Observed x̄̄ = ${cltData.observedMean.toFixed(2)} (SE: ${cltData.observedSE.toFixed(3)})`, b.x + b.width - 10, b.y + 66);
+    }
   }
 };
+

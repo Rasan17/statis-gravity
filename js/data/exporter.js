@@ -178,6 +178,9 @@ export const Exporter = {
       case 'power':
         builder = DocxReports.createPowerDocx(data);
         break;
+      case 'teaching':
+        builder = DocxReports.createTeachingDocx(data);
+        break;
       default:
         console.error('Unknown tab for DOCX export:', tabId);
         return;

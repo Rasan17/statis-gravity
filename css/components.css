@@ -403,3 +403,10 @@ textarea.form-control {
   }
 }
 
+/* Teaching & CLT Simulation Dual Charts */
+@media (max-width: 900px) {
+  .clt-dual-charts {
+    grid-template-columns: 1fr !important;
+  }
+}
+

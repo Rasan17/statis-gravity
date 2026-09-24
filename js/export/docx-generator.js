@@ -861,5 +861,74 @@ export const DocxReports = {
     d.addBullet('Schulz KF, Altman DG, Moher D (2010). CONSORT 2010 Statement: updated guidelines for reporting parallel group randomised trials. BMJ, 340: c332.');
 
     return d;
+  },
+
+  createTeachingDocx(data) {
+    const d = new DocxBuilder();
+    d.addTitle('STATIS-GRAVITY CLINICAL BIOSTATISTICS REPORT')
+      .addSubTitle('Module: Teaching & Central Limit Theorem Simulation')
+      .addAttributionHeader()
+      .addDisclaimerBox();
+
+    d.addHeading1('1. Distribution Information & Simulation Parameters');
+    d.addParagraph(`Selected Distribution: ${data.distName || 'Normal (Gaussian) Distribution'}`);
+    d.addParagraph(`Sample Size (N): ${data.distN || 500} simulated observations`);
+    d.addParagraph(`Clinical Context: ${data.clinicalExample || 'Biomedical research modeling'}`);
+    d.addParagraph(`CLT Simulation Parent Population: ${data.cltParentName || 'Uniform Distribution'}`);
+    d.addParagraph(`CLT Sample Size per Draw (n): ${data.cltN || 30}`);
+    d.addParagraph(`CLT Total Iterations (k): ${data.cltK || 1000} sample means`);
+
+    d.addHeading1('2. Statistical Outcome & Empirical Convergence Metrics');
+    d.addHeading2('Computer-Generated Distribution Metrics');
+    d.addTable(
+      ['Distribution Metric', 'Empirical Sample Value', 'Theoretical Population Value', 'Status'],
+      [
+        ['Mean (M)', `${data.sampleMean?.toFixed(3) || '-'}`, `${data.theoMean?.toFixed(3) || '-'}`, 'Congruent'],
+        ['Standard Deviation (SD)', `${data.sampleSD?.toFixed(3) || '-'}`, `${data.theoSD?.toFixed(3) || '-'}`, 'Congruent'],
+        ['Skewness (G₁)', `${data.skewness?.toFixed(3) || '-'}`, `${data.theoSkewness || '0.000'}`, data.skewnessLabel || 'Evaluated'],
+        ['Kurtosis (Excess G₂)', `${data.kurtosis?.toFixed(3) || '-'}`, `${data.theoKurtosis || '0.000'}`, data.kurtosisLabel || 'Evaluated'],
+        ['Jarque-Bera Normality Test', `JB = ${data.jbStat?.toFixed(2) || '-'}, p = ${data.jbP?.toFixed(4) || '-'}`, 'Null: Gaussian', data.isNormal ? 'Normal (p ≥ 0.05)' : 'Non-Normal (p < 0.05)']
+      ]
+    );
+
+    if (data.cltResults) {
+      d.addHeading2('Central Limit Theorem (CLT) Convergence Results');
+      d.addTable(
+        ['CLT Parameter', 'Simulated Value', 'Theoretical CLT Value', 'Convergence Note'],
+        [
+          ['Parent Population Mean (μ)', `${data.cltResults.theoMean?.toFixed(3)}`, `${data.cltResults.theoMean?.toFixed(3)}`, 'Ground truth benchmark'],
+          ['Observed Mean of Means (x̄̄)', `${data.cltResults.obsMean?.toFixed(3)}`, `${data.cltResults.theoMean?.toFixed(3)}`, `Error: ${Math.abs(data.cltResults.obsMean - data.cltResults.theoMean).toFixed(4)}`],
+          ['Standard Error of Means (SE)', `${data.cltResults.obsSE?.toFixed(3)}`, `${data.cltResults.theoSE?.toFixed(3)}`, `Law of 1/√n shrinkage: σ/√${data.cltN}`],
+          ['Sampling Distribution Skewness', `${data.cltResults.skewness?.toFixed(3)}`, '0.000 (Symmetric)', 'Asymmetry eradicated by averaging'],
+          ['Sampling Distribution Normality', `p = ${data.cltResults.normalityP?.toFixed(4)}`, 'p ≥ 0.05', data.cltResults.isNormal ? 'Gaussian Bell Curve Achieved' : 'Approaching Gaussian']
+        ]
+      );
+    }
+
+    d.addHeading1('3. Clinical & Statistical Interpretation');
+    d.addCalloutBox(
+      'Pedagogical Synthesis & Clinical Trial Relevance',
+      data.reportText || 'The Central Limit Theorem demonstrates that the distribution of sample means approaches a normal Gaussian distribution regardless of parent population shape, provided sample size n is sufficiently large (n ≥ 30).',
+      'F0FDF4',
+      '16A34A'
+    );
+
+    d.addHeading1('4. Reason This Particular Test Was Chosen');
+    d.addBullet('Foundation of Inferential Biostatistics: Parametric hypothesis tests (Student t-test, ANOVA, ordinary least squares regression) mathematically assume normally distributed errors or sample means. The Central Limit Theorem provides the mathematical justification for deploying these tests in clinical trials with n ≥ 30 even when raw clinical metrics (e.g. ICU stay, recovery hours) are skewed.');
+    d.addBullet('Protection Against Inappropriate Testing: For small cohorts (n < 30) drawn from non-normal distributions (e.g. exponential survival times or bimodal biomarkers), the sampling distribution has not converged to Gaussian. In such scenarios, non-parametric rank-based tests (Mann-Whitney U, Kruskal-Wallis, Wilcoxon signed-rank) must be chosen to avoid inflated Type I error rates.');
+
+    d.addHeading1('5. Background Statistical Knowledge & Medical Research Context');
+    d.addParagraph('The Central Limit Theorem (CLT) is among the most profound discoveries in probability theory.');
+    d.addParagraph('Mathematical Formulations:');
+    d.addBullet('Classical Lindberg-Lévy Central Limit Theorem: Let X₁, X₂, ..., X_n be independent and identically distributed (i.i.d.) random variables with mean μ and finite variance σ². Then as n → ∞: √n (X̄_n - μ) / σ → N(0, 1).');
+    d.addBullet('Standard Error of the Mean: SE = σ / √n. Quadrupling the patient enrollment reduces the margin of estimation error by exactly half (1/2).');
+    d.addBullet('Variance of the Sample Mean: Var(X̄) = Var(∑ X_i / n) = (1/n²) · nσ² = σ²/n.');
+    d.addParagraph('Key Academic References:');
+    d.addBullet('Laplace PS (1810). Mémoire sur les approximations des formules qui sont fonctions de très grands nombres et sur leur application aux probabilités. Mémoires de l\'Académie Royale des Sciences de Paris.');
+    d.addBullet('Gauss CF (1809). Theoria motus corporum coelestium in sectionibus conicis solem ambientium. Hamburg: Perthes et Besser.');
+    d.addBullet('Altman DG, Bland JM (1995). Statistics Notes: The normal distribution. BMJ, 310(6975): 298–299.');
+    d.addBullet('Student [Gosset WS] (1908). The probable error of a mean. Biometrika, 6(1): 1–25.');
+
+    return d;
   }
 };

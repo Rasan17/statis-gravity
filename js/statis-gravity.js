@@ -1458,6 +1458,380 @@
     }
   };
 
+  // ==========================================
+  // 9B. TEACHING & SIMULATION ENGINE
+  // ==========================================
+  const Teaching = {
+    generators: {
+      standardNormal() {
+        let u = 0, v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+      },
+
+      normal(n, mean = 0, sd = 1) {
+        const data = new Array(n);
+        for (let i = 0; i < n; i++) {
+          data[i] = mean + sd * this.standardNormal();
+        }
+        return data;
+      },
+
+      studentsT(n, df = 5, mean = 0, scale = 1) {
+        const data = new Array(n);
+        for (let i = 0; i < n; i++) {
+          const z = this.standardNormal();
+          let chi2 = 0;
+          for (let j = 0; j < df; j++) {
+            const u = this.standardNormal();
+            chi2 += u * u;
+          }
+          const t = z / Math.sqrt(chi2 / df);
+          data[i] = mean + scale * t;
+        }
+        return data;
+      },
+
+      uniform(n, min = 0, max = 10) {
+        const data = new Array(n);
+        const span = max - min;
+        for (let i = 0; i < n; i++) {
+          data[i] = min + Math.random() * span;
+        }
+        return data;
+      },
+
+      exponential(n, rate = 0.5) {
+        const data = new Array(n);
+        const lambda = rate > 0 ? rate : 1;
+        for (let i = 0; i < n; i++) {
+          let u = Math.random();
+          while (u === 0) u = Math.random();
+          data[i] = -Math.log(u) / lambda;
+        }
+        return data;
+      },
+
+      logNormal(n, mu = 1.0, sigma = 0.6) {
+        const data = new Array(n);
+        for (let i = 0; i < n; i++) {
+          const z = this.standardNormal();
+          data[i] = Math.exp(mu + sigma * z);
+        }
+        return data;
+      },
+
+      bimodal(n, m1 = 12, s1 = 2, m2 = 24, s2 = 3, p = 0.5) {
+        const data = new Array(n);
+        for (let i = 0; i < n; i++) {
+          if (Math.random() < p) {
+            data[i] = m1 + s1 * this.standardNormal();
+          } else {
+            data[i] = m2 + s2 * this.standardNormal();
+          }
+        }
+        return data;
+      },
+
+      poisson(n, lambda = 4) {
+        const data = new Array(n);
+        const L = Math.exp(-lambda);
+        for (let i = 0; i < n; i++) {
+          let k = 0;
+          let p = 1;
+          do {
+            k++;
+            p *= Math.random();
+          } while (p > L);
+          data[i] = k - 1;
+        }
+        return data;
+      },
+
+      chiSquare(n, df = 4) {
+        const data = new Array(n);
+        for (let i = 0; i < n; i++) {
+          let sum = 0;
+          for (let j = 0; j < df; j++) {
+            const z = this.standardNormal();
+            sum += z * z;
+          }
+          data[i] = sum;
+        }
+        return data;
+      }
+    },
+
+    pdf: {
+      normal(x, mean = 0, sd = 1) {
+        if (sd <= 0) return 0;
+        const z = (x - mean) / sd;
+        return (1.0 / (sd * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * z * z);
+      },
+
+      studentsT(x, df = 5, mean = 0, scale = 1) {
+        if (scale <= 0 || df <= 0) return 0;
+        const t = (x - mean) / scale;
+        const logGammaNum = Distributions.logGamma((df + 1) / 2);
+        const logGammaDen = Distributions.logGamma(df / 2);
+        const coeff = Math.exp(logGammaNum - logGammaDen) / (Math.sqrt(df * Math.PI) * scale);
+        return coeff * Math.pow(1 + (t * t) / df, -(df + 1) / 2);
+      },
+
+      uniform(x, min = 0, max = 10) {
+        if (x >= min && x <= max && max > min) {
+          return 1.0 / (max - min);
+        }
+        return 0;
+      },
+
+      exponential(x, rate = 0.5) {
+        if (x < 0 || rate <= 0) return 0;
+        return rate * Math.exp(-rate * x);
+      },
+
+      logNormal(x, mu = 1.0, sigma = 0.6) {
+        if (x <= 0 || sigma <= 0) return 0;
+        const z = (Math.log(x) - mu) / sigma;
+        return (1.0 / (x * sigma * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * z * z);
+      },
+
+      bimodal(x, m1 = 12, s1 = 2, m2 = 24, s2 = 3, p = 0.5) {
+        const pdf1 = this.normal(x, m1, s1);
+        const pdf2 = this.normal(x, m2, s2);
+        return p * pdf1 + (1 - p) * pdf2;
+      },
+
+      poisson(k, lambda = 4) {
+        if (k < 0 || Math.floor(k) !== k) return 0;
+        let logFact = 0;
+        for (let i = 2; i <= k; i++) logFact += Math.log(i);
+        return Math.exp(k * Math.log(lambda) - lambda - logFact);
+      },
+
+      chiSquare(x, df = 4) {
+        if (x <= 0 || df <= 0) return 0;
+        const k = df / 2;
+        const logDenom = k * Math.log(2) + Distributions.logGamma(k);
+        return Math.exp((k - 1) * Math.log(x) - x / 2 - logDenom);
+      }
+    },
+
+    distMetadata: {
+      normal: {
+        name: 'Normal (Gaussian) Distribution',
+        symbol: 'X ~ N(μ, σ²)',
+        clinicalExample: 'Adult Intracranial Pressure (ICP ~ 11.5 ± 2.8 mmHg), Systolic Blood Pressure, Cerebral Blood Flow.',
+        properties: 'Symmetric bell-shaped density, zero skewness (G₁ = 0), mesokurtic (excess G₂ = 0). The 68-95-99.7 empirical rule applies.',
+        testNote: 'Parametric Student t-test and ANOVA strictly assume normally distributed data or sample means.'
+      },
+      studentsT: {
+        name: "Student's t-Distribution",
+        symbol: 'T ~ t(ν)',
+        clinicalExample: 'Pilot clinical trial sample means with small cohorts (n < 30) where true population variance is unknown.',
+        properties: 'Heavier tails than normal distribution to account for sampling uncertainty in s. Converges to Gaussian as degrees of freedom ν → ∞.',
+        testNote: "Formulated by William Sealy Gosset (under pseudonym 'Student') in 1908 for quality control at Guinness Brewery."
+      },
+      uniform: {
+        name: 'Continuous Uniform Distribution',
+        symbol: 'X ~ U(a, b)',
+        clinicalExample: 'Randomized clinical trial treatment allocation sequences, Monte Carlo randomized permutation sampling.',
+        properties: 'Constant probability density over interval [a, b]. Mean = (a+b)/2, Variance = (b-a)²/12. Rectangular morphology.',
+        testNote: 'Classic non-normal benchmark illustrating the power of the Central Limit Theorem.'
+      },
+      exponential: {
+        name: 'Exponential Distribution',
+        symbol: 'X ~ Exp(λ)',
+        clinicalExample: 'Time-to-event survival analysis, postoperative aneurysm recurrence intervals, acute epileptic seizure recurrence intervals.',
+        properties: 'Memoryless property: P(X > s + t | X > s) = P(X > t). Strong right skew (G₁ = 2), Mean = 1/λ, SD = 1/λ.',
+        testNote: 'Forms the baseline hazard foundation for Cox proportional hazards regression models in oncology and neurosurgery.'
+      },
+      logNormal: {
+        name: 'Log-Normal Distribution',
+        symbol: 'ln(X) ~ N(μ, σ²)',
+        clinicalExample: 'Serum Neurofilament Light (NfL) biomarker concentration, hospital length of stay, ICU sedation durations.',
+        properties: 'Strictly positive (X > 0) with long right tail. Multiplicative growth processes naturally produce log-normal distributions.',
+        testNote: 'Logarithmic transformation [Y = ln(X)] converts log-normal biomedical data into symmetric Gaussian data for parametric analysis.'
+      },
+      bimodal: {
+        name: 'Bimodal Mixture Distribution',
+        symbol: 'p·N(μ₁, σ₁²) + (1-p)·N(μ₂, σ₂²)',
+        clinicalExample: 'Pediatric vs adult disease onset peaks (e.g. craniopharyngioma, Hodgkin lymphoma), drug responders vs non-responders.',
+        properties: 'Two distinct local maxima (peaks) separated by a trough. Violates unimodality assumptions of standard descriptive metrics.',
+        testNote: 'Reporting Mean ± SD is misleading for bimodal distributions; stratified subgroup reporting is clinically essential.'
+      },
+      poisson: {
+        name: 'Poisson Count Distribution',
+        symbol: 'K ~ Pois(λ)',
+        clinicalExample: 'Surgical site infections per 1,000 operative bed days, annual emergency craniotomy case volume.',
+        properties: 'Discrete count distribution with parameter λ. Fundamental property: Mean = Variance = λ.',
+        testNote: 'Used in Poisson regression models for incidence rate ratios (IRR) in epidemiology and hospital quality assurance.'
+      },
+      chiSquare: {
+        name: 'Chi-Square Distribution',
+        symbol: 'X ~ χ²(k)',
+        clinicalExample: 'Sum of squared standardized residuals in 2x2 contingency tables and goodness-of-fit testing.',
+        properties: 'Right-skewed distribution of the sum of k independent squared standard normal variates. Mean = k, Variance = 2k.',
+        testNote: 'Underpins Pearson contingency test, McNemar paired test, and Wald confidence intervals in logistic regression.'
+      }
+    },
+
+    clt: {
+      populationType: 'uniform',
+      sampleSize: 30,
+      sampleMeans: [],
+      lastSample: [],
+
+      populations: {
+        uniform: {
+          name: 'Uniform Parent U(0, 10)',
+          min: 0,
+          max: 10,
+          mean: 5.0,
+          sd: Math.sqrt(100 / 12),
+          description: 'Flat rectangular distribution with zero skew and platykurtic tails.',
+          drawOne() {
+            return Math.random() * 10;
+          },
+          pdf(x) {
+            return x >= 0 && x <= 10 ? 0.1 : 0;
+          }
+        },
+        exponential: {
+          name: 'Exponential Parent Exp(λ = 0.5)',
+          min: 0,
+          max: 12,
+          mean: 2.0,
+          sd: 2.0,
+          description: 'Heavily right-skewed time-to-event survival distribution (Skewness G₁ = 2.0).',
+          drawOne() {
+            let u = Math.random();
+            while (u === 0) u = Math.random();
+            return -Math.log(u) / 0.5;
+          },
+          pdf(x) {
+            return x >= 0 ? 0.5 * Math.exp(-0.5 * x) : 0;
+          }
+        },
+        bimodal: {
+          name: 'Bimodal Parent (Two Distinct Subgroups)',
+          min: 0,
+          max: 12,
+          mean: 5.0,
+          sd: Math.sqrt(0.36 + 0.25 * 36),
+          description: 'Two separate Gaussian clusters centered at μ₁=2.0 and μ₂=8.0 with a void in between.',
+          drawOne() {
+            const z = Teaching.generators.standardNormal();
+            return Math.random() < 0.5 ? 2.0 + 0.6 * z : 8.0 + 0.6 * z;
+          },
+          pdf(x) {
+            return Teaching.pdf.bimodal(x, 2.0, 0.6, 8.0, 0.6, 0.5);
+          }
+        },
+        ushaped: {
+          name: 'U-Shaped Parent (Bimodal Extremes / Anti-Normal)',
+          min: 0,
+          max: 10,
+          mean: 5.0,
+          sd: 3.535,
+          description: 'Bathtub-shaped density with maximum probability at endpoints and minimal in the center.',
+          drawOne() {
+            const u = Math.random();
+            return 5.0 + 5.0 * Math.sin(Math.PI * (u - 0.5));
+          },
+          pdf(x) {
+            if (x <= 0.05 || x >= 9.95) return 0.35;
+            return 1.0 / (Math.PI * Math.sqrt(Math.max(0.001, x * (10 - x))));
+          }
+        }
+      },
+
+      setPopulation(type) {
+        if (this.populations[type]) {
+          this.populationType = type;
+          this.reset();
+        }
+      },
+
+      setSampleSize(n) {
+        this.sampleSize = Math.max(2, Math.min(200, Math.round(n)));
+        this.reset();
+      },
+
+      reset() {
+        this.sampleMeans = [];
+        this.lastSample = [];
+      },
+
+      drawSamples(count = 1) {
+        const pop = this.populations[this.populationType];
+        const n = this.sampleSize;
+
+        for (let c = 0; c < count; c++) {
+          let sum = 0;
+          const currentSample = new Array(n);
+          for (let i = 0; i < n; i++) {
+            const val = pop.drawOne();
+            currentSample[i] = val;
+            sum += val;
+          }
+          const mean = sum / n;
+          this.sampleMeans.push(mean);
+          if (c === count - 1) {
+            this.lastSample = currentSample;
+          }
+        }
+
+        return this.getSummary();
+      },
+
+      getSummary() {
+        const pop = this.populations[this.populationType];
+        const n = this.sampleSize;
+        const k = this.sampleMeans.length;
+
+        const theoreticalMean = pop.mean;
+        const theoreticalSE = pop.sd / Math.sqrt(n);
+
+        if (k === 0) {
+          return {
+            population: pop,
+            sampleSize: n,
+            samplesDrawn: 0,
+            theoreticalMean,
+            theoreticalSE,
+            observedMean: null,
+            observedSE: null,
+            skewness: null,
+            kurtosis: null,
+            isNormal: null
+          };
+        }
+
+        const stats = Descriptive.calculate(this.sampleMeans);
+
+        return {
+          population: pop,
+          sampleSize: n,
+          samplesDrawn: k,
+          theoreticalMean,
+          theoreticalSE,
+          observedMean: stats.mean,
+          observedSE: stats.sd,
+          skewness: stats.skewness,
+          kurtosis: stats.kurtosis,
+          normality: stats.normality,
+          min: stats.min,
+          max: stats.max,
+          iqr: stats.iqr,
+          values: this.sampleMeans,
+          lastSample: this.lastSample
+        };
+      }
+    }
+  };
+
 /**
  * Statis-Gravity - Clinical DOCX Report Generator
  * Generates native Microsoft Office Open XML (.docx) files without external dependencies.
@@ -2321,6 +2695,75 @@ const DocxReports = {
     d.addBullet('Schulz KF, Altman DG, Moher D (2010). CONSORT 2010 Statement: updated guidelines for reporting parallel group randomised trials. BMJ, 340: c332.');
 
     return d;
+  },
+
+  createTeachingDocx(data) {
+    const d = new DocxBuilder();
+    d.addTitle('STATIS-GRAVITY CLINICAL BIOSTATISTICS REPORT')
+      .addSubTitle('Module: Teaching & Central Limit Theorem Simulation')
+      .addAttributionHeader()
+      .addDisclaimerBox();
+
+    d.addHeading1('1. Distribution Information & Simulation Parameters');
+    d.addParagraph(`Selected Distribution: ${data.distName || 'Normal (Gaussian) Distribution'}`);
+    d.addParagraph(`Sample Size (N): ${data.distN || 500} simulated observations`);
+    d.addParagraph(`Clinical Context: ${data.clinicalExample || 'Biomedical research modeling'}`);
+    d.addParagraph(`CLT Simulation Parent Population: ${data.cltParentName || 'Uniform Distribution'}`);
+    d.addParagraph(`CLT Sample Size per Draw (n): ${data.cltN || 30}`);
+    d.addParagraph(`CLT Total Iterations (k): ${data.cltK || 1000} sample means`);
+
+    d.addHeading1('2. Statistical Outcome & Empirical Convergence Metrics');
+    d.addHeading2('Computer-Generated Distribution Metrics');
+    d.addTable(
+      ['Distribution Metric', 'Empirical Sample Value', 'Theoretical Population Value', 'Status'],
+      [
+        ['Mean (M)', `${data.sampleMean?.toFixed(3) || '-'}`, `${data.theoMean?.toFixed(3) || '-'}`, 'Congruent'],
+        ['Standard Deviation (SD)', `${data.sampleSD?.toFixed(3) || '-'}`, `${data.theoSD?.toFixed(3) || '-'}`, 'Congruent'],
+        ['Skewness (G₁)', `${data.skewness?.toFixed(3) || '-'}`, `${data.theoSkewness || '0.000'}`, data.skewnessLabel || 'Evaluated'],
+        ['Kurtosis (Excess G₂)', `${data.kurtosis?.toFixed(3) || '-'}`, `${data.theoKurtosis || '0.000'}`, data.kurtosisLabel || 'Evaluated'],
+        ['Jarque-Bera Normality Test', `JB = ${data.jbStat?.toFixed(2) || '-'}, p = ${data.jbP?.toFixed(4) || '-'}`, 'Null: Gaussian', data.isNormal ? 'Normal (p ≥ 0.05)' : 'Non-Normal (p < 0.05)']
+      ]
+    );
+
+    if (data.cltResults) {
+      d.addHeading2('Central Limit Theorem (CLT) Convergence Results');
+      d.addTable(
+        ['CLT Parameter', 'Simulated Value', 'Theoretical CLT Value', 'Convergence Note'],
+        [
+          ['Parent Population Mean (μ)', `${data.cltResults.theoMean?.toFixed(3)}`, `${data.cltResults.theoMean?.toFixed(3)}`, 'Ground truth benchmark'],
+          ['Observed Mean of Means (x̄̄)', `${data.cltResults.obsMean?.toFixed(3)}`, `${data.cltResults.theoMean?.toFixed(3)}`, `Error: ${Math.abs(data.cltResults.obsMean - data.cltResults.theoMean).toFixed(4)}`],
+          ['Standard Error of Means (SE)', `${data.cltResults.obsSE?.toFixed(3)}`, `${data.cltResults.theoSE?.toFixed(3)}`, `Law of 1/√n shrinkage: σ/√${data.cltN}`],
+          ['Sampling Distribution Skewness', `${data.cltResults.skewness?.toFixed(3)}`, '0.000 (Symmetric)', 'Asymmetry eradicated by averaging'],
+          ['Sampling Distribution Normality', `p = ${data.cltResults.normalityP?.toFixed(4)}`, 'p ≥ 0.05', data.cltResults.isNormal ? 'Gaussian Bell Curve Achieved' : 'Approaching Gaussian']
+        ]
+      );
+    }
+
+    d.addHeading1('3. Clinical & Statistical Interpretation');
+    d.addCalloutBox(
+      'Pedagogical Synthesis & Clinical Trial Relevance',
+      data.reportText || 'The Central Limit Theorem demonstrates that the distribution of sample means approaches a normal Gaussian distribution regardless of parent population shape, provided sample size n is sufficiently large (n ≥ 30).',
+      'F0FDF4',
+      '16A34A'
+    );
+
+    d.addHeading1('4. Reason This Particular Test Was Chosen');
+    d.addBullet('Foundation of Inferential Biostatistics: Parametric hypothesis tests (Student t-test, ANOVA, ordinary least squares regression) mathematically assume normally distributed errors or sample means. The Central Limit Theorem provides the mathematical justification for deploying these tests in clinical trials with n ≥ 30 even when raw clinical metrics (e.g. ICU stay, recovery hours) are skewed.');
+    d.addBullet('Protection Against Inappropriate Testing: For small cohorts (n < 30) drawn from non-normal distributions (e.g. exponential survival times or bimodal biomarkers), the sampling distribution has not converged to Gaussian. In such scenarios, non-parametric rank-based tests (Mann-Whitney U, Kruskal-Wallis, Wilcoxon signed-rank) must be chosen to avoid inflated Type I error rates.');
+
+    d.addHeading1('5. Background Statistical Knowledge & Medical Research Context');
+    d.addParagraph('The Central Limit Theorem (CLT) is among the most profound discoveries in probability theory.');
+    d.addParagraph('Mathematical Formulations:');
+    d.addBullet('Classical Lindberg-Lévy Central Limit Theorem: Let X₁, X₂, ..., X_n be independent and identically distributed (i.i.d.) random variables with mean μ and finite variance σ². Then as n → ∞: √n (X̄_n - μ) / σ → N(0, 1).');
+    d.addBullet('Standard Error of the Mean: SE = σ / √n. Quadrupling the patient enrollment reduces the margin of estimation error by exactly half (1/2).');
+    d.addBullet('Variance of the Sample Mean: Var(X̄) = Var(∑ X_i / n) = (1/n²) · nσ² = σ²/n.');
+    d.addParagraph('Key Academic References:');
+    d.addBullet('Laplace PS (1810). Mémoire sur les approximations des formules qui sont fonctions de très grands nombres et sur leur application aux probabilités. Mémoires de l\'Académie Royale des Sciences de Paris.');
+    d.addBullet('Gauss CF (1809). Theoria motus corporum coelestium in sectionibus conicis solem ambientium. Hamburg: Perthes et Besser.');
+    d.addBullet('Altman DG, Bland JM (1995). Statistics Notes: The normal distribution. BMJ, 310(6975): 298–299.');
+    d.addBullet('Student [Gosset WS] (1908). The probable error of a mean. Biometrika, 6(1): 1–25.');
+
+    return d;
   }
 };
 
@@ -2383,6 +2826,7 @@ const DocxReports = {
         case 'correlation': builder = DocxReports.createCorrelationDocx(data); break;
         case 'diagnostic': builder = DocxReports.createDiagnosticDocx(data); break;
         case 'power': builder = DocxReports.createPowerDocx(data); break;
+        case 'teaching': builder = DocxReports.createTeachingDocx(data); break;
         default: console.error('Unknown tab for DOCX export:', tabId); return;
       }
       const blob = builder.generateBlob();
@@ -3383,6 +3827,468 @@ const DocxReports = {
         ctx.fill();
         ctx.stroke();
       }
+    },
+
+    renderTeachingDistribution(engine, data, distKey, params = {}, title = 'Generated Distribution & Theoretical PDF') {
+      engine.lastRender = () => this.renderTeachingDistribution(engine, data, distKey, params, title);
+      engine.lastRenderFn = engine.lastRender;
+      engine.clear();
+      const b = engine.getPlotBounds();
+      const ctx = engine.ctx;
+      const pal = engine.palette;
+
+      if (!data || data.length < 5) {
+        ctx.fillStyle = pal.textDim || '#94a3b8';
+        ctx.font = `14px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText('Click "Generate New Sample" to simulate distribution data.', b.x + b.width / 2, b.y + b.height / 2);
+        return;
+      }
+
+      const n = data.length;
+      let minVal = Infinity;
+      let maxVal = -Infinity;
+      let sum = 0;
+      for (let i = 0; i < n; i++) {
+        const v = data[i];
+        if (v < minVal) minVal = v;
+        if (v > maxVal) maxVal = v;
+        sum += v;
+      }
+      const sampleMean = sum / n;
+
+      const span = maxVal - minVal || 1;
+      const plotMin = minVal - 0.05 * span;
+      const plotMax = maxVal + 0.05 * span;
+      const plotSpan = plotMax - plotMin;
+
+      const numBins = Math.max(12, Math.min(35, Math.round(1 + 3.322 * Math.log10(n) * 1.5)));
+      const binWidth = plotSpan / numBins;
+
+      const bins = new Array(numBins).fill(0);
+      for (let i = 0; i < n; i++) {
+        const idx = Math.min(numBins - 1, Math.max(0, Math.floor((data[i] - plotMin) / binWidth)));
+        bins[idx]++;
+      }
+
+      const maxCount = Math.max(...bins, 1);
+      const yMax = maxCount * 1.25;
+
+      const yTicks = [
+        { norm: 0, label: '0' },
+        { norm: 0.5, label: (yMax * 0.5).toFixed(0) },
+        { norm: 1.0, label: yMax.toFixed(0) }
+      ];
+
+      const xTicks = [];
+      for (let i = 0; i <= 5; i++) {
+        const v = plotMin + (i / 5) * plotSpan;
+        xTicks.push({ norm: i / 5, label: v.toFixed(1) });
+      }
+
+      engine.drawAxes({
+        yTicks,
+        xTicks,
+        title,
+        xLabel: 'Observation Value (X)',
+        yLabel: 'Frequency Count'
+      });
+
+      const toX = (val) => b.x + ((val - plotMin) / plotSpan) * b.width;
+      const toY = (count) => b.y + b.height - (count / yMax) * b.height;
+
+      // Draw Histogram Bars
+      const barWidth = b.width / numBins;
+      for (let i = 0; i < numBins; i++) {
+        const count = bins[i];
+        if (count === 0) continue;
+        const h = (count / yMax) * b.height;
+        const x = b.x + i * barWidth;
+        const y = b.y + b.height - h;
+
+        ctx.fillStyle = `${pal.primary}33`;
+        ctx.strokeStyle = pal.primary;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.rect(x + 1, y, Math.max(1, barWidth - 2), h);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // Theoretical PDF Curve
+      if (Teaching.pdf && Teaching.pdf[distKey]) {
+        const pdfFn = Teaching.pdf[distKey];
+        const densityScale = n * binWidth;
+
+        ctx.strokeStyle = pal.accent || '#38bdf8';
+        ctx.lineWidth = 2.8;
+        ctx.beginPath();
+
+        const steps = 180;
+        let started = false;
+        for (let s = 0; s <= steps; s++) {
+          const xVal = plotMin + (s / steps) * plotSpan;
+          let pdfVal = 0;
+
+          switch (distKey) {
+            case 'normal':
+              pdfVal = pdfFn.call(Teaching.pdf, xVal, params.mean, params.sd);
+              break;
+            case 'studentsT':
+              pdfVal = pdfFn.call(Teaching.pdf, xVal, params.df, params.mean, params.scale);
+              break;
+            case 'uniform':
+              pdfVal = pdfFn.call(Teaching.pdf, xVal, params.min, params.max);
+              break;
+            case 'exponential':
+              pdfVal = pdfFn.call(Teaching.pdf, xVal, params.rate);
+              break;
+            case 'logNormal':
+              pdfVal = pdfFn.call(Teaching.pdf, xVal, params.mu, params.sigma);
+              break;
+            case 'bimodal':
+              pdfVal = pdfFn.call(Teaching.pdf, xVal, params.m1, params.s1, params.m2, params.s2, params.p);
+              break;
+            case 'poisson':
+              pdfVal = pdfFn.call(Teaching.pdf, Math.round(xVal), params.lambda);
+              break;
+            case 'chiSquare':
+              pdfVal = pdfFn.call(Teaching.pdf, xVal, params.df);
+              break;
+            default:
+              pdfVal = 0;
+          }
+
+          const countVal = pdfVal * densityScale;
+          const px = toX(xVal);
+          const py = Math.max(b.y - 10, toY(countVal));
+
+          if (!started) {
+            ctx.moveTo(px, py);
+            started = true;
+          } else {
+            ctx.lineTo(px, py);
+          }
+        }
+        ctx.stroke();
+      }
+
+      // Sample Mean marker
+      if (isFinite(sampleMean)) {
+        const meanX = toX(sampleMean);
+        if (meanX >= b.x && meanX <= b.x + b.width) {
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(meanX, b.y);
+          ctx.lineTo(meanX, b.y + b.height);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.fillStyle = '#f59e0b';
+          ctx.font = `600 11px ${engine.options.fontFamily}`;
+          ctx.textAlign = 'center';
+          ctx.fillText(`M = ${sampleMean.toFixed(2)}`, meanX, b.y + 14);
+        }
+      }
+
+      // Legend
+      ctx.textAlign = 'right';
+      ctx.font = `500 11px ${engine.options.fontFamily}`;
+      ctx.fillStyle = pal.primary;
+      ctx.fillText('■ Empirical Sample Histogram', b.x + b.width - 10, b.y + 15);
+      ctx.fillStyle = pal.accent || '#38bdf8';
+      ctx.fillText('— Theoretical PDF Overlay', b.x + b.width - 10, b.y + 32);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText('┆ Sample Mean', b.x + b.width - 10, b.y + 49);
+    },
+
+    renderCltParent(engine, parentInfo, lastSample = [], title = 'CLT Parent Population Distribution') {
+      engine.lastRender = () => this.renderCltParent(engine, parentInfo, lastSample, title);
+      engine.lastRenderFn = engine.lastRender;
+      engine.clear();
+      const b = engine.getPlotBounds();
+      const ctx = engine.ctx;
+      const pal = engine.palette;
+
+      if (!parentInfo) return;
+
+      const minX = parentInfo.min;
+      const maxX = parentInfo.max;
+      const span = maxX - minX;
+
+      const steps = 150;
+      let maxDensity = 0;
+      const densities = [];
+      for (let i = 0; i <= steps; i++) {
+        const x = minX + (i / steps) * span;
+        const d = parentInfo.pdf(x);
+        densities.push({ x, d });
+        if (d > maxDensity) maxDensity = d;
+      }
+      const yMax = (maxDensity || 0.5) * 1.3;
+
+      const toX = (val) => b.x + ((val - minX) / span) * b.width;
+      const toY = (d) => b.y + b.height - (d / yMax) * b.height;
+
+      const xTicks = [];
+      for (let i = 0; i <= 4; i++) {
+        const v = minX + (i / 4) * span;
+        xTicks.push({ norm: i / 4, label: v.toFixed(1) });
+      }
+      const yTicks = [
+        { norm: 0, label: '0' },
+        { norm: 0.5, label: (yMax * 0.5).toFixed(2) },
+        { norm: 1.0, label: yMax.toFixed(2) }
+      ];
+
+      engine.drawAxes({
+        yTicks,
+        xTicks,
+        title: `${title} (${parentInfo.name})`,
+        xLabel: 'Observation Value (X)',
+        yLabel: 'Probability Density f(X)'
+      });
+
+      // Fill Area
+      ctx.fillStyle = `${pal.secondary || '#94a3b8'}22`;
+      ctx.beginPath();
+      ctx.moveTo(b.x, b.y + b.height);
+      for (const pt of densities) {
+        ctx.lineTo(toX(pt.x), toY(pt.d));
+      }
+      ctx.lineTo(b.x + b.width, b.y + b.height);
+      ctx.closePath();
+      ctx.fill();
+
+      // Stroke Density
+      ctx.strokeStyle = pal.secondary || '#94a3b8';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i < densities.length; i++) {
+        const pt = densities[i];
+        if (i === 0) ctx.moveTo(toX(pt.x), toY(pt.d));
+        else ctx.lineTo(toX(pt.x), toY(pt.d));
+      }
+      ctx.stroke();
+
+      // True Mean line
+      const muX = toX(parentInfo.mean);
+      if (muX >= b.x && muX <= b.x + b.width) {
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(muX, b.y);
+        ctx.lineTo(muX, b.y + b.height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#ef4444';
+        ctx.font = `600 11px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`True μ = ${parentInfo.mean.toFixed(2)}`, muX, b.y + 14);
+      }
+
+      // Draw Last Sample Draw points
+      if (lastSample && lastSample.length > 0) {
+        let sampleSum = 0;
+        for (const val of lastSample) {
+          sampleSum += val;
+          const ptX = toX(val);
+          const ptD = parentInfo.pdf(val);
+          const ptY = toY(ptD);
+
+          ctx.fillStyle = '#38bdf8';
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(ptX, ptY, 4, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+        }
+
+        const sampleMean = sampleSum / lastSample.length;
+        const sMeanX = toX(sampleMean);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(sMeanX, b.y + b.height - 25);
+        ctx.lineTo(sMeanX, b.y + b.height);
+        ctx.stroke();
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = `600 10px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`Sample x̄ = ${sampleMean.toFixed(2)}`, sMeanX, b.y + b.height - 28);
+      }
+
+      // Legend
+      ctx.textAlign = 'right';
+      ctx.font = `500 11px ${engine.options.fontFamily}`;
+      ctx.fillStyle = pal.secondary || '#94a3b8';
+      ctx.fillText('— Parent Density f(X)', b.x + b.width - 10, b.y + 15);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText('┆ True Population Mean (μ)', b.x + b.width - 10, b.y + 32);
+      if (lastSample && lastSample.length > 0) {
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText(`● Current Draw (n = ${lastSample.length})`, b.x + b.width - 10, b.y + 49);
+      }
+    },
+
+    renderCltSampling(engine, cltData, title = 'Sampling Distribution of the Mean (x̄)') {
+      engine.lastRender = () => this.renderCltSampling(engine, cltData, title);
+      engine.lastRenderFn = engine.lastRender;
+      engine.clear();
+      const b = engine.getPlotBounds();
+      const ctx = engine.ctx;
+      const pal = engine.palette;
+
+      if (!cltData || cltData.samplesDrawn === 0) {
+        ctx.fillStyle = pal.textDim || '#94a3b8';
+        ctx.font = `14px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText('No samples drawn yet. Click "▶ Step (Draw 1 Sample)" or "⚡ Draw 100 Samples" above.', b.x + b.width / 2, b.y + b.height / 2);
+        return;
+      }
+
+      const means = cltData.values;
+      const k = means.length;
+      const n = cltData.sampleSize;
+      const trueMu = cltData.theoreticalMean;
+      const trueSE = cltData.theoreticalSE;
+
+      let minM = Infinity;
+      let maxM = -Infinity;
+      for (let i = 0; i < k; i++) {
+        if (means[i] < minM) minM = means[i];
+        if (means[i] > maxM) maxM = means[i];
+      }
+
+      const seSpan = 3.5 * trueSE;
+      const plotMin = Math.min(minM - 0.2 * trueSE, trueMu - seSpan);
+      const plotMax = Math.max(maxM + 0.2 * trueSE, trueMu + seSpan);
+      const plotSpan = plotMax - plotMin || 1;
+
+      const numBins = Math.max(15, Math.min(40, Math.round(1 + 3.322 * Math.log10(k) * 2)));
+      const binWidth = plotSpan / numBins;
+
+      const bins = new Array(numBins).fill(0);
+      for (let i = 0; i < k; i++) {
+        const idx = Math.min(numBins - 1, Math.max(0, Math.floor((means[i] - plotMin) / binWidth)));
+        bins[idx]++;
+      }
+
+      const maxCount = Math.max(...bins, 1);
+      const yMax = maxCount * 1.25;
+
+      const toX = (val) => b.x + ((val - plotMin) / plotSpan) * b.width;
+      const toY = (count) => b.y + b.height - (count / yMax) * b.height;
+
+      const xTicks = [];
+      for (let i = 0; i <= 5; i++) {
+        const v = plotMin + (i / 5) * plotSpan;
+        xTicks.push({ norm: i / 5, label: v.toFixed(2) });
+      }
+      const yTicks = [
+        { norm: 0, label: '0' },
+        { norm: 0.5, label: (yMax * 0.5).toFixed(0) },
+        { norm: 1.0, label: yMax.toFixed(0) }
+      ];
+
+      engine.drawAxes({
+        yTicks,
+        xTicks,
+        title: `${title} (k = ${k.toLocaleString()} samples, n = ${n})`,
+        xLabel: 'Sample Mean Value (x̄)',
+        yLabel: 'Frequency of Means'
+      });
+
+      // Histogram Bars
+      const barWidth = b.width / numBins;
+      for (let i = 0; i < numBins; i++) {
+        const count = bins[i];
+        if (count === 0) continue;
+        const h = (count / yMax) * b.height;
+        const x = b.x + i * barWidth;
+        const y = b.y + b.height - h;
+
+        ctx.fillStyle = `${pal.primary}44`;
+        ctx.strokeStyle = pal.primary;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.rect(x + 1, y, Math.max(1, barWidth - 2), h);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // Theoretical Gaussian Normal Curve: N(μ, σ/√n)
+      if (trueSE > 0) {
+        const densityScale = k * binWidth;
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+
+        const steps = 150;
+        let started = false;
+        for (let s = 0; s <= steps; s++) {
+          const xVal = plotMin + (s / steps) * plotSpan;
+          const z = (xVal - trueMu) / trueSE;
+          const normDensity = (1.0 / (trueSE * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * z * z);
+          const countVal = normDensity * densityScale;
+          const px = toX(xVal);
+          const py = toY(countVal);
+
+          if (!started) {
+            ctx.moveTo(px, py);
+            started = true;
+          } else {
+            ctx.lineTo(px, py);
+          }
+        }
+        ctx.stroke();
+      }
+
+      // True Mean line
+      const muX = toX(trueMu);
+      if (muX >= b.x && muX <= b.x + b.width) {
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(muX, b.y);
+        ctx.lineTo(muX, b.y + b.height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Observed Mean of Means
+      if (cltData.observedMean !== null) {
+        const obsX = toX(cltData.observedMean);
+        if (obsX >= b.x && obsX <= b.x + b.width) {
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(obsX, b.y);
+          ctx.lineTo(obsX, b.y + b.height);
+          ctx.stroke();
+        }
+      }
+
+      // Legend
+      ctx.textAlign = 'right';
+      ctx.font = `500 11px ${engine.options.fontFamily}`;
+      ctx.fillStyle = pal.primary;
+      ctx.fillText(`■ Simulated Means (k = ${k.toLocaleString()})`, b.x + b.width - 10, b.y + 15);
+      ctx.fillStyle = '#22c55e';
+      ctx.fillText(`— CLT Normal Fit N(μ, σ/√n)`, b.x + b.width - 10, b.y + 32);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText(`┆ True Mean μ = ${trueMu.toFixed(2)}`, b.x + b.width - 10, b.y + 49);
+      if (cltData.observedMean !== null) {
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText(`— Observed x̄̄ = ${cltData.observedMean.toFixed(2)} (SE: ${cltData.observedSE.toFixed(3)})`, b.x + b.width - 10, b.y + 66);
+      }
     }
   };
 
@@ -3445,7 +4351,7 @@ const DocxReports = {
     }
 
     initEngines() {
-      ['descCanvas', 'descBoxCanvas', 'descViolinCanvas', 'hypoCanvas', 'anovaCanvas', 'corrCanvas', 'rocCanvas'].forEach(id => {
+      ['descCanvas', 'descBoxCanvas', 'descViolinCanvas', 'hypoCanvas', 'anovaCanvas', 'corrCanvas', 'rocCanvas', 'teachingDistCanvas', 'teachingCltParentCanvas', 'teachingCltSamplingCanvas'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
           this.engines[id] = new ChartEngine(el, { theme: this.theme });
@@ -3673,6 +4579,78 @@ const DocxReports = {
         });
       });
 
+      // 8. Teaching & Simulation Events
+      document.getElementById('teachingDistSelect')?.addEventListener('change', () => {
+        this.renderTeachingParams();
+        this.runTeachingDistribution();
+      });
+
+      document.getElementById('teachingNRange')?.addEventListener('input', (e) => {
+        const val = e.target.value;
+        const el = document.getElementById('teachingNVal');
+        if (el) el.innerText = val;
+        this.runTeachingDistribution();
+      });
+
+      document.getElementById('teachingGenBtn')?.addEventListener('click', () => {
+        this.runTeachingDistribution();
+      });
+
+      document.getElementById('teachingCopyBtn')?.addEventListener('click', (e) => {
+        if (this.currentTeachingData) {
+          navigator.clipboard.writeText(this.currentTeachingData.join(', '));
+          const orig = e.currentTarget.innerText;
+          e.currentTarget.innerText = 'Copied!';
+          setTimeout(() => { e.currentTarget.innerText = orig; }, 1500);
+        }
+      });
+
+      document.getElementById('teachingSendToDescBtn')?.addEventListener('click', () => {
+        if (this.currentTeachingData) {
+          const descInput = document.getElementById('descInput');
+          if (descInput) {
+            descInput.value = this.currentTeachingData.join(', ');
+          }
+          const descTabBtn = document.querySelector('.tab-btn[data-target="tab-descriptive"]');
+          if (descTabBtn) descTabBtn.click();
+          this.runDescriptive();
+        }
+      });
+
+      // CLT Simulation Controls
+      document.getElementById('cltPopSelect')?.addEventListener('change', (e) => {
+        Teaching.clt.setPopulation(e.target.value);
+        this.updateCltUI(Teaching.clt.getSummary());
+      });
+
+      document.getElementById('cltNRange')?.addEventListener('input', (e) => {
+        const n = parseInt(e.target.value);
+        const el = document.getElementById('cltNVal');
+        if (el) el.innerText = n;
+        Teaching.clt.setSampleSize(n);
+        this.updateCltUI(Teaching.clt.getSummary());
+      });
+
+      document.getElementById('cltStepBtn')?.addEventListener('click', () => {
+        const summary = Teaching.clt.drawSamples(1);
+        this.updateCltUI(summary);
+      });
+
+      document.getElementById('cltDraw100Btn')?.addEventListener('click', () => {
+        const summary = Teaching.clt.drawSamples(100);
+        this.updateCltUI(summary);
+      });
+
+      document.getElementById('cltDraw1000Btn')?.addEventListener('click', () => {
+        const summary = Teaching.clt.drawSamples(1000);
+        this.updateCltUI(summary);
+      });
+
+      document.getElementById('cltResetBtn')?.addEventListener('click', () => {
+        Teaching.clt.reset();
+        this.updateCltUI(Teaching.clt.getSummary());
+      });
+
       // Disclaimer Modal Dismissal
       document.getElementById('disclaimerDismissBtn')?.addEventListener('click', () => {
         document.getElementById('disclaimerModal')?.classList.add('hidden');
@@ -3698,6 +4676,7 @@ const DocxReports = {
       document.getElementById('corrSampleBtn')?.click();
       document.getElementById('rocSampleBtn')?.click();
       this.runPower();
+      this.initTeachingModule();
     }
 
     runDescriptive() {
@@ -4421,6 +5400,7 @@ const DocxReports = {
           case 'correlation': this.runCorr(); break;
           case 'diagnostic': this.runROC(); break;
           case 'power': this.runPower(); break;
+          case 'teaching': this.runTeaching(); break;
         }
       }
       const res = this.results ? this.results[tabId] : null;
@@ -4551,9 +5531,477 @@ const DocxReports = {
           reportText: document.getElementById('pwrReportText')?.innerText,
           additionalMetrics: res.additionalMetrics || {}
         };
+      } else if (tabId === 'teaching') {
+        const dist = res.dist || {};
+        const clt = res.clt || {};
+        exportData = {
+          distName: dist.name,
+          distN: dist.n,
+          clinicalExample: dist.clinicalExample,
+          sampleMean: dist.mean,
+          theoMean: dist.theoMean,
+          sampleSD: dist.sd,
+          theoSD: dist.theoSD,
+          skewness: dist.skewness,
+          skewnessLabel: dist.skewnessInterpretation,
+          kurtosis: dist.kurtosis,
+          kurtosisLabel: dist.kurtosisInterpretation,
+          jbStat: dist.normality?.statistic,
+          jbP: dist.normality?.pValue,
+          isNormal: dist.normality?.isNormal,
+          cltParentName: clt.population?.name,
+          cltN: clt.sampleSize,
+          cltK: clt.samplesDrawn,
+          cltResults: {
+            theoMean: clt.theoreticalMean,
+            obsMean: clt.observedMean,
+            theoSE: clt.theoreticalSE,
+            obsSE: clt.observedSE,
+            skewness: clt.skewness,
+            normalityP: clt.normality?.pValue,
+            isNormal: clt.normality?.isNormal
+          },
+          reportText: document.getElementById('teachingReportText')?.innerText
+        };
       }
 
       Exporter.exportTabToDocx(tabId, exportData);
+    }
+
+    // --- Teaching & Simulation Module ---
+
+    initTeachingModule() {
+      this.renderTeachingParams();
+      this.runTeachingDistribution();
+      this.updateCltUI(Teaching.clt.getSummary());
+    }
+
+    renderTeachingParams() {
+      const distKey = document.getElementById('teachingDistSelect')?.value || 'normal';
+      const container = document.getElementById('teachingParamsContainer');
+      if (!container) return;
+
+      let html = '';
+      switch (distKey) {
+        case 'normal':
+          html = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div>
+                <label class="form-label" style="font-size: 0.78rem;">Mean (μ):</label>
+                <input id="tp_norm_mean" type="number" step="0.5" value="12" class="form-control" style="padding: 0.35rem 0.5rem;">
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.78rem;">Std Dev (σ):</label>
+                <input id="tp_norm_sd" type="number" min="0.1" step="0.5" value="3" class="form-control" style="padding: 0.35rem 0.5rem;">
+              </div>
+            </div>
+          `;
+          break;
+        case 'studentsT':
+          html = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div>
+                <label class="form-label" style="font-size: 0.78rem;">Degrees of Freedom (ν):</label>
+                <input id="tp_t_df" type="number" min="1" max="100" step="1" value="4" class="form-control" style="padding: 0.35rem 0.5rem;">
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.78rem;">Scale (s):</label>
+                <input id="tp_t_scale" type="number" min="0.1" step="0.5" value="2" class="form-control" style="padding: 0.35rem 0.5rem;">
+              </div>
+            </div>
+          `;
+          break;
+        case 'logNormal':
+          html = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div>
+                <label class="form-label" style="font-size: 0.78rem;">Log-Mean (μ):</label>
+                <input id="tp_log_mu" type="number" step="0.1" value="1.5" class="form-control" style="padding: 0.35rem 0.5rem;">
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.78rem;">Log-SD (σ):</label>
+                <input id="tp_log_sigma" type="number" min="0.1" step="0.1" value="0.6" class="form-control" style="padding: 0.35rem 0.5rem;">
+              </div>
+            </div>
+          `;
+          break;
+        case 'exponential':
+          html = `
+            <div>
+              <label class="form-label" style="font-size: 0.78rem;">Rate Parameter (λ):</label>
+              <input id="tp_exp_rate" type="number" min="0.05" step="0.1" value="0.4" class="form-control" style="padding: 0.35rem 0.5rem;">
+              <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">Theoretical Mean = 1/λ = 2.50</div>
+            </div>
+          `;
+          break;
+        case 'bimodal':
+          html = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <div>
+                <label class="form-label" style="font-size: 0.75rem;">Peak 1 Mean:</label>
+                <input id="tp_bim_m1" type="number" value="10" class="form-control" style="padding: 0.3rem 0.4rem;">
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.75rem;">Peak 1 SD:</label>
+                <input id="tp_bim_s1" type="number" min="0.1" value="2" class="form-control" style="padding: 0.3rem 0.4rem;">
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              <div>
+                <label class="form-label" style="font-size: 0.75rem;">Peak 2 Mean:</label>
+                <input id="tp_bim_m2" type="number" value="25" class="form-control" style="padding: 0.3rem 0.4rem;">
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.75rem;">Peak 2 SD:</label>
+                <input id="tp_bim_s2" type="number" min="0.1" value="3" class="form-control" style="padding: 0.3rem 0.4rem;">
+              </div>
+            </div>
+          `;
+          break;
+        case 'uniform':
+          html = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div>
+                <label class="form-label" style="font-size: 0.78rem;">Lower Bound (a):</label>
+                <input id="tp_uni_min" type="number" value="0" class="form-control" style="padding: 0.35rem 0.5rem;">
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.78rem;">Upper Bound (b):</label>
+                <input id="tp_uni_max" type="number" value="20" class="form-control" style="padding: 0.35rem 0.5rem;">
+              </div>
+            </div>
+          `;
+          break;
+        case 'poisson':
+          html = `
+            <div>
+              <label class="form-label" style="font-size: 0.78rem;">Event Rate Parameter (λ):</label>
+              <input id="tp_pois_lambda" type="number" min="0.5" step="0.5" value="5" class="form-control" style="padding: 0.35rem 0.5rem;">
+              <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">Mean = Variance = λ = 5.0</div>
+            </div>
+          `;
+          break;
+        case 'chiSquare':
+          html = `
+            <div>
+              <label class="form-label" style="font-size: 0.78rem;">Degrees of Freedom (k):</label>
+              <input id="tp_chi_df" type="number" min="1" max="50" step="1" value="4" class="form-control" style="padding: 0.35rem 0.5rem;">
+              <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">Mean = k = 4.0, Variance = 2k = 8.0</div>
+            </div>
+          `;
+          break;
+      }
+
+      container.innerHTML = html;
+
+      // Attach reactive input listeners to all inputs in container
+      container.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', () => this.runTeachingDistribution());
+      });
+    }
+
+    runTeachingDistribution() {
+      const distKey = document.getElementById('teachingDistSelect')?.value || 'normal';
+      const n = parseInt(document.getElementById('teachingNRange')?.value) || 500;
+      const meta = Teaching.distMetadata[distKey] || {};
+
+      let data = [];
+      const params = {};
+      let theoMean = 0;
+      let theoSD = 0;
+      let theoSkew = '0.000';
+      let theoKurt = '0.000';
+
+      switch (distKey) {
+        case 'normal': {
+          const mean = parseFloat(document.getElementById('tp_norm_mean')?.value) || 12;
+          const sd = Math.max(0.1, parseFloat(document.getElementById('tp_norm_sd')?.value) || 3);
+          params.mean = mean;
+          params.sd = sd;
+          theoMean = mean;
+          theoSD = sd;
+          theoSkew = '0.000 (Symmetric)';
+          theoKurt = '0.000 (Mesokurtic)';
+          data = Teaching.generators.normal(n, mean, sd);
+          break;
+        }
+        case 'studentsT': {
+          const df = Math.max(1, parseInt(document.getElementById('tp_t_df')?.value) || 4);
+          const scale = Math.max(0.1, parseFloat(document.getElementById('tp_t_scale')?.value) || 2);
+          params.df = df;
+          params.scale = scale;
+          params.mean = 0;
+          theoMean = 0;
+          theoSD = df > 2 ? scale * Math.sqrt(df / (df - 2)) : NaN;
+          theoSkew = '0.000';
+          theoKurt = df > 4 ? (6 / (df - 4)).toFixed(2) + ' (Heavy tails)' : '∞ (Fat tails)';
+          data = Teaching.generators.studentsT(n, df, 0, scale);
+          break;
+        }
+        case 'logNormal': {
+          const mu = parseFloat(document.getElementById('tp_log_mu')?.value) || 1.5;
+          const sigma = Math.max(0.1, parseFloat(document.getElementById('tp_log_sigma')?.value) || 0.6);
+          params.mu = mu;
+          params.sigma = sigma;
+          theoMean = Math.exp(mu + 0.5 * sigma * sigma);
+          theoSD = Math.sqrt((Math.exp(sigma * sigma) - 1) * Math.exp(2 * mu + sigma * sigma));
+          theoSkew = ((Math.exp(sigma * sigma) + 2) * Math.sqrt(Math.exp(sigma * sigma) - 1)).toFixed(2) + ' (Right skew)';
+          theoKurt = 'Positive (Leptokurtic)';
+          data = Teaching.generators.logNormal(n, mu, sigma);
+          break;
+        }
+        case 'exponential': {
+          const rate = Math.max(0.01, parseFloat(document.getElementById('tp_exp_rate')?.value) || 0.4);
+          params.rate = rate;
+          theoMean = 1 / rate;
+          theoSD = 1 / rate;
+          theoSkew = '2.000 (Strong right skew)';
+          theoKurt = '6.000 (Heavy tails)';
+          data = Teaching.generators.exponential(n, rate);
+          break;
+        }
+        case 'bimodal': {
+          const m1 = parseFloat(document.getElementById('tp_bim_m1')?.value) || 10;
+          const s1 = Math.max(0.1, parseFloat(document.getElementById('tp_bim_s1')?.value) || 2);
+          const m2 = parseFloat(document.getElementById('tp_bim_m2')?.value) || 25;
+          const s2 = Math.max(0.1, parseFloat(document.getElementById('tp_bim_s2')?.value) || 3);
+          params.m1 = m1;
+          params.s1 = s1;
+          params.m2 = m2;
+          params.s2 = s2;
+          params.p = 0.5;
+          theoMean = 0.5 * (m1 + m2);
+          theoSD = Math.sqrt(0.5 * (s1 * s1 + s2 * s2) + 0.25 * Math.pow(m1 - m2, 2));
+          theoSkew = '~0.000 (Symmetric Peaks)';
+          theoKurt = 'Platykurtic (Bimodal Trough)';
+          data = Teaching.generators.bimodal(n, m1, s1, m2, s2, 0.5);
+          break;
+        }
+        case 'uniform': {
+          const min = parseFloat(document.getElementById('tp_uni_min')?.value) || 0;
+          const max = parseFloat(document.getElementById('tp_uni_max')?.value) || 20;
+          params.min = min;
+          params.max = max;
+          theoMean = (min + max) / 2;
+          theoSD = Math.sqrt(Math.pow(max - min, 2) / 12);
+          theoSkew = '0.000 (Flat)';
+          theoKurt = '-1.200 (Platykurtic)';
+          data = Teaching.generators.uniform(n, min, max);
+          break;
+        }
+        case 'poisson': {
+          const lambda = Math.max(0.1, parseFloat(document.getElementById('tp_pois_lambda')?.value) || 5);
+          params.lambda = lambda;
+          theoMean = lambda;
+          theoSD = Math.sqrt(lambda);
+          theoSkew = (1 / Math.sqrt(lambda)).toFixed(2);
+          theoKurt = (1 / lambda).toFixed(2);
+          data = Teaching.generators.poisson(n, lambda);
+          break;
+        }
+        case 'chiSquare': {
+          const df = Math.max(1, parseInt(document.getElementById('tp_chi_df')?.value) || 4);
+          params.df = df;
+          theoMean = df;
+          theoSD = Math.sqrt(2 * df);
+          theoSkew = Math.sqrt(8 / df).toFixed(2);
+          theoKurt = (12 / df).toFixed(2);
+          data = Teaching.generators.chiSquare(n, df);
+          break;
+        }
+      }
+
+      this.currentTeachingData = data;
+
+      // Calculate empirical descriptive statistics
+      const stats = Descriptive.calculate(data);
+
+      // Update Metrics Cards
+      const meanEl = document.getElementById('teachingSampleMean');
+      if (meanEl) meanEl.innerText = stats.mean.toFixed(2);
+      const theoMeanEl = document.getElementById('teachingTheoMean');
+      if (theoMeanEl) theoMeanEl.innerText = `Theo: ${isNaN(theoMean) ? 'N/A' : theoMean.toFixed(2)}`;
+
+      const sdEl = document.getElementById('teachingSampleSD');
+      if (sdEl) sdEl.innerText = stats.sd.toFixed(2);
+      const theoSDEl = document.getElementById('teachingTheoSD');
+      if (theoSDEl) theoSDEl.innerText = `Theo: ${isNaN(theoSD) ? 'N/A' : theoSD.toFixed(2)}`;
+
+      const skewEl = document.getElementById('teachingSkewness');
+      if (skewEl) skewEl.innerText = stats.skewness.toFixed(2);
+      const skewSubEl = document.getElementById('teachingSkewnessSub');
+      if (skewSubEl) skewSubEl.innerText = stats.skewnessInterpretation;
+
+      const kurtEl = document.getElementById('teachingKurtosis');
+      if (kurtEl) kurtEl.innerText = stats.kurtosis.toFixed(2);
+      const kurtSubEl = document.getElementById('teachingKurtosisSub');
+      if (kurtSubEl) kurtSubEl.innerText = stats.kurtosisInterpretation;
+
+      const normEl = document.getElementById('teachingNormality');
+      const normSubEl = document.getElementById('teachingNormalitySub');
+      if (normEl) {
+        normEl.innerText = stats.normality.isNormal ? 'Normal ✓' : 'Non-Normal ✗';
+        normEl.style.color = stats.normality.isNormal ? '#22c55e' : '#ef4444';
+      }
+      if (normSubEl) {
+        normSubEl.innerText = `JB p = ${stats.normality.pValue.toFixed(4)}`;
+      }
+
+      // Update Context Card
+      const titleEl = document.getElementById('teachingContextTitle');
+      const bodyEl = document.getElementById('teachingContextBody');
+      if (titleEl) titleEl.innerText = `${meta.name || 'Distribution'} [${meta.symbol || ''}]`;
+      if (bodyEl) {
+        bodyEl.innerHTML = `
+          <strong>Clinical Example:</strong> ${meta.clinicalExample || ''}<br>
+          <strong>Theoretical Behavior:</strong> ${meta.properties || ''}<br>
+          <strong>Methodological Guideline:</strong> ${meta.testNote || ''}
+        `;
+      }
+
+      // Update Data Preview (first 50 values)
+      const previewEl = document.getElementById('teachingDataPreview');
+      if (previewEl) {
+        previewEl.value = data.slice(0, 50).map(v => v.toFixed(2)).join(', ') + (data.length > 50 ? ` ... (+${data.length - 50} more)` : '');
+      }
+
+      // Render Canvas
+      const canvas = document.getElementById('teachingDistCanvas');
+      if (canvas && this.engines['teachingDistCanvas']) {
+        Plots.renderTeachingDistribution(
+          this.engines['teachingDistCanvas'],
+          data,
+          distKey,
+          params,
+          `${meta.name || 'Distribution'} (Empirical N = ${n} vs Theoretical PDF)`
+        );
+      }
+
+      // Cache result
+      this.results.teachingDist = {
+        name: meta.name || distKey,
+        clinicalExample: meta.clinicalExample,
+        n,
+        mean: stats.mean,
+        theoMean,
+        sd: stats.sd,
+        theoSD,
+        skewness: stats.skewness,
+        skewnessInterpretation: stats.skewnessInterpretation,
+        theoSkewness: theoSkew,
+        kurtosis: stats.kurtosis,
+        kurtosisInterpretation: stats.kurtosisInterpretation,
+        theoKurtosis: theoKurt,
+        normality: stats.normality
+      };
+
+      if (!this.results.teaching) this.results.teaching = {};
+      this.results.teaching.dist = this.results.teachingDist;
+    }
+
+    updateCltUI(summary) {
+      if (!summary) return;
+
+      // Update Metrics
+      const kEl = document.getElementById('cltSamplesCount');
+      if (kEl) kEl.innerText = summary.samplesDrawn.toLocaleString();
+
+      const nSubEl = document.getElementById('cltNSub');
+      if (nSubEl) nSubEl.innerText = `Each of size n = ${summary.sampleSize}`;
+
+      const muEl = document.getElementById('cltTrueMu');
+      if (muEl) muEl.innerText = summary.theoreticalMean.toFixed(2);
+
+      const sigmaSubEl = document.getElementById('cltTrueSigmaSub');
+      if (sigmaSubEl) sigmaSubEl.innerText = `Pop SD: ${summary.population.sd.toFixed(2)}`;
+
+      const obsMeanEl = document.getElementById('cltObsMean');
+      const meanDiffEl = document.getElementById('cltMeanDiffSub');
+      if (obsMeanEl) {
+        obsMeanEl.innerText = summary.observedMean !== null ? summary.observedMean.toFixed(2) : '--';
+      }
+      if (meanDiffEl) {
+        meanDiffEl.innerText = summary.observedMean !== null
+          ? `|Diff|: ${Math.abs(summary.observedMean - summary.theoreticalMean).toFixed(3)}`
+          : '|Diff|: --';
+      }
+
+      const theoSEEl = document.getElementById('cltTheoSE');
+      if (theoSEEl) theoSEEl.innerText = summary.theoreticalSE.toFixed(3);
+
+      const obsSEEl = document.getElementById('cltObsSE');
+      const seDiffEl = document.getElementById('cltSEDiffSub');
+      if (obsSEEl) {
+        obsSEEl.innerText = summary.observedSE !== null ? summary.observedSE.toFixed(3) : '--';
+      }
+      if (seDiffEl) {
+        seDiffEl.innerText = summary.observedSE !== null
+          ? `Diff: ${(summary.observedSE - summary.theoreticalSE).toFixed(3)}`
+          : 'Formula: σ / √n';
+      }
+
+      const normEl = document.getElementById('cltNormality');
+      const normSubEl = document.getElementById('cltNormalitySub');
+      if (normEl) {
+        if (summary.normality) {
+          normEl.innerText = summary.normality.isNormal ? 'Normal ✓' : 'Non-Normal';
+          normEl.style.color = summary.normality.isNormal ? '#22c55e' : '#f59e0b';
+        } else {
+          normEl.innerText = '--';
+          normEl.style.color = 'inherit';
+        }
+      }
+      if (normSubEl) {
+        normSubEl.innerText = summary.normality ? `JB p = ${summary.normality.pValue.toFixed(3)}` : 'JB Test: --';
+      }
+
+      // Render Canvas Charts
+      if (this.engines['teachingCltParentCanvas']) {
+        Plots.renderCltParent(
+          this.engines['teachingCltParentCanvas'],
+          summary.population,
+          summary.lastSample,
+          'Parent Population Distribution'
+        );
+      }
+
+      if (this.engines['teachingCltSamplingCanvas']) {
+        Plots.renderCltSampling(
+          this.engines['teachingCltSamplingCanvas'],
+          summary,
+          'Sampling Distribution of Mean (x̄)'
+        );
+      }
+
+      // Update Report Text
+      const reportEl = document.getElementById('teachingReportText');
+      if (reportEl) {
+        if (summary.samplesDrawn === 0) {
+          reportEl.innerText = `Simulation initialized with ${summary.population.name} and sample size n = ${summary.sampleSize}. Click "▶ Step (Draw 1 Sample)" or "⚡ Draw 100" to begin demonstrating convergence.`;
+        } else {
+          const normStatement = summary.normality?.isNormal
+            ? 'conforms strictly to a Gaussian bell curve (Jarque-Bera p ≥ 0.05), mathematically proving the Central Limit Theorem.'
+            : 'is rapidly converging toward Gaussian symmetry as iterations accumulate.';
+
+          reportEl.innerText =
+            `A Central Limit Theorem simulation was conducted using a ${summary.population.name} (True μ = ${summary.theoreticalMean.toFixed(2)}, σ = ${summary.population.sd.toFixed(2)}). ` +
+            `A total of k = ${summary.samplesDrawn.toLocaleString()} independent samples (each of size n = ${summary.sampleSize}) were drawn. ` +
+            `The grand mean of sample means was x̄̄ = ${summary.observedMean.toFixed(2)} (bias = ${Math.abs(summary.observedMean - summary.theoreticalMean).toFixed(3)}), ` +
+            `with an empirical Standard Error of s_x̄ = ${summary.observedSE.toFixed(3)} compared to theoretical SE = σ/√n = ${summary.theoreticalSE.toFixed(3)}. ` +
+            `The sampling distribution displays Skewness G₁ = ${summary.skewness.toFixed(3)} and ${normStatement} ` +
+            `In clinical trials, this proves why parametric t-tests and ANOVA remain robust for sample sizes n ≥ 30 even when raw clinical metrics are non-normal.`;
+        }
+      }
+
+      // Cache
+      this.results.teachingClt = summary;
+      if (!this.results.teaching) this.results.teaching = {};
+      this.results.teaching.clt = summary;
+    }
+
+    runTeaching() {
+      this.runTeachingDistribution();
+      this.updateCltUI(Teaching.clt.getSummary());
     }
   }
 

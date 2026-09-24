@@ -55,6 +55,9 @@
       <button class="tab-btn" data-target="tab-power">
         ⚡ Sample Size &amp; Power
       </button>
+      <button class="tab-btn" data-target="tab-teaching">
+        🎓 Teaching
+      </button>
     </nav>
 
     <!-- Tab Panels Container -->
@@ -936,6 +939,225 @@
               </div>
               <p id="pwrReportText" class="report-text">--</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. Teaching & Simulation Tab -->
+      <section id="tab-teaching" class="tab-pane">
+        <div class="tab-pane-toolbar">
+          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="teaching" title="Export generated distribution data, CLT simulation outcomes, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+        </div>
+
+        <!-- Section 1: Computer Generated Distributions -->
+        <div class="card" style="margin-bottom: 1.5rem;">
+          <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <h2 class="card-title">Computer-Generated Distributions &amp; Probability Densities</h2>
+              <p class="card-subtitle">Explore theoretical probability density functions (PDF) vs empirical simulated samples</p>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+              <button id="teachingGenBtn" class="btn btn-primary btn-sm">🎲 Generate New Sample</button>
+              <button id="teachingCopyBtn" class="btn btn-secondary btn-sm" title="Copy generated data to clipboard">📋 Copy Data</button>
+              <button id="teachingSendToDescBtn" class="btn btn-secondary btn-sm" title="Send generated dataset to Descriptive Statistics tab for box-plot and violin analysis">📤 Send to Descriptive Stats</button>
+            </div>
+          </div>
+
+          <div class="analysis-grid" style="grid-template-columns: 360px 1fr; margin-top: 1rem;">
+            <!-- Left Controls -->
+            <div>
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label for="teachingDistSelect" class="form-label" style="font-weight: 600; color: var(--text-main);">Statistical Distribution:</label>
+                <select id="teachingDistSelect" class="form-control" style="font-weight: 600; cursor: pointer; background: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.45rem 0.75rem;">
+                  <option value="normal" selected>Normal (Gaussian) Distribution N(μ, σ²)</option>
+                  <option value="studentsT">Student's t-Distribution t(ν)</option>
+                  <option value="logNormal">Log-Normal Distribution (Right-Skewed Biomarker)</option>
+                  <option value="exponential">Exponential Distribution (Survival / Recurrence)</option>
+                  <option value="bimodal">Bimodal Mixture (Pediatric vs Adult / Responders)</option>
+                  <option value="uniform">Continuous Uniform Distribution U(a, b)</option>
+                  <option value="poisson">Poisson Count Distribution (Infections / Complications)</option>
+                  <option value="chiSquare">Chi-Square Distribution χ²(k)</option>
+                </select>
+              </div>
+
+              <!-- Dynamic Parameters Container -->
+              <div id="teachingParamsContainer" style="background: var(--bg-surface-elevated); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-subtle); margin-bottom: 1rem;">
+                <!-- Populated dynamically via JS -->
+              </div>
+
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                  <label for="teachingNRange" class="form-label" style="margin: 0; font-weight: 600;">Sample Size (N):</label>
+                  <span id="teachingNVal" style="font-weight: 700; color: var(--cyan-primary);">500</span>
+                </div>
+                <input id="teachingNRange" type="range" min="50" max="3000" step="50" value="500" style="width: 100%; cursor: pointer;">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" style="font-weight: 600; color: var(--text-muted); font-size: 0.8rem;">Generated Data Series (First 50 Preview):</label>
+                <textarea id="teachingDataPreview" class="form-control" rows="4" readonly style="font-size: 0.8rem; font-family: monospace; background: var(--bg-surface); color: var(--text-muted);"></textarea>
+              </div>
+            </div>
+
+            <!-- Right Visualizer & Metrics -->
+            <div>
+              <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); margin-bottom: 1rem;">
+                <div class="metric-card">
+                  <div class="metric-label">Sample Mean</div>
+                  <div id="teachingSampleMean" class="metric-value">--</div>
+                  <div id="teachingTheoMean" class="metric-sub">Theo: --</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">Sample SD</div>
+                  <div id="teachingSampleSD" class="metric-value">--</div>
+                  <div id="teachingTheoSD" class="metric-sub">Theo: --</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">Skewness (G₁)</div>
+                  <div id="teachingSkewness" class="metric-value">--</div>
+                  <div id="teachingSkewnessSub" class="metric-sub">--</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">Kurtosis (G₂)</div>
+                  <div id="teachingKurtosis" class="metric-value">--</div>
+                  <div id="teachingKurtosisSub" class="metric-sub">--</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">Normality Test</div>
+                  <div id="teachingNormality" class="metric-value" style="font-size: 0.95rem;">--</div>
+                  <div id="teachingNormalitySub" class="metric-sub">JB p = --</div>
+                </div>
+              </div>
+
+              <div class="chart-container" style="margin-bottom: 1rem;">
+                <div class="chart-header">
+                  <span id="teachingChartTitle" class="card-title">Empirical Histogram with Theoretical PDF Overlay</span>
+                  <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="teachingDistCanvas">Save PNG</button>
+                </div>
+                <canvas id="teachingDistCanvas" class="chart-canvas" height="320"></canvas>
+              </div>
+
+              <!-- Educational Concept Callout -->
+              <div id="teachingDistContextCard" style="background: rgba(0, 210, 255, 0.04); border-left: 4px solid var(--cyan-primary); padding: 0.85rem 1.1rem; border-radius: 0 8px 8px 0; font-size: 0.88rem; line-height: 1.55;">
+                <strong id="teachingContextTitle" style="color: var(--cyan-primary); display: block; margin-bottom: 0.25rem;">Clinical &amp; Mathematical Context</strong>
+                <p id="teachingContextBody" style="margin: 0; color: var(--text-main);">--</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Central Limit Theorem (CLT) Interactive Simulation -->
+        <div class="card">
+          <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <h2 class="card-title">Central Limit Theorem (CLT) Interactive Simulation</h2>
+              <p class="card-subtitle">Observe how the distribution of sample averages (x̄) converges to a Gaussian bell curve regardless of parent population shape</p>
+            </div>
+          </div>
+
+          <div style="background: rgba(34, 197, 94, 0.05); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 8px; padding: 0.85rem 1.15rem; margin-bottom: 1.25rem; font-size: 0.88rem; line-height: 1.55; color: var(--text-main);">
+            <strong style="color: #22c55e;">The Core Principle of the Central Limit Theorem:</strong>
+            Even if the raw patient population is strongly non-normal (e.g. uniform, exponential survival curves, or bimodal responder groups),
+            the distribution of sample means <em>x̄</em> drawn from that population will naturally conform to a normal distribution
+            <strong>N(μ, σ²/n)</strong> as the sample size <em>n</em> increases (typically <em>n ≥ 30</em>).
+          </div>
+
+          <!-- CLT Controls Bar -->
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; background: var(--bg-surface-elevated); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-subtle); margin-bottom: 1.25rem;">
+            <div style="flex: 1; min-width: 220px;">
+              <label for="cltPopSelect" class="form-label" style="font-weight: 600; color: var(--text-main); margin-bottom: 0.35rem;">Non-Normal Parent Population:</label>
+              <select id="cltPopSelect" class="form-control" style="font-weight: 600; cursor: pointer;">
+                <option value="uniform" selected>1. Uniform Distribution (Flat / Rectangular)</option>
+                <option value="exponential">2. Exponential Distribution (Heavily Skewed Survival)</option>
+                <option value="bimodal">3. Bimodal Mixture (Two Distinct Peaks)</option>
+                <option value="ushaped">4. U-Shaped Distribution (Anti-Normal Bathtub)</option>
+              </select>
+            </div>
+
+            <div style="flex: 1; min-width: 200px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                <label for="cltNRange" class="form-label" style="margin: 0; font-weight: 600;">Sample Size per Draw (n):</label>
+                <span id="cltNVal" style="font-weight: 700; color: var(--cyan-primary);">30</span>
+              </div>
+              <input id="cltNRange" type="range" min="2" max="100" step="1" value="30" style="width: 100%; cursor: pointer;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
+                <span>n=2 (Skewed)</span>
+                <span style="color: #22c55e; font-weight: 600;">n=30 (Parametric Zone)</span>
+                <span>n=100 (Tight)</span>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
+              <button id="cltStepBtn" class="btn btn-secondary btn-sm" title="Draw a single sample of size n, compute its mean, and drop it into the sampling distribution">▶ Step (Draw 1)</button>
+              <button id="cltDraw100Btn" class="btn btn-secondary btn-sm" title="Simulate 100 sample draws">⚡ Draw 100</button>
+              <button id="cltDraw1000Btn" class="btn btn-primary btn-sm" title="Simulate 1,000 sample draws">🚀 Simulate 1,000</button>
+              <button id="cltResetBtn" class="btn btn-secondary btn-sm" title="Reset all drawn samples">🔄 Reset</button>
+            </div>
+          </div>
+
+          <!-- CLT Metric Cards -->
+          <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 1.25rem;">
+            <div class="metric-card">
+              <div class="metric-label">Simulated Means (k)</div>
+              <div id="cltSamplesCount" class="metric-value">0</div>
+              <div id="cltNSub" class="metric-sub">Each of size n = 30</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">True Pop Mean (μ)</div>
+              <div id="cltTrueMu" class="metric-value">5.00</div>
+              <div id="cltTrueSigmaSub" class="metric-sub">Pop SD: 2.89</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Observed Mean (x̄̄)</div>
+              <div id="cltObsMean" class="metric-value">--</div>
+              <div id="cltMeanDiffSub" class="metric-sub">|Diff|: --</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Theoretical SE</div>
+              <div id="cltTheoSE" class="metric-value">0.527</div>
+              <div class="metric-sub">Formula: σ / √n</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Observed SE (s_x̄)</div>
+              <div id="cltObsSE" class="metric-value">--</div>
+              <div id="cltSEDiffSub" class="metric-sub">Convergence: --</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Normality (x̄)</div>
+              <div id="cltNormality" class="metric-value" style="font-size: 0.95rem;">--</div>
+              <div id="cltNormalitySub" class="metric-sub">JB Test: --</div>
+            </div>
+          </div>
+
+          <!-- Dual Coordinated Charts Grid -->
+          <div class="clt-dual-charts" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem;">
+            <div class="chart-container">
+              <div class="chart-header">
+                <span class="card-title">1. Parent Population Distribution</span>
+                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="teachingCltParentCanvas">Save PNG</button>
+              </div>
+              <canvas id="teachingCltParentCanvas" class="chart-canvas" height="260"></canvas>
+            </div>
+
+            <div class="chart-container">
+              <div class="chart-header">
+                <span class="card-title">2. Sampling Distribution of Mean (x̄)</span>
+                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="teachingCltSamplingCanvas">Save PNG</button>
+              </div>
+              <canvas id="teachingCltSamplingCanvas" class="chart-canvas" height="260"></canvas>
+            </div>
+          </div>
+
+          <!-- Clinical Reporting & Pedagogical Narrative Box -->
+          <div class="report-box">
+            <div class="report-title">
+              <span>Teaching Report: Central Limit Theorem &amp; Clinical Trial Methodology</span>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button id="teachingCopyReportBtn" class="btn btn-secondary btn-sm btn-copy-report" data-report-id="teachingReportText">Copy</button>
+                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="teaching" title="Export full teaching report, outcomes, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+              </div>
+            </div>
+            <p id="teachingReportText" class="report-text">Select a distribution above or run the Central Limit Theorem simulation to generate educational outcomes.</p>
           </div>
         </div>
       </section>
