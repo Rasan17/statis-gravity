@@ -769,6 +769,112 @@ try {
 }
 assert(docxPass, 'DocxReports.createTeachingDocx successfully bundles Section 5 Power Simulation data into valid DOCX package');
 
+// 12. Section 6: Bayesian Statistics & Logic (3Blue1Brown Model) Tests
+console.log('--- Testing Teaching Section 6: Bayesian Statistics & Logic (3Blue1Brown Model) ---');
+
+// 12.1 Steve the Librarian vs Farmer canonical benchmark
+const steve = Teaching.bayesianSimulation.getMetrics({
+  prior: 1 / 21,
+  likelihood: 0.40,
+  falsePositive: 0.10,
+  sampleSize: 210,
+  preset: 'steve'
+});
+
+assert(Math.abs(steve.prior - 0.047619) < 0.001, `Steve prior correctly set to ~4.76% (1/21): got ${(steve.prior * 100).toFixed(2)}%`);
+assert(Math.abs(steve.bayesFactor - 4.0) < 0.001, `Steve Bayes factor (LR) is exactly 4.0× (40% / 10%): got ${steve.bayesFactor.toFixed(2)}×`);
+assert(Math.abs(steve.posterior - (1 / 6)) < 0.005, `Steve posterior P(H|E) is exactly 1/6 (16.7%): got ${(steve.posterior * 100).toFixed(2)}%`);
+assert(steve.countH === 10, `In population N=210, librarians = 10: got ${steve.countH}`);
+assert(steve.countNotH === 200, `In population N=210, farmers = 200: got ${steve.countNotH}`);
+assert(steve.countHAndE === 4, `Librarians fitting description = 4: got ${steve.countHAndE}`);
+assert(steve.countNotHAndE === 20, `Farmers fitting description = 20: got ${steve.countNotHAndE}`);
+assert(steve.countTotalE === 24, `Total fitting description = 24: got ${steve.countTotalE}`);
+assert(Math.abs(steve.priorOdds - 0.05) < 0.001, `Prior odds = 1:20 = 0.05: got ${steve.priorOdds.toFixed(3)}`);
+assert(Math.abs(steve.posteriorOdds - 0.20) < 0.001, `Posterior odds = Prior Odds * BF = 0.05 * 4 = 0.20 (1:5): got ${steve.posteriorOdds.toFixed(3)}`);
+
+// 12.2 Irrelevant Evidence (Equal Likelihoods)
+const neutral = Teaching.bayesianSimulation.getMetrics({
+  prior: 0.25,
+  likelihood: 0.60,
+  falsePositive: 0.60,
+  preset: 'equal'
+});
+assert(Math.abs(neutral.bayesFactor - 1.0) < 0.001, `Equal likelihoods yield Bayes Factor = 1.0: got ${neutral.bayesFactor.toFixed(2)}`);
+assert(Math.abs(neutral.posterior - neutral.prior) < 0.0001, `When evidence is irrelevant (BF=1), Posterior == Prior: got posterior=${neutral.posterior}, prior=${neutral.prior}`);
+
+// 12.3 Rare Disease Screening Paradox
+const disease = Teaching.bayesianSimulation.getMetrics({
+  prior: 0.001, // 0.1% prevalence
+  likelihood: 0.99, // 99% sensitivity
+  falsePositive: 0.05, // 5% false positive rate
+  sampleSize: 1000,
+  preset: 'disease'
+});
+assert(disease.posterior < 0.05, `Rare disease posterior remains low (< 5%) despite 99% test accuracy: got ${(disease.posterior * 100).toFixed(2)}%`);
+assert(disease.bayesFactor > 15, `Bayes factor is substantial: got ${disease.bayesFactor.toFixed(1)}×`);
+
+// 12.4 Sequential Bayesian Updating Trajectory Monotonicity
+assert(steve.trajectory.length === 5, `Sequential trajectory has 5 points (Prior + 4 Evidence steps): got ${steve.trajectory.length}`);
+assert(steve.trajectory[0].p === steve.prior, 'Step 0 of trajectory is Prior');
+for (let i = 1; i < steve.trajectory.length; i++) {
+  assert(steve.trajectory[i].p > steve.trajectory[i - 1].p, `Trajectory increases monotonically under evidence favorable to H: step ${i} (${steve.trajectory[i].p.toFixed(3)}) > step ${i-1} (${steve.trajectory[i-1].p.toFixed(3)})`);
+}
+
+// 12.5 Canvas Rendering of all 4 View Modes
+['square', 'sample', 'odds', 'sequential'].forEach(mode => {
+  let rendered = false;
+  try {
+    Plots.renderBayesianSimulation(mockEngine, { ...steve, viewMode: mode });
+    rendered = true;
+  } catch (err) {
+    console.error(`Bayes render error in mode ${mode}:`, err);
+    rendered = false;
+  }
+  assert(rendered, `Plots.renderBayesianSimulation renders successfully in "${mode}" mode`);
+});
+
+// 12.6 Boundary Edge Cases
+const bayesEdgeCases = [
+  { name: 'Minimal prior', params: { prior: 0.0001, likelihood: 0.5, falsePositive: 0.1 } },
+  { name: 'Maximal prior', params: { prior: 0.9999, likelihood: 0.5, falsePositive: 0.1 } },
+  { name: 'Zero false positives (perfect specificity)', params: { prior: 0.1, likelihood: 0.8, falsePositive: 0.0001 } },
+  { name: '100% false alarm rate', params: { prior: 0.1, likelihood: 0.8, falsePositive: 1.0 } },
+  { name: 'Small population N=10', params: { sampleSize: 10 } },
+  { name: 'Large population N=50000', params: { sampleSize: 50000 } }
+];
+
+bayesEdgeCases.forEach(ec => {
+  const m = Teaching.bayesianSimulation.getMetrics(ec.params);
+  let ok = true;
+  ['square', 'sample', 'odds', 'sequential'].forEach(mode => {
+    try {
+      Plots.renderBayesianSimulation(mockEngine, { ...m, viewMode: mode });
+    } catch {
+      ok = false;
+    }
+  });
+  assert(ok, `Plots.renderBayesianSimulation handles "${ec.name}" across all modes without exceptions`);
+});
+
+// 12.7 Teaching DOCX Export with Bayesian Simulation Data
+let docxBayesPass = false;
+try {
+  const docx = DocxReports.createTeachingDocx({
+    dist: { name: 'Normal Distribution', n: 100, mean: 12, sd: 3, normality: { isNormal: true } },
+    clt: { sampleSize: 30, samplesDrawn: 500, population: { name: 'Uniform' } },
+    tConv: Teaching.tConvergence.getMetrics(16),
+    overlap: Teaching.significanceOverlap.getMetrics(),
+    power: defPwr,
+    bayes: steve
+  });
+  const buf = docx.generateUint8Array();
+  docxBayesPass = buf && buf.length > 30000 && isZip(buf);
+} catch (err) {
+  console.error('Docx with Bayes error:', err);
+  docxBayesPass = false;
+}
+assert(docxBayesPass, 'DocxReports.createTeachingDocx successfully bundles Section 6 Bayesian Simulation data into valid DOCX archive');
+
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);
 

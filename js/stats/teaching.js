@@ -842,6 +842,119 @@ export const Teaching = {
         explanation
       };
     }
+  },
+
+  /**
+   * Section 6: Bayesian Statistics & Logic (3Blue1Brown Model)
+   * The Geometry of Changing Beliefs: Unit square area, representative counts, and odds updating.
+   */
+  bayesianSimulation: {
+    getMetrics({
+      prior = 0.0476,
+      likelihood = 0.40,
+      falsePositive = 0.10,
+      sampleSize = 210,
+      viewMode = 'square',
+      preset = 'steve'
+    } = {}) {
+      const pPrior = Math.max(0.0001, Math.min(0.9999, Number.isFinite(prior) ? prior : 0.0476));
+      const pNotPrior = 1.0 - pPrior;
+      const pLikelihood = Math.max(0.0001, Math.min(1.0, Number.isFinite(likelihood) ? likelihood : 0.40));
+      const pFalsePos = Math.max(0.0001, Math.min(1.0, Number.isFinite(falsePositive) ? falsePositive : 0.10));
+      const nTotal = Math.max(10, Math.min(100000, Math.round(Number.isFinite(sampleSize) ? sampleSize : 210)));
+
+      // Joint probabilities (Areas in 3Blue1Brown Unit Square)
+      const areaHAndE = pPrior * pLikelihood;             // P(H ∩ E) - Green Area
+      const areaNotHAndE = pNotPrior * pFalsePos;         // P(¬H ∩ E) - Amber Area
+      const pEvidence = areaHAndE + areaNotHAndE;          // P(E) - Total Shaded Evidence Area
+      const posterior = pEvidence > 0 ? areaHAndE / pEvidence : pPrior; // P(H|E)
+      const posteriorNotH = 1.0 - posterior;
+
+      // Odds and Bayes Factor
+      const priorOdds = pPrior / pNotPrior;
+      const bayesFactor = pFalsePos > 0 ? pLikelihood / pFalsePos : 999.0;
+      const posteriorOdds = priorOdds * bayesFactor;
+      const beliefShift = posterior - pPrior;
+
+      // Natural frequencies / representative sample counts
+      const countH = Math.round(nTotal * pPrior);
+      const countNotH = nTotal - countH;
+      const countHAndE = Math.round(countH * pLikelihood);
+      const countNotHAndE = Math.round(countNotH * pFalsePos);
+      const countTotalE = countHAndE + countNotHAndE;
+      const countPosterior = countTotalE > 0 ? countHAndE / countTotalE : posterior;
+
+      // Sequential evidence trajectory (up to 4 steps of compounding evidence)
+      const trajectory = [];
+      let currentP = pPrior;
+      trajectory.push({ step: 0, label: 'Prior Belief', p: currentP });
+      for (let s = 1; s <= 4; s++) {
+        const num = currentP * pLikelihood;
+        const den = num + (1.0 - currentP) * pFalsePos;
+        currentP = den > 0 ? num / den : currentP;
+        trajectory.push({ step: s, label: `Evidence #${s}`, p: currentP });
+      }
+
+      // Evidence strength qualitative classification (Jeffreys / Kass & Raftery scale)
+      let evidenceRating = '';
+      if (bayesFactor > 100) evidenceRating = 'Decisive Evidence (BF > 100)';
+      else if (bayesFactor > 30) evidenceRating = 'Very Strong Evidence (30 < BF ≤ 100)';
+      else if (bayesFactor > 10) evidenceRating = 'Strong Evidence (10 < BF ≤ 30)';
+      else if (bayesFactor > 3) evidenceRating = 'Substantial / Moderate (3 < BF ≤ 10)';
+      else if (bayesFactor > 1) evidenceRating = 'Weak / Anecdotal (1 < BF ≤ 3)';
+      else if (Math.abs(bayesFactor - 1.0) < 0.01) evidenceRating = 'Neutral / Irrelevant (BF = 1.0)';
+      else if (bayesFactor > 0.33) evidenceRating = 'Weak Evidence for Alternative';
+      else if (bayesFactor > 0.1) evidenceRating = 'Moderate for Alternative';
+      else evidenceRating = 'Strong for Alternative (BF < 0.1)';
+
+      // Pedagogical explanation narrative
+      let explanation = '';
+      if (preset === 'steve' || Math.abs(pPrior - 0.0476) < 0.01) {
+        explanation = `As Grant Sanderson (3Blue1Brown) demonstrates, while Steve's description sounds 4× more characteristic of a librarian ` +
+          `(${(pLikelihood * 100).toFixed(0)}% vs ${(pFalsePos * 100).toFixed(0)}%), ` +
+          `the prior ratio of farmers to librarians is 20 to 1 (P(H) = ${(pPrior * 100).toFixed(1)}%). ` +
+          `In a representative sample of N = ${nTotal} individuals, there are ${countH} librarians and ${countNotH} farmers. ` +
+          `Only ${countHAndE} librarians fit the description, while ${countNotHAndE} farmers fit the description! ` +
+          `Restricting our universe to only those who fit the description leaves ${countTotalE} people. ` +
+          `Therefore, the probability that Steve is a librarian is ${countHAndE} / ${countTotalE} = ${(posterior * 100).toFixed(1)}% ` +
+          `— meaning Steve is still 5× more likely to be a farmer (${(posteriorNotH * 100).toFixed(1)}%) despite sounding like a librarian!`;
+      } else {
+        explanation = `Bayes' Theorem updates prior belief P(H) = ${(pPrior * 100).toFixed(1)}% in light of new evidence with ` +
+          `likelihood P(E|H) = ${(pLikelihood * 100).toFixed(1)}% and false alarm rate P(E|¬H) = ${(pFalsePos * 100).toFixed(1)}%. ` +
+          `The evidence provides a Bayes Factor of ${bayesFactor.toFixed(2)}×. ` +
+          `The evidence restricts the possibility space to total area P(E) = ${(pEvidence * 100).toFixed(2)}%. ` +
+          `Within this restricted subspace, the hypothesis occupies ${(posterior * 100).toFixed(1)}% (posterior probability), ` +
+          `representing a belief shift of ${(beliefShift >= 0 ? '+' : '')}${(beliefShift * 100).toFixed(1)} percentage points.`;
+      }
+
+      return {
+        prior: pPrior,
+        notPrior: pNotPrior,
+        likelihood: pLikelihood,
+        falsePositive: pFalsePos,
+        sampleSize: nTotal,
+        areaHAndE,
+        areaNotHAndE,
+        pEvidence,
+        posterior,
+        posteriorNotH,
+        priorOdds,
+        bayesFactor,
+        posteriorOdds,
+        beliefShift,
+        countH,
+        countNotH,
+        countHAndE,
+        countNotHAndE,
+        countTotalE,
+        countPosterior,
+        trajectory,
+        evidenceRating,
+        explanation,
+        viewMode,
+        preset
+      };
+    }
   }
 };
 

@@ -2209,6 +2209,119 @@
           explanation
         };
       }
+    },
+
+    /**
+     * Section 6: Bayesian Statistics & Logic (3Blue1Brown Model)
+     * The Geometry of Changing Beliefs: Unit square area, representative counts, and odds updating.
+     */
+    bayesianSimulation: {
+      getMetrics({
+        prior = 0.0476,
+        likelihood = 0.40,
+        falsePositive = 0.10,
+        sampleSize = 210,
+        viewMode = 'square',
+        preset = 'steve'
+      } = {}) {
+        const pPrior = Math.max(0.0001, Math.min(0.9999, Number.isFinite(prior) ? prior : 0.0476));
+        const pNotPrior = 1.0 - pPrior;
+        const pLikelihood = Math.max(0.0001, Math.min(1.0, Number.isFinite(likelihood) ? likelihood : 0.40));
+        const pFalsePos = Math.max(0.0001, Math.min(1.0, Number.isFinite(falsePositive) ? falsePositive : 0.10));
+        const nTotal = Math.max(10, Math.min(100000, Math.round(Number.isFinite(sampleSize) ? sampleSize : 210)));
+
+        // Joint probabilities (Areas in 3Blue1Brown Unit Square)
+        const areaHAndE = pPrior * pLikelihood;             // P(H ∩ E) - Green Area
+        const areaNotHAndE = pNotPrior * pFalsePos;         // P(¬H ∩ E) - Amber Area
+        const pEvidence = areaHAndE + areaNotHAndE;          // P(E) - Total Shaded Evidence Area
+        const posterior = pEvidence > 0 ? areaHAndE / pEvidence : pPrior; // P(H|E)
+        const posteriorNotH = 1.0 - posterior;
+
+        // Odds and Bayes Factor
+        const priorOdds = pPrior / pNotPrior;
+        const bayesFactor = pFalsePos > 0 ? pLikelihood / pFalsePos : 999.0;
+        const posteriorOdds = priorOdds * bayesFactor;
+        const beliefShift = posterior - pPrior;
+
+        // Natural frequencies / representative sample counts
+        const countH = Math.round(nTotal * pPrior);
+        const countNotH = nTotal - countH;
+        const countHAndE = Math.round(countH * pLikelihood);
+        const countNotHAndE = Math.round(countNotH * pFalsePos);
+        const countTotalE = countHAndE + countNotHAndE;
+        const countPosterior = countTotalE > 0 ? countHAndE / countTotalE : posterior;
+
+        // Sequential evidence trajectory (up to 4 steps of compounding evidence)
+        const trajectory = [];
+        let currentP = pPrior;
+        trajectory.push({ step: 0, label: 'Prior Belief', p: currentP });
+        for (let s = 1; s <= 4; s++) {
+          const num = currentP * pLikelihood;
+          const den = num + (1.0 - currentP) * pFalsePos;
+          currentP = den > 0 ? num / den : currentP;
+          trajectory.push({ step: s, label: `Evidence #${s}`, p: currentP });
+        }
+
+        // Evidence strength qualitative classification (Jeffreys / Kass & Raftery scale)
+        let evidenceRating = '';
+        if (bayesFactor > 100) evidenceRating = 'Decisive Evidence (BF > 100)';
+        else if (bayesFactor > 30) evidenceRating = 'Very Strong Evidence (30 < BF ≤ 100)';
+        else if (bayesFactor > 10) evidenceRating = 'Strong Evidence (10 < BF ≤ 30)';
+        else if (bayesFactor > 3) evidenceRating = 'Substantial / Moderate (3 < BF ≤ 10)';
+        else if (bayesFactor > 1) evidenceRating = 'Weak / Anecdotal (1 < BF ≤ 3)';
+        else if (Math.abs(bayesFactor - 1.0) < 0.01) evidenceRating = 'Neutral / Irrelevant (BF = 1.0)';
+        else if (bayesFactor > 0.33) evidenceRating = 'Weak Evidence for Alternative';
+        else if (bayesFactor > 0.1) evidenceRating = 'Moderate for Alternative';
+        else evidenceRating = 'Strong for Alternative (BF < 0.1)';
+
+        // Pedagogical explanation narrative
+        let explanation = '';
+        if (preset === 'steve' || Math.abs(pPrior - 0.0476) < 0.01) {
+          explanation = `As Grant Sanderson (3Blue1Brown) demonstrates, while Steve's description sounds 4× more characteristic of a librarian ` +
+            `(${(pLikelihood * 100).toFixed(0)}% vs ${(pFalsePos * 100).toFixed(0)}%), ` +
+            `the prior ratio of farmers to librarians is 20 to 1 (P(H) = ${(pPrior * 100).toFixed(1)}%). ` +
+            `In a representative sample of N = ${nTotal} individuals, there are ${countH} librarians and ${countNotH} farmers. ` +
+            `Only ${countHAndE} librarians fit the description, while ${countNotHAndE} farmers fit the description! ` +
+            `Restricting our universe to only those who fit the description leaves ${countTotalE} people. ` +
+            `Therefore, the probability that Steve is a librarian is ${countHAndE} / ${countTotalE} = ${(posterior * 100).toFixed(1)}% ` +
+            `— meaning Steve is still 5× more likely to be a farmer (${(posteriorNotH * 100).toFixed(1)}%) despite sounding like a librarian!`;
+        } else {
+          explanation = `Bayes' Theorem updates prior belief P(H) = ${(pPrior * 100).toFixed(1)}% in light of new evidence with ` +
+            `likelihood P(E|H) = ${(pLikelihood * 100).toFixed(1)}% and false alarm rate P(E|¬H) = ${(pFalsePos * 100).toFixed(1)}%. ` +
+            `The evidence provides a Bayes Factor of ${bayesFactor.toFixed(2)}×. ` +
+            `The evidence restricts the possibility space to total area P(E) = ${(pEvidence * 100).toFixed(2)}%. ` +
+            `Within this restricted subspace, the hypothesis occupies ${(posterior * 100).toFixed(1)}% (posterior probability), ` +
+            `representing a belief shift of ${(beliefShift >= 0 ? '+' : '')}${(beliefShift * 100).toFixed(1)} percentage points.`;
+        }
+
+        return {
+          prior: pPrior,
+          notPrior: pNotPrior,
+          likelihood: pLikelihood,
+          falsePositive: pFalsePos,
+          sampleSize: nTotal,
+          areaHAndE,
+          areaNotHAndE,
+          pEvidence,
+          posterior,
+          posteriorNotH,
+          priorOdds,
+          bayesFactor,
+          posteriorOdds,
+          beliefShift,
+          countH,
+          countNotH,
+          countHAndE,
+          countNotHAndE,
+          countTotalE,
+          countPosterior,
+          trajectory,
+          evidenceRating,
+          explanation,
+          viewMode,
+          preset
+        };
+      }
     }
   };
 
@@ -3097,6 +3210,9 @@ const DocxReports = {
     if (data.overlap) {
       d.addParagraph(`Two-Sample Overlap Simulation: Mean Difference Δ = ${data.overlap.delta.toFixed(2)}, Group 1 (SD₁ = ${data.overlap.sd1.toFixed(2)}, SEM₁ = ${data.overlap.sem1.toFixed(3)}, n₁ = ${data.overlap.n1}), Group 2 (SD₂ = ${data.overlap.sd2.toFixed(2)}, SEM₂ = ${data.overlap.sem2.toFixed(3)}, n₂ = ${data.overlap.n2}), Significance Level α = ${data.overlap.alpha.toFixed(3)}`);
     }
+    if (data.bayes) {
+      d.addParagraph(`Bayesian Statistics & Logic (3Blue1Brown Model): Prior P(H) = ${(data.bayes.prior * 100).toFixed(1)}%, Likelihood P(E|H) = ${(data.bayes.likelihood * 100).toFixed(1)}%, False Positive Rate P(E|¬H) = ${(data.bayes.falsePositive * 100).toFixed(1)}%, Population Sample N = ${data.bayes.sampleSize}`);
+    }
 
     d.addHeading1('2. Statistical Outcome & Empirical Convergence Metrics');
     d.addHeading2('Computer-Generated Distribution Metrics');
@@ -3177,10 +3293,27 @@ const DocxReports = {
       );
     }
 
+    if (data.bayes) {
+      d.addHeading2('Bayesian Statistics & Logic (3Blue1Brown Model) Simulation Results');
+      d.addTable(
+        ['Bayesian Parameter', 'Simulated Value', 'Epistemological & Clinical Meaning'],
+        [
+          ['Prior Probability P(H)', `${(data.bayes.prior * 100).toFixed(1)}% (Odds 1:${(1 / data.bayes.priorOdds).toFixed(1)})`, 'Initial degree of belief before observing evidence (Base rate)'],
+          ['Likelihood P(E|H)', `${(data.bayes.likelihood * 100).toFixed(1)}%`, 'True Positive Rate: Probability of evidence given hypothesis H is true'],
+          ['False Positive Rate P(E|¬H)', `${(data.bayes.falsePositive * 100).toFixed(1)}%`, 'False Alarm Rate: Probability of evidence given hypothesis H is false'],
+          ['Total Evidence P(E)', `${(data.bayes.pEvidence * 100).toFixed(2)}%`, 'Marginal likelihood: Total shaded area of possibilities matching evidence'],
+          ['Bayes Factor (Likelihood Ratio)', `${data.bayes.bayesFactor.toFixed(2)}×`, `${data.bayes.evidenceRating} (P(E|H) / P(E|¬H))`],
+          ['Posterior Probability P(H|E)', `${(data.bayes.posterior * 100).toFixed(1)}% (Odds 1:${(1 / data.bayes.posteriorOdds).toFixed(1)})`, `Updated degree of belief after conditioning on evidence (Shift: ${(data.bayes.beliefShift >= 0 ? '+' : '')}${(data.bayes.beliefShift * 100).toFixed(1)}%)`],
+          ['Representative Counts (N)', `H: ${data.bayes.countHAndE} of ${data.bayes.countH} | ¬H: ${data.bayes.countNotHAndE} of ${data.bayes.countNotH}`, `Natural frequencies in population of N=${data.bayes.sampleSize}: ${data.bayes.countHAndE} / ${data.bayes.countTotalE} = ${(data.bayes.posterior * 100).toFixed(1)}%`],
+          ['Sequential Updating (4 Steps)', `P₀: ${(data.bayes.prior * 100).toFixed(1)}% → P₁: ${(data.bayes.trajectory[1].p * 100).toFixed(1)}% → P₄: ${(data.bayes.trajectory[4].p * 100).toFixed(1)}%`, 'Compounding belief trajectory across successive independent observations']
+        ]
+      );
+    }
+
     d.addHeading1('3. Clinical & Statistical Interpretation');
     d.addCalloutBox(
       'Pedagogical Synthesis & Clinical Trial Relevance',
-      data.reportText || 'The Central Limit Theorem, Student\'s t convergence, Two-Sample Overlap, and Statistical Power simulations demonstrate the mathematical foundations of parametric testing, the definition of alpha, and sample size determination in clinical trials.',
+      data.reportText || 'The Central Limit Theorem, Student\'s t convergence, Two-Sample Overlap, Statistical Power, and Bayesian updating simulations demonstrate the mathematical foundations of parametric testing, the definition of alpha, and Bayesian logic in scientific research.',
       'F0FDF4',
       '16A34A'
     );
@@ -3194,6 +3327,8 @@ const DocxReports = {
     d.addBullet('Consequences of Modifying Alpha (α): Relaxing α to 0.10 moves the critical cutoff inward to z = 1.645, lowering the required separation Δcrit and declaring significance on smaller differences or smaller sample sizes, at the expense of doubling the false-positive risk to 10%. Tightening α to 0.01 (z = 2.576) or 0.001 (z = 3.291), as required in confirmatory registration trials or genome-wide studies, shifts the cutoff outward into the extreme tails, demanding either much larger effect sizes or substantially expanded sample sizes before significance can be claimed.');
     d.addBullet('Statistical Power (1 − β) as the Scientific Safeguard Against False Negatives: While alpha (α = 0.05) strictly caps the risk of a false positive, statistical power (1 − β) measures the study\'s ability to identify a genuine therapeutic effect. An underpowered trial (e.g. 50% power) is ethically and scientifically problematic because patients undergo experimental risk when the study has only a coin-toss probability of reaching definitive conclusions.');
     d.addBullet('The Interplay of SD, SEM, Beta, and Power: The non-centrality parameter λ = Δ / (SD · √(2/n)) controls the separation between null and alternative distributions. Because SEM = SD / √n, doubling the sample size shrinks SEM by 1.414, drawing the distributions apart and collapsing the Type II error region β.');
+    d.addBullet('The 3Blue1Brown Geometric Insight into Bayes\' Theorem: Rather than memorizing abstract formulas, Bayes\' theorem is intuitively understood as proportions of area within a 1×1 unit square of all possibilities. Observing evidence restricts our sample space to only the shaded regions where the evidence occurs; the posterior probability is simply the fraction of that restricted space corresponding to the hypothesis of interest.');
+    d.addBullet('Base Rate Neglect and Natural Frequency Framing: In Steve the Librarian problem, people intuitively fixate on the 4:1 likelihood ratio (40% vs 10%) and forget the 20:1 base rate ratio of farmers to librarians. Translating abstract probabilities into natural frequencies (e.g. 4 librarians vs 20 farmers in a village of 210 people) eliminates cognitive bias and reveals why Steve is still 5× more likely to be a farmer.');
 
     d.addHeading1('5. Background Statistical Knowledge & Medical Research Context');
     d.addParagraph('Mathematical Formulations:');
@@ -3204,7 +3339,12 @@ const DocxReports = {
     d.addBullet('Critical Significance Boundary: Δcrit = t_crit(α, df) · SD · √(2/n).');
     d.addBullet('Two-Sample Power Formulation: 1 - β = Φ(Δ / (σ · √(2/n)) - z_{1 - α/2}).');
     d.addBullet('Required Sample Size Equation: n = 2 · (z_{1 - α/2} + z_{1 - β})² · σ² / Δ².');
+    d.addBullet('Bayes\' Theorem in Area Form: P(H|E) = P(H ∩ E) / P(E) = [P(H) · P(E|H)] / [P(H) · P(E|H) + P(¬H) · P(E|¬H)].');
+    d.addBullet('Odds Form of Bayes\' Rule: Posterior Odds = Prior Odds × Bayes Factor (Likelihood Ratio).');
     d.addParagraph('Key Academic References:');
+    d.addBullet('Sanderson G (2019). Bayes theorem, the geometry of changing beliefs. 3Blue1Brown, YouTube.');
+    d.addBullet('Kahneman D, Tversky A (1973). On the psychology of prediction. Psychological Review, 80(4): 237–251.');
+    d.addBullet('Gigerenzer G, Hoffrage U (1995). How to improve Bayesian reasoning without instruction: Frequency formats. Psychological Review, 102(4): 684–704.');
     d.addBullet('Cohen J (1988). Statistical Power Analysis for the Behavioral Sciences. 2nd ed. Hillsdale, NJ: Lawrence Erlbaum Associates.');
     d.addBullet('Moher D, Hopewell S, Schulz KF, et al. (2010). CONSORT 2010 explanation and elaboration: updated guidelines for reporting parallel group randomised trials. BMJ, 340: c869.');
     d.addBullet('Altman DG, Bland JM (1995). Absence of evidence is not evidence of absence. BMJ, 311(7003): 485.');
@@ -5911,6 +6051,630 @@ const DocxReports = {
       ctx.fillText(`— Alternative Distribution H₁: Δ ~ N(${safeDelta.toFixed(2)}, SE²diff), n = ${n} per group (N = ${totalN})`, b.x + 12, b.y + 36);
       ctx.fillStyle = '#10b981';
       ctx.fillText(`░ Green Shaded Area: Power (1 − β) = ${(power * 100).toFixed(1)}% | ░ Amber Area: β = ${(beta * 100).toFixed(1)}%`, b.x + 12, b.y + 52);
+    },
+
+    /**
+     * Section 6: Bayesian Statistics & Logic (3Blue1Brown Model)
+     * Visualizing Bayes' Theorem via the 1x1 Unit Square, Natural Frequencies, and Odds Updating.
+     */
+    renderBayesianSimulation(engine, metrics, options = {}) {
+      engine.lastRender = () => this.renderBayesianSimulation(engine, metrics, options);
+      engine.lastRenderFn = engine.lastRender;
+      if (engine.canvas && typeof engine.initHiDPI === 'function') {
+        const rect = engine.canvas.getBoundingClientRect();
+        if (rect.width > 50 && (engine.width <= 100 || Math.abs(engine.width - rect.width) > 30)) {
+          engine.initHiDPI();
+        }
+      }
+      engine.clear();
+      const b = engine.getPlotBounds ? engine.getPlotBounds() : engine.getBounds();
+      const ctx = engine.ctx;
+      const pal = engine.palette || {};
+      const font = engine.options?.fontFamily || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      const textMuted = pal.textMuted || pal.text || '#94a3b8';
+
+      const {
+        prior = 0.0476,
+        notPrior = 0.9524,
+        likelihood = 0.40,
+        falsePositive = 0.10,
+        sampleSize = 210,
+        areaHAndE = 0.01905,
+        areaNotHAndE = 0.09524,
+        pEvidence = 0.11429,
+        posterior = 0.1667,
+        posteriorNotH = 0.8333,
+        priorOdds = 0.05,
+        bayesFactor = 4.0,
+        posteriorOdds = 0.20,
+        beliefShift = 0.119,
+        countH = 10,
+        countNotH = 200,
+        countHAndE = 4,
+        countNotHAndE = 20,
+        countTotalE = 24,
+        trajectory = [],
+        evidenceRating = 'Substantial / Moderate',
+        viewMode = 'square',
+        preset = 'steve'
+      } = metrics || {};
+
+      // -------------------------------------------------------------
+      // VIEW MODE 1: 3BLUE1BROWN 1x1 UNIT SQUARE (GEOMETRY OF BAYES)
+      // -------------------------------------------------------------
+      if (viewMode === 'square') {
+        const sqMarginTop = 32;
+        const sqMarginBottom = 48;
+        const sqMarginLeft = 24;
+        const availableH = b.height - sqMarginTop - sqMarginBottom;
+        const sqSize = Math.max(160, Math.min(availableH, b.width * 0.54));
+
+        const sqX = b.x + sqMarginLeft;
+        const sqY = b.y + sqMarginTop;
+
+        // Draw Main 1x1 Possibility Space Square
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(sqX, sqY, sqSize, sqSize, [4]);
+        else ctx.rect(sqX, sqY, sqSize, sqSize);
+        ctx.fill();
+        ctx.stroke();
+
+        // Horizontal division coordinate for Prior P(H) vs P(~H)
+        const splitX = sqX + sqSize * prior;
+        const colWidthH = splitX - sqX;
+        const colWidthNotH = sqX + sqSize - splitX;
+
+        // Vertical heights for Evidence Shading
+        const hShadeH = sqSize * likelihood;
+        const hShadeNotH = sqSize * falsePositive;
+
+        const yTopShadeH = sqY + sqSize - hShadeH;
+        const yTopShadeNotH = sqY + sqSize - hShadeNotH;
+
+        // 1. Shaded Region: P(H and E) = P(H) * P(E|H) (Emerald Green)
+        if (colWidthH > 1 && hShadeH > 1) {
+          let fillGreen = 'rgba(16, 185, 129, 0.50)';
+          try {
+            if (typeof ctx.createLinearGradient === 'function') {
+              const gradGreen = ctx.createLinearGradient(sqX, yTopShadeH, sqX, sqY + sqSize);
+              if (gradGreen && typeof gradGreen.addColorStop === 'function') {
+                gradGreen.addColorStop(0, 'rgba(16, 185, 129, 0.65)');
+                gradGreen.addColorStop(1, 'rgba(16, 185, 129, 0.35)');
+                fillGreen = gradGreen;
+              }
+            }
+          } catch { /* fallback */ }
+          ctx.fillStyle = fillGreen;
+          ctx.fillRect(sqX, yTopShadeH, colWidthH, hShadeH);
+
+          ctx.strokeStyle = '#10b981';
+          ctx.lineWidth = 2.0;
+          ctx.strokeRect(sqX, yTopShadeH, colWidthH, hShadeH);
+        }
+
+        // 2. Shaded Region: P(~H and E) = P(~H) * P(E|~H) (Amber/Orange)
+        if (colWidthNotH > 1 && hShadeNotH > 1) {
+          let fillAmber = 'rgba(245, 158, 11, 0.50)';
+          try {
+            if (typeof ctx.createLinearGradient === 'function') {
+              const gradAmber = ctx.createLinearGradient(splitX, yTopShadeNotH, splitX, sqY + sqSize);
+              if (gradAmber && typeof gradAmber.addColorStop === 'function') {
+                gradAmber.addColorStop(0, 'rgba(245, 158, 11, 0.65)');
+                gradAmber.addColorStop(1, 'rgba(245, 158, 11, 0.35)');
+                fillAmber = gradAmber;
+              }
+            }
+          } catch { /* fallback */ }
+          ctx.fillStyle = fillAmber;
+          ctx.fillRect(splitX, yTopShadeNotH, colWidthNotH, hShadeNotH);
+
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 2.0;
+          ctx.strokeRect(splitX, yTopShadeNotH, colWidthNotH, hShadeNotH);
+        }
+
+        // 3. Vertical Dividing Line between H and ~H
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.lineWidth = 1.8;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(splitX, sqY);
+        ctx.lineTo(splitX, sqY + sqSize);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Top Dimension Labels: Prior Hypotheses
+        ctx.font = `600 11px ${font}`;
+        ctx.textAlign = 'center';
+
+        // Left Column Header: P(H)
+        ctx.fillStyle = '#10b981';
+        const labelHX = sqX + colWidthH / 2;
+        ctx.fillText(`P(H) = ${(prior * 100).toFixed(1)}%`, labelHX, sqY - 14);
+        ctx.font = `400 9.5px ${font}`;
+        ctx.fillStyle = textMuted;
+        ctx.fillText(preset === 'steve' ? 'Librarians' : 'Hypothesis H', labelHX, sqY - 3);
+
+        // Right Column Header: P(~H)
+        ctx.font = `600 11px ${font}`;
+        ctx.fillStyle = '#f59e0b';
+        const labelNotHX = splitX + colWidthNotH / 2;
+        ctx.fillText(`P(¬H) = ${(notPrior * 100).toFixed(1)}%`, labelNotHX, sqY - 14);
+        ctx.font = `400 9.5px ${font}`;
+        ctx.fillStyle = textMuted;
+        ctx.fillText(preset === 'steve' ? 'Farmers (20× more)' : 'Alternative ¬H', labelNotHX, sqY - 3);
+
+        // Height Labels for Likelihoods
+        // P(E|H) on left edge
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#10b981';
+        ctx.font = `600 10.5px ${font}`;
+        ctx.fillText(`P(E|H) = ${(likelihood * 100).toFixed(0)}%`, sqX - 8, yTopShadeH + hShadeH / 2 + 4);
+
+        // P(E|~H) on right edge
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText(`P(E|¬H) = ${(falsePositive * 100).toFixed(0)}%`, sqX + sqSize + 8, yTopShadeNotH + hShadeNotH / 2 + 4);
+
+        // Unshaded Region Labels: Ruled Out by Evidence
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
+        ctx.font = `italic 10px ${font}`;
+        ctx.textAlign = 'center';
+        if (sqSize - hShadeNotH > 35) {
+          ctx.fillText('Ruled out by Evidence ¬E (Dimmed space)', splitX + colWidthNotH / 2, sqY + (sqSize - hShadeNotH) / 2);
+        }
+
+        // Bottom Area Value Labels
+        ctx.font = `700 10.5px ${font}`;
+        if (colWidthH > 40) {
+          ctx.fillStyle = '#10b981';
+          ctx.textAlign = 'center';
+          ctx.fillText(`Area: ${(areaHAndE * 100).toFixed(1)}%`, labelHX, sqY + sqSize + 16);
+        }
+        ctx.fillStyle = '#f59e0b';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Area: ${(areaNotHAndE * 100).toFixed(1)}%`, labelNotHX, sqY + sqSize + 16);
+
+        // -------------------------------------------------------------
+        // RIGHT SIDE: RESTRICTED SPACE PROPORTION CALLOUT (BAYES RULE)
+        // -------------------------------------------------------------
+        const rightX = sqX + sqSize + (b.width > 680 ? 90 : 40);
+        const rightW = b.x + b.width - rightX - 10;
+        const rightY = sqY - 10;
+
+        if (rightW > 180) {
+          // Card Box
+          ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          if (ctx.roundRect) ctx.roundRect(rightX, rightY, rightW, sqSize + 48, [8]);
+          else ctx.rect(rightX, rightY, rightW, sqSize + 48);
+          ctx.fill();
+          ctx.stroke();
+
+          // Card Header
+          ctx.textAlign = 'left';
+          ctx.font = `700 12px ${font}`;
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillText('RESTRICTED POSSIBILITY SPACE P(E)', rightX + 16, rightY + 22);
+
+          ctx.font = `400 9.5px ${font}`;
+          ctx.fillStyle = textMuted;
+          ctx.fillText('The evidence discards all unshaded space.', rightX + 16, rightY + 36);
+
+          // Total Evidence Area P(E)
+          ctx.font = `700 11px ${font}`;
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillText(`Total Evidence Area = ${(pEvidence * 100).toFixed(2)}%`, rightX + 16, rightY + 58);
+
+          // Visual Proportion Bar
+          const barX = rightX + 16;
+          const barY = rightY + 68;
+          const barW = rightW - 32;
+          const barH = 22;
+
+          const pwrW = barW * Math.max(0, Math.min(1.0, posterior));
+          const remW = barW - pwrW;
+
+          // Green segment: Posterior P(H|E)
+          ctx.fillStyle = '#10b981';
+          ctx.fillRect(barX, barY, pwrW, barH);
+          // Amber segment: P(~H|E)
+          ctx.fillStyle = '#f59e0b';
+          ctx.fillRect(barX + pwrW, barY, remW, barH);
+
+          // Bar border
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.0;
+          ctx.strokeRect(barX, barY, barW, barH);
+
+          // Labels inside or above bar
+          ctx.font = `700 10px ${font}`;
+          if (pwrW > 35) {
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${(posterior * 100).toFixed(1)}%`, barX + pwrW / 2, barY + 15);
+          }
+          if (remW > 45) {
+            ctx.fillStyle = '#0f172a';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${(posteriorNotH * 100).toFixed(1)}%`, barX + pwrW + remW / 2, barY + 15);
+          }
+
+          // Legend under bar
+          ctx.textAlign = 'left';
+          ctx.font = `600 10px ${font}`;
+          ctx.fillStyle = '#10b981';
+          ctx.fillText(`■ P(H|E): ${(posterior * 100).toFixed(1)}%`, barX, barY + 36);
+          ctx.fillStyle = '#f59e0b';
+          ctx.fillText(`■ P(¬H|E): ${(posteriorNotH * 100).toFixed(1)}%`, barX + barW / 2, barY + 36);
+
+          // 3Blue1Brown Equation Breakdown
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+          ctx.fillRect(barX, barY + 46, barW, 64);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+          ctx.strokeRect(barX, barY + 46, barW, 64);
+
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = `600 9.5px ${font}`;
+          ctx.fillText('BAYES\' PROPORTION RULE:', barX + 8, barY + 60);
+
+          ctx.font = `700 11px monospace`;
+          ctx.fillStyle = '#00d2ff';
+          ctx.fillText('P(H|E) = Green Area / Total Shaded Area', barX + 8, barY + 76);
+
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = `600 10.5px monospace`;
+          ctx.fillText(`= ${(areaHAndE * 100).toFixed(2)}% / ${(pEvidence * 100).toFixed(2)}% = ${(posterior * 100).toFixed(1)}%`, barX + 8, barY + 95);
+
+          // Bottom takeaway callout
+          ctx.fillStyle = beliefShift >= 0 ? '#10b981' : '#ef4444';
+          ctx.font = `700 11px ${font}`;
+          ctx.fillText(
+            `Belief Shift: ${(beliefShift >= 0 ? '+' : '')}${(beliefShift * 100).toFixed(1)}% | Prior Odds ${priorOdds < 0.1 ? '1:' + (1/priorOdds).toFixed(1) : priorOdds.toFixed(2)} → ${posteriorOdds < 0.1 ? '1:' + (1/posteriorOdds).toFixed(1) : posteriorOdds.toFixed(2)}`,
+            barX,
+            barY + 124
+          );
+        }
+        return;
+      }
+
+      // -------------------------------------------------------------
+      // VIEW MODE 2: REPRESENTATIVE SAMPLE & NATURAL FREQUENCIES
+      // -------------------------------------------------------------
+      if (viewMode === 'sample') {
+        const topY = b.y + 20;
+
+        // Header Banner
+        ctx.textAlign = 'left';
+        ctx.font = `700 13px ${font}`;
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText(`Thinking With Counts: Representative Cohort of N = ${sampleSize} Individuals`, b.x + 16, topY);
+
+        ctx.font = `400 10px ${font}`;
+        ctx.fillStyle = textMuted;
+        ctx.fillText('Daniel Kahneman & Amos Tversky discovered that cognitive errors drop from 85% to 0% when framed as natural counts.', b.x + 16, topY + 16);
+
+        // Two Cohort Cards: Hypothesis H vs Alternative ~H
+        const cardY = topY + 30;
+        const cardW = (b.width - 48) / 2;
+        const cardH = 145;
+
+        // Left Card: Hypothesis H (e.g. Librarians)
+        const card1X = b.x + 16;
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(card1X, cardY, cardW, cardH, [8]);
+        else ctx.rect(card1X, cardY, cardW, cardH);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#10b981';
+        ctx.font = `700 12px ${font}`;
+        ctx.fillText(preset === 'steve' ? 'LIBRARIANS (Hypothesis H)' : 'HYPOTHESIS H POPULATION', card1X + 16, cardY + 24);
+
+        ctx.font = `800 24px ${font}`;
+        ctx.fillText(`${countH} people`, card1X + 16, cardY + 54);
+
+        ctx.font = `500 10px ${font}`;
+        ctx.fillStyle = textMuted;
+        ctx.fillText(`Total in population: ${(prior * 100).toFixed(1)}% of N = ${sampleSize}`, card1X + 16, cardY + 70);
+
+        // Matching Evidence Subsection
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.2)';
+        ctx.fillRect(card1X + 16, cardY + 80, cardW - 32, 45);
+        ctx.fillStyle = '#10b981';
+        ctx.font = `700 14px ${font}`;
+        ctx.fillText(`✓ ${countHAndE} Fit Description / Test Positive`, card1X + 26, cardY + 102);
+        ctx.font = `500 9.5px ${font}`;
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillText(`${(likelihood * 100).toFixed(0)}% likelihood of evidence given H (${countH} × ${(likelihood * 100).toFixed(0)}% = ${countHAndE})`, card1X + 26, cardY + 117);
+
+        // Right Card: Alternative ~H (e.g. Farmers)
+        const card2X = card1X + cardW + 16;
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.08)';
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(card2X, cardY, cardW, cardH, [8]);
+        else ctx.rect(card2X, cardY, cardW, cardH);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = `700 12px ${font}`;
+        ctx.fillText(preset === 'steve' ? 'FARMERS (Alternative ¬H)' : 'ALTERNATIVE ¬H POPULATION', card2X + 16, cardY + 24);
+
+        ctx.font = `800 24px ${font}`;
+        ctx.fillText(`${countNotH} people`, card2X + 16, cardY + 54);
+
+        ctx.font = `500 10px ${font}`;
+        ctx.fillStyle = textMuted;
+        ctx.fillText(`Total in population: ${(notPrior * 100).toFixed(1)}% of N = ${sampleSize}`, card2X + 16, cardY + 70);
+
+        // Matching Evidence Subsection
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
+        ctx.fillRect(card2X + 16, cardY + 80, cardW - 32, 45);
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = `700 14px ${font}`;
+        ctx.fillText(`⚠ ${countNotHAndE} Fit Description / False Alarms`, card2X + 26, cardY + 102);
+        ctx.font = `500 9.5px ${font}`;
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillText(`${(falsePositive * 100).toFixed(0)}% false alarm rate given ¬H (${countNotH} × ${(falsePositive * 100).toFixed(0)}% = ${countNotHAndE})`, card2X + 26, cardY + 117);
+
+        // Combined Outcome Summary Box
+        const summY = cardY + cardH + 16;
+        const summW = b.width - 32;
+        const summH = 75;
+
+        ctx.fillStyle = 'rgba(30, 41, 59, 0.85)';
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(b.x + 16, summY, summW, summH, [8]);
+        else ctx.rect(b.x + 16, summY, summW, summH);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#a855f7';
+        ctx.font = `700 12px ${font}`;
+        ctx.fillText('NATURAL FREQUENCY RATIO CALCULATION:', b.x + 32, summY + 22);
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = `500 11px ${font}`;
+        ctx.fillText(
+          `Total individuals who fit the description = ${countHAndE} (from H) + ${countNotHAndE} (from ¬H) = ${countTotalE} people out of ${sampleSize}.`,
+          b.x + 32,
+          summY + 40
+        );
+
+        ctx.fillStyle = '#00d2ff';
+        ctx.font = `800 13px monospace`;
+        ctx.fillText(
+          `Posterior Probability P(H|E) = ${countHAndE} / ${countTotalE} = ${(posterior * 100).toFixed(1)}% (Alternative is ${(posteriorNotH * 100).toFixed(1)}%)`,
+          b.x + 32,
+          summY + 60
+        );
+        return;
+      }
+
+      // -------------------------------------------------------------
+      // VIEW MODE 3: ODDS FORM & BAYES FACTOR SCALE
+      // -------------------------------------------------------------
+      if (viewMode === 'odds') {
+        const topY = b.y + 20;
+
+        ctx.textAlign = 'left';
+        ctx.font = `700 13px ${font}`;
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText('Bayes\' Theorem in Odds Form: Prior Odds × Bayes Factor = Posterior Odds', b.x + 16, topY);
+
+        ctx.font = `400 10px ${font}`;
+        ctx.fillStyle = textMuted;
+        ctx.fillText('Thinking in odds turns Bayesian multiplication into straightforward scaling.', b.x + 16, topY + 16);
+
+        // Three Step Cards: Prior Odds -> Bayes Factor -> Posterior Odds
+        const cardY = topY + 32;
+        const cardW = (b.width - 64) / 3;
+        const cardH = 160;
+
+        // Card 1: Prior Odds
+        const c1X = b.x + 16;
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(c1X, cardY, cardW, cardH, [8]);
+        else ctx.rect(c1X, cardY, cardW, cardH);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = `700 11px ${font}`;
+        ctx.fillText('1. PRIOR ODDS', c1X + 16, cardY + 22);
+
+        ctx.font = `800 22px ${font}`;
+        ctx.fillText(priorOdds < 0.1 ? `1 : ${(1 / priorOdds).toFixed(1)}` : priorOdds.toFixed(2), c1X + 16, cardY + 54);
+
+        ctx.font = `500 10px ${font}`;
+        ctx.fillStyle = textMuted;
+        ctx.fillText(`P(H) = ${(prior * 100).toFixed(1)}%`, c1X + 16, cardY + 74);
+        ctx.fillText(`P(¬H) = ${(notPrior * 100).toFixed(1)}%`, c1X + 16, cardY + 90);
+        ctx.fillText('O(H) = P(H) / P(¬H)', c1X + 16, cardY + 114);
+
+        // Card 2: Bayes Factor (Likelihood Ratio)
+        const c2X = c1X + cardW + 16;
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.08)';
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(c2X, cardY, cardW, cardH, [8]);
+        else ctx.rect(c2X, cardY, cardW, cardH);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#a855f7';
+        ctx.font = `700 11px ${font}`;
+        ctx.fillText('2. BAYES FACTOR (LR)', c2X + 16, cardY + 22);
+
+        ctx.font = `800 22px ${font}`;
+        ctx.fillText(`${bayesFactor.toFixed(2)}×`, c2X + 16, cardY + 54);
+
+        ctx.font = `500 10px ${font}`;
+        ctx.fillStyle = textMuted;
+        ctx.fillText(`P(E|H) = ${(likelihood * 100).toFixed(0)}%`, c2X + 16, cardY + 74);
+        ctx.fillText(`P(E|¬H) = ${(falsePositive * 100).toFixed(0)}%`, c2X + 16, cardY + 90);
+        ctx.fillText('BF = P(E|H) / P(E|¬H)', c2X + 16, cardY + 114);
+        ctx.fillStyle = '#a855f7';
+        ctx.font = `600 9px ${font}`;
+        ctx.fillText(evidenceRating, c2X + 16, cardY + 138);
+
+        // Card 3: Posterior Odds
+        const c3X = c2X + cardW + 16;
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(c3X, cardY, cardW, cardH, [8]);
+        else ctx.rect(c3X, cardY, cardW, cardH);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#10b981';
+        ctx.font = `700 11px ${font}`;
+        ctx.fillText('3. POSTERIOR ODDS', c3X + 16, cardY + 22);
+
+        ctx.font = `800 22px ${font}`;
+        ctx.fillText(posteriorOdds < 0.1 ? `1 : ${(1 / posteriorOdds).toFixed(1)}` : posteriorOdds.toFixed(2), c3X + 16, cardY + 54);
+
+        ctx.font = `500 10px ${font}`;
+        ctx.fillStyle = textMuted;
+        ctx.fillText(`O(H|E) = O(H) × BF`, c3X + 16, cardY + 74);
+        ctx.fillText(`= ${priorOdds.toFixed(3)} × ${bayesFactor.toFixed(2)}`, c3X + 16, cardY + 90);
+
+        ctx.fillStyle = '#10b981';
+        ctx.font = `700 12px monospace`;
+        ctx.fillText(`P(H|E) = ${(posterior * 100).toFixed(1)}%`, c3X + 16, cardY + 120);
+
+        // Connectors / Multipliers between cards
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = `800 18px ${font}`;
+        ctx.textAlign = 'center';
+        ctx.fillText('×', c1X + cardW + 8, cardY + 50);
+        ctx.fillText('=', c2X + cardW + 8, cardY + 50);
+        return;
+      }
+
+      // -------------------------------------------------------------
+      // VIEW MODE 4: SEQUENTIAL EVIDENCE UPDATING TRAJECTORY
+      // -------------------------------------------------------------
+      if (viewMode === 'sequential') {
+        const topY = b.y + 15;
+
+        ctx.textAlign = 'left';
+        ctx.font = `700 13px ${font}`;
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText('Sequential Belief Trajectory: Compounding Evidence Updates Belief Toward Certainty', b.x + 16, topY);
+
+        ctx.font = `400 10px ${font}`;
+        ctx.fillStyle = textMuted;
+        ctx.fillText('Today\'s posterior becomes tomorrow\'s prior when observing repeated independent tests.', b.x + 16, topY + 16);
+
+        // Trajectory Chart Plot Area
+        const chartX = b.x + 45;
+        const chartY = topY + 38;
+        const chartW = b.width - 70;
+        const chartH = b.height - 85;
+
+        // Draw Grid
+        ctx.strokeStyle = pal.grid || 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1.0;
+        const yTicks = [0, 0.25, 0.50, 0.75, 1.0];
+        yTicks.forEach(yt => {
+          const yPix = chartY + chartH - yt * chartH;
+          ctx.beginPath();
+          ctx.moveTo(chartX, yPix);
+          ctx.lineTo(chartX + chartW, yPix);
+          ctx.stroke();
+
+          ctx.fillStyle = textMuted;
+          ctx.font = `500 10px ${font}`;
+          ctx.textAlign = 'right';
+          ctx.fillText(`${(yt * 100).toFixed(0)}%`, chartX - 8, yPix + 4);
+        });
+
+        // 50% Threshold line
+        const y50 = chartY + chartH - 0.5 * chartH;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(chartX, y50);
+        ctx.lineTo(chartX + chartW, y50);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = textMuted;
+        ctx.font = `500 9px ${font}`;
+        ctx.textAlign = 'right';
+        ctx.fillText('50% Ambiguity Line', chartX + chartW - 8, y50 - 4);
+
+        // Plot Trajectory Steps
+        const numSteps = trajectory.length - 1;
+        const getX = (stepIdx) => chartX + (stepIdx / numSteps) * chartW;
+        const getY = (pVal) => chartY + chartH - pVal * chartH;
+
+        // Fill area under trajectory
+        ctx.fillStyle = 'rgba(0, 210, 255, 0.12)';
+        ctx.beginPath();
+        ctx.moveTo(getX(0), chartY + chartH);
+        trajectory.forEach((t, i) => ctx.lineTo(getX(i), getY(t.p)));
+        ctx.lineTo(getX(numSteps), chartY + chartH);
+        ctx.closePath();
+        ctx.fill();
+
+        // Draw Trajectory Line
+        ctx.strokeStyle = '#00d2ff';
+        ctx.lineWidth = 3.0;
+        ctx.beginPath();
+        trajectory.forEach((t, i) => {
+          if (i === 0) ctx.moveTo(getX(i), getY(t.p));
+          else ctx.lineTo(getX(i), getY(t.p));
+        });
+        ctx.stroke();
+
+        // Draw Step Markers & Callouts
+        trajectory.forEach((t, i) => {
+          const xPix = getX(i);
+          const yPix = getY(t.p);
+
+          // Dot
+          ctx.fillStyle = '#00d2ff';
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2.0;
+          ctx.beginPath();
+          ctx.arc(xPix, yPix, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Label above dot
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = `700 11px ${font}`;
+          ctx.textAlign = 'center';
+          ctx.fillText(`${(t.p * 100).toFixed(1)}%`, xPix, yPix - 12);
+
+          // Step Label below X axis
+          ctx.fillStyle = textMuted;
+          ctx.font = `600 10px ${font}`;
+          ctx.fillText(t.label, xPix, chartY + chartH + 18);
+        });
+      }
     }
   };
 
@@ -5973,6 +6737,7 @@ const DocxReports = {
             if (target === 'tab-teaching') {
               if (typeof this.runTwoSampleOverlap === 'function') this.runTwoSampleOverlap();
               if (typeof this.runPowerSimulation === 'function') this.runPowerSimulation();
+              if (typeof this.runBayesianSimulation === 'function') this.runBayesianSimulation();
             }
           }
         });
@@ -5980,7 +6745,7 @@ const DocxReports = {
     }
 
     initEngines() {
-      ['descCanvas', 'descBoxCanvas', 'descViolinCanvas', 'hypoCanvas', 'anovaCanvas', 'corrCanvas', 'rocCanvas', 'teachingDistCanvas', 'teachingCltParentCanvas', 'teachingCltSamplingCanvas', 'teachingTCanvas', 'teachingOverlapCanvas', 'teachingPowerCanvas'].forEach(id => {
+      ['descCanvas', 'descBoxCanvas', 'descViolinCanvas', 'hypoCanvas', 'anovaCanvas', 'corrCanvas', 'rocCanvas', 'teachingDistCanvas', 'teachingCltParentCanvas', 'teachingCltSamplingCanvas', 'teachingTCanvas', 'teachingOverlapCanvas', 'teachingPowerCanvas', 'teachingBayesCanvas'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
           this.engines[id] = new ChartEngine(el, { theme: this.theme });
@@ -6603,6 +7368,99 @@ const DocxReports = {
           b.classList.toggle('active', b.dataset.d === '0.50');
         });
         this.runPowerSimulation({ power: 0.80, sd: 4.0, delta: 2.0, alpha: 0.05 }, 'power');
+      });
+
+      // Bayesian Simulation (Section 6) Events
+      document.getElementById('bayesPriorRange')?.addEventListener('input', (e) => {
+        this.runBayesianSimulation({ prior: parseFloat(e.target.value) / 100 });
+      });
+
+      document.getElementById('bayesSampleRange')?.addEventListener('input', (e) => {
+        this.runBayesianSimulation({ sampleSize: parseInt(e.target.value) });
+      });
+
+      document.getElementById('bayesLikelihoodRange')?.addEventListener('input', (e) => {
+        this.runBayesianSimulation({ likelihood: parseFloat(e.target.value) / 100 });
+      });
+
+      document.getElementById('bayesFalsePosRange')?.addEventListener('input', (e) => {
+        this.runBayesianSimulation({ falsePositive: parseFloat(e.target.value) / 100 });
+      });
+
+      // Preset buttons
+      document.querySelectorAll('.teaching-bayes-preset-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.teaching-bayes-preset-btn').forEach(b => b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          const presetKey = e.currentTarget.dataset.preset;
+          this.currentBayesPreset = presetKey;
+          let p = 0.0476, lik = 0.40, fp = 0.10, n = 210;
+          if (presetKey === 'steve') {
+            p = 0.0476; lik = 0.40; fp = 0.10; n = 210;
+          } else if (presetKey === 'disease') {
+            p = 0.01; lik = 0.95; fp = 0.05; n = 1000;
+          } else if (presetKey === 'science') {
+            p = 0.10; lik = 0.80; fp = 0.05; n = 500;
+          } else if (presetKey === 'equal') {
+            p = 0.20; lik = 0.50; fp = 0.50; n = 200;
+          } else if (presetKey === 'fair_coin') {
+            p = 0.50; lik = 0.75; fp = 0.25; n = 100;
+          }
+          this.runBayesianSimulation({ prior: p, likelihood: lik, falsePositive: fp, sampleSize: n, preset: presetKey });
+        });
+      });
+
+      // View mode pills
+      document.querySelectorAll('.teaching-bayes-view-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.teaching-bayes-view-btn').forEach(b => {
+            b.classList.remove('btn-primary', 'active');
+            b.classList.add('btn-secondary');
+          });
+          e.currentTarget.classList.remove('btn-secondary');
+          e.currentTarget.classList.add('btn-primary', 'active');
+          this.currentBayesView = e.currentTarget.dataset.view;
+          this.runBayesianSimulation();
+        });
+      });
+
+      // Animate restriction button
+      document.getElementById('bayesAnimateBtn')?.addEventListener('click', () => {
+        this.animateBayesRestriction();
+      });
+
+      // Sequential evidence button (Today's posterior becomes tomorrow's prior)
+      document.getElementById('bayesNextEvidenceBtn')?.addEventListener('click', () => {
+        if (this.results?.teaching?.bayes) {
+          const nextPrior = this.results.teaching.bayes.posterior;
+          const priorSlider = document.getElementById('bayesPriorRange');
+          if (priorSlider) priorSlider.value = (nextPrior * 100).toFixed(1);
+          this.runBayesianSimulation({ prior: nextPrior });
+        }
+      });
+
+      // Reset button
+      document.getElementById('bayesResetBtn')?.addEventListener('click', () => {
+        if (this.bayesAnimationTimer) {
+          clearInterval(this.bayesAnimationTimer);
+          this.bayesAnimationTimer = null;
+          const btn = document.getElementById('bayesAnimateBtn');
+          if (btn) btn.innerText = '▶ Animate Restriction';
+        }
+        this.currentBayesPreset = 'steve';
+        this.currentBayesView = 'square';
+        document.querySelectorAll('.teaching-bayes-preset-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.preset === 'steve');
+        });
+        document.querySelectorAll('.teaching-bayes-view-btn').forEach(b => {
+          b.classList.remove('btn-primary', 'active');
+          b.classList.add('btn-secondary');
+          if (b.dataset.view === 'square') {
+            b.classList.remove('btn-secondary');
+            b.classList.add('btn-primary', 'active');
+          }
+        });
+        this.runBayesianSimulation({ prior: 0.0476, likelihood: 0.40, falsePositive: 0.10, sampleSize: 210, preset: 'steve' });
       });
 
       // Disclaimer Modal Dismissal
@@ -7518,6 +8376,7 @@ const DocxReports = {
           tConv: res.tConv || Teaching.tConvergence.getMetrics(4),
           overlap: res.overlap || Teaching.significanceOverlap.getMetrics(),
           power: res.power || Teaching.powerSimulation.getMetrics(),
+          bayes: res.bayes || Teaching.bayesianSimulation.getMetrics(),
           reportText: document.getElementById('teachingReportText')?.innerText
         };
       }
@@ -7534,6 +8393,7 @@ const DocxReports = {
       this.runTConvergence(4);
       this.runTwoSampleOverlap();
       this.runPowerSimulation();
+      this.runBayesianSimulation();
     }
 
     renderTeachingParams() {
@@ -8424,6 +9284,166 @@ const DocxReports = {
         if (nRange) nRange.value = nextN;
         this.runPowerSimulation({ n: nextN }, 'n');
       }, 550);
+    }
+
+    runBayesianSimulation(overrideParams = {}) {
+      // Read input values with fallbacks
+      const priorInput = document.getElementById('bayesPriorRange');
+      const sampleInput = document.getElementById('bayesSampleRange');
+      const likInput = document.getElementById('bayesLikelihoodRange');
+      const fpInput = document.getElementById('bayesFalsePosRange');
+
+      let prior = overrideParams.prior !== undefined 
+        ? overrideParams.prior 
+        : (priorInput ? parseFloat(priorInput.value) / 100 : 0.0476);
+      let sampleSize = overrideParams.sampleSize !== undefined 
+        ? overrideParams.sampleSize 
+        : (sampleInput ? parseInt(sampleInput.value) : 210);
+      let likelihood = overrideParams.likelihood !== undefined 
+        ? overrideParams.likelihood 
+        : (likInput ? parseFloat(likInput.value) / 100 : 0.40);
+      let falsePositive = overrideParams.falsePositive !== undefined 
+        ? overrideParams.falsePositive 
+        : (fpInput ? parseFloat(fpInput.value) / 100 : 0.10);
+
+      const viewMode = this.currentBayesView || 'square';
+      const preset = overrideParams.preset || this.currentBayesPreset || 'steve';
+
+      // Synchronize UI slider values and numeric display labels
+      if (priorInput && overrideParams.prior !== undefined) {
+        priorInput.value = (prior * 100).toFixed(1);
+      }
+      if (sampleInput && overrideParams.sampleSize !== undefined) {
+        sampleInput.value = sampleSize;
+      }
+      if (likInput && overrideParams.likelihood !== undefined) {
+        likInput.value = (likelihood * 100).toFixed(1);
+      }
+      if (fpInput && overrideParams.falsePositive !== undefined) {
+        fpInput.value = (falsePositive * 100).toFixed(1);
+      }
+
+      const priorValEl = document.getElementById('bayesPriorVal');
+      if (priorValEl) priorValEl.innerText = `${(prior * 100).toFixed(1)}%`;
+
+      const sampleValEl = document.getElementById('bayesSampleVal');
+      if (sampleValEl) sampleValEl.innerText = `N = ${sampleSize} people`;
+
+      const likValEl = document.getElementById('bayesLikelihoodVal');
+      if (likValEl) likValEl.innerText = `${(likelihood * 100).toFixed(1)}%`;
+
+      const fpValEl = document.getElementById('bayesFalsePosVal');
+      if (fpValEl) fpValEl.innerText = `${(falsePositive * 100).toFixed(1)}%`;
+
+      const priorSumEl = document.getElementById('bayesPriorSummary');
+      if (priorSumEl) {
+        const priorOddsRatio = (1 - prior) / prior;
+        priorSumEl.innerText = `Prior: ${(prior * 100).toFixed(1)}% (1:${priorOddsRatio.toFixed(1)})`;
+      }
+
+      const likSumEl = document.getElementById('bayesLikelihoodSummary');
+      if (likSumEl) {
+        likSumEl.innerText = `P(E|H): ${(likelihood * 100).toFixed(0)}% | P(E|¬H): ${(falsePositive * 100).toFixed(0)}%`;
+      }
+
+      // Calculate metrics
+      const metrics = Teaching.bayesianSimulation.getMetrics({
+        prior,
+        likelihood,
+        falsePositive,
+        sampleSize,
+        viewMode,
+        preset
+      });
+
+      // Update real-time Metric Cards
+      const statusPriorVal = document.getElementById('bayesStatusPriorVal');
+      const statusPriorSub = document.getElementById('bayesStatusPriorSub');
+      if (statusPriorVal) statusPriorVal.innerText = `${(metrics.prior * 100).toFixed(1)}%`;
+      if (statusPriorSub) statusPriorSub.innerText = `Prior Odds: 1 : ${(1 / metrics.priorOdds).toFixed(1)}`;
+
+      const statusLikVal = document.getElementById('bayesStatusLikelihoodVal');
+      const statusLikSub = document.getElementById('bayesStatusLikelihoodSub');
+      if (statusLikVal) statusLikVal.innerText = `${(metrics.likelihood * 100).toFixed(1)}%`;
+      if (statusLikSub) statusLikSub.innerText = `True Positive Probability`;
+
+      const statusFPVal = document.getElementById('bayesStatusFalsePosVal');
+      const statusFPSub = document.getElementById('bayesStatusFalsePosSub');
+      if (statusFPVal) statusFPVal.innerText = `${(metrics.falsePositive * 100).toFixed(1)}%`;
+      if (statusFPSub) statusFPSub.innerText = `False Positive Probability`;
+
+      const statusPEVal = document.getElementById('bayesStatusPEvidenceVal');
+      const statusPESub = document.getElementById('bayesStatusPEvidenceSub');
+      if (statusPEVal) statusPEVal.innerText = `${(metrics.pEvidence * 100).toFixed(2)}%`;
+      if (statusPESub) statusPESub.innerText = `Marginal / Area (${metrics.countTotalE} of ${metrics.sampleSize})`;
+
+      const statusBFVal = document.getElementById('bayesStatusBFVal');
+      const statusBFSub = document.getElementById('bayesStatusBFSub');
+      if (statusBFVal) statusBFVal.innerText = `${metrics.bayesFactor.toFixed(2)}×`;
+      if (statusBFSub) statusBFSub.innerText = metrics.evidenceRating;
+
+      const statusPostVal = document.getElementById('bayesStatusPosteriorVal');
+      const statusPostSub = document.getElementById('bayesStatusPosteriorSub');
+      if (statusPostVal) statusPostVal.innerText = `${(metrics.posterior * 100).toFixed(1)}%`;
+      if (statusPostSub) {
+        const sign = metrics.beliefShift >= 0 ? '+' : '';
+        statusPostSub.innerText = `Belief Shift: ${sign}${(metrics.beliefShift * 100).toFixed(1)}%`;
+      }
+
+      // Update Pedagogical Text
+      const pedaEl = document.getElementById('bayesPedagogyText');
+      if (pedaEl) pedaEl.innerText = metrics.explanation;
+
+      // Update Chart Title
+      const titleEl = document.getElementById('teachingBayesChartTitle');
+      if (titleEl) {
+        if (viewMode === 'sample') {
+          titleEl.innerText = `Representative Sample (N = ${metrics.sampleSize}): Natural Counts Frequency Tree (${metrics.countHAndE} vs ${metrics.countNotHAndE})`;
+        } else if (viewMode === 'odds') {
+          titleEl.innerText = `Odds Form & Bayes Factor: Prior Odds (1 : ${(1 / metrics.priorOdds).toFixed(1)}) × LR (${metrics.bayesFactor.toFixed(2)}×) = Posterior Odds (${metrics.posteriorOdds.toFixed(2)})`;
+        } else if (viewMode === 'sequential') {
+          titleEl.innerText = `Sequential Bayesian Updating: Compounding Evidence Trajectory (P₀ = ${(metrics.prior * 100).toFixed(1)}% → P₄ = ${(metrics.trajectory[4].p * 100).toFixed(1)}%)`;
+        } else {
+          titleEl.innerText = `3Blue1Brown 1×1 Unit Square: Visualizing Bayes' Theorem as Proportions of Area (P(H|E) = ${(metrics.posterior * 100).toFixed(1)}%)`;
+        }
+      }
+
+      // Render Canvas
+      if (this.engines['teachingBayesCanvas']) {
+        Plots.renderBayesianSimulation(this.engines['teachingBayesCanvas'], metrics);
+      }
+
+      // Cache
+      if (!this.results.teaching) this.results.teaching = {};
+      this.results.teaching.bayes = metrics;
+    }
+
+    animateBayesRestriction() {
+      const btn = document.getElementById('bayesAnimateBtn');
+      if (this.bayesAnimationTimer) {
+        clearInterval(this.bayesAnimationTimer);
+        this.bayesAnimationTimer = null;
+        if (btn) btn.innerText = '▶ Animate Restriction';
+        return;
+      }
+
+      // Cycle through view modes
+      const views = ['square', 'sample', 'odds', 'sequential'];
+      let idx = views.indexOf(this.currentBayesView || 'square');
+      if (btn) btn.innerText = '⏸ Pause Animation';
+
+      this.bayesAnimationTimer = setInterval(() => {
+        idx = (idx + 1) % views.length;
+        const nextView = views[idx];
+        this.currentBayesView = nextView;
+        document.querySelectorAll('.teaching-bayes-view-btn').forEach(b => {
+          const isActive = b.dataset.view === nextView;
+          b.classList.toggle('btn-primary', isActive);
+          b.classList.toggle('active', isActive);
+          b.classList.toggle('btn-secondary', !isActive);
+        });
+        this.runBayesianSimulation();
+      }, 1200);
     }
   }
 

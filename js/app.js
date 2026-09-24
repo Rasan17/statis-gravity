@@ -75,6 +75,7 @@ class StatisGravityApp {
           if (targetId === 'tab-teaching') {
             if (typeof this.runTwoSampleOverlap === 'function') this.runTwoSampleOverlap();
             if (typeof this.runPowerSimulation === 'function') this.runPowerSimulation();
+            if (typeof this.runBayesianSimulation === 'function') this.runBayesianSimulation();
           }
         }
       });
@@ -95,7 +96,8 @@ class StatisGravityApp {
       'teachingCltSamplingCanvas',
       'teachingTCanvas',
       'teachingOverlapCanvas',
-      'teachingPowerCanvas'
+      'teachingPowerCanvas',
+      'teachingBayesCanvas'
     ];
 
     canvasIds.forEach(id => {
@@ -718,6 +720,99 @@ class StatisGravityApp {
         b.classList.toggle('active', b.dataset.d === '0.50');
       });
       this.runPowerSimulation({ power: 0.80, sd: 4.0, delta: 2.0, alpha: 0.05 }, 'power');
+    });
+
+    // Bayesian Simulation (Section 6) Events
+    document.getElementById('bayesPriorRange')?.addEventListener('input', (e) => {
+      this.runBayesianSimulation({ prior: parseFloat(e.target.value) / 100 });
+    });
+
+    document.getElementById('bayesSampleRange')?.addEventListener('input', (e) => {
+      this.runBayesianSimulation({ sampleSize: parseInt(e.target.value) });
+    });
+
+    document.getElementById('bayesLikelihoodRange')?.addEventListener('input', (e) => {
+      this.runBayesianSimulation({ likelihood: parseFloat(e.target.value) / 100 });
+    });
+
+    document.getElementById('bayesFalsePosRange')?.addEventListener('input', (e) => {
+      this.runBayesianSimulation({ falsePositive: parseFloat(e.target.value) / 100 });
+    });
+
+    // Preset buttons
+    document.querySelectorAll('.teaching-bayes-preset-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.teaching-bayes-preset-btn').forEach(b => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        const presetKey = e.currentTarget.dataset.preset;
+        this.currentBayesPreset = presetKey;
+        let p = 0.0476, lik = 0.40, fp = 0.10, n = 210;
+        if (presetKey === 'steve') {
+          p = 0.0476; lik = 0.40; fp = 0.10; n = 210;
+        } else if (presetKey === 'disease') {
+          p = 0.01; lik = 0.95; fp = 0.05; n = 1000;
+        } else if (presetKey === 'science') {
+          p = 0.10; lik = 0.80; fp = 0.05; n = 500;
+        } else if (presetKey === 'equal') {
+          p = 0.20; lik = 0.50; fp = 0.50; n = 200;
+        } else if (presetKey === 'fair_coin') {
+          p = 0.50; lik = 0.75; fp = 0.25; n = 100;
+        }
+        this.runBayesianSimulation({ prior: p, likelihood: lik, falsePositive: fp, sampleSize: n, preset: presetKey });
+      });
+    });
+
+    // View mode pills
+    document.querySelectorAll('.teaching-bayes-view-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.teaching-bayes-view-btn').forEach(b => {
+          b.classList.remove('btn-primary', 'active');
+          b.classList.add('btn-secondary');
+        });
+        e.currentTarget.classList.remove('btn-secondary');
+        e.currentTarget.classList.add('btn-primary', 'active');
+        this.currentBayesView = e.currentTarget.dataset.view;
+        this.runBayesianSimulation();
+      });
+    });
+
+    // Animate restriction button
+    document.getElementById('bayesAnimateBtn')?.addEventListener('click', () => {
+      this.animateBayesRestriction();
+    });
+
+    // Sequential evidence button (Today's posterior becomes tomorrow's prior)
+    document.getElementById('bayesNextEvidenceBtn')?.addEventListener('click', () => {
+      if (this.results?.teaching?.bayes) {
+        const nextPrior = this.results.teaching.bayes.posterior;
+        const priorSlider = document.getElementById('bayesPriorRange');
+        if (priorSlider) priorSlider.value = (nextPrior * 100).toFixed(1);
+        this.runBayesianSimulation({ prior: nextPrior });
+      }
+    });
+
+    // Reset button
+    document.getElementById('bayesResetBtn')?.addEventListener('click', () => {
+      if (this.bayesAnimationTimer) {
+        clearInterval(this.bayesAnimationTimer);
+        this.bayesAnimationTimer = null;
+        const btn = document.getElementById('bayesAnimateBtn');
+        if (btn) btn.innerText = '▶ Animate Restriction';
+      }
+      this.currentBayesPreset = 'steve';
+      this.currentBayesView = 'square';
+      document.querySelectorAll('.teaching-bayes-preset-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.preset === 'steve');
+      });
+      document.querySelectorAll('.teaching-bayes-view-btn').forEach(b => {
+        b.classList.remove('btn-primary', 'active');
+        b.classList.add('btn-secondary');
+        if (b.dataset.view === 'square') {
+          b.classList.remove('btn-secondary');
+          b.classList.add('btn-primary', 'active');
+        }
+      });
+      this.runBayesianSimulation({ prior: 0.0476, likelihood: 0.40, falsePositive: 0.10, sampleSize: 210, preset: 'steve' });
     });
 
     // Disclaimer Modal Dismissal
@@ -1592,6 +1687,7 @@ window.addEventListener('DOMContentLoaded', () => {
         tConv: res.tConv || Teaching.tConvergence.getMetrics(4),
         overlap: res.overlap || Teaching.significanceOverlap.getMetrics(),
         power: res.power || Teaching.powerSimulation.getMetrics(),
+        bayes: res.bayes || Teaching.bayesianSimulation.getMetrics(),
         reportText: document.getElementById('teachingReportText')?.innerText
       };
     }
@@ -1608,6 +1704,7 @@ window.addEventListener('DOMContentLoaded', () => {
     this.runTConvergence(4);
     this.runTwoSampleOverlap();
     this.runPowerSimulation();
+    this.runBayesianSimulation();
   }
 
   renderTeachingParams() {
@@ -2500,6 +2597,166 @@ window.addEventListener('DOMContentLoaded', () => {
       if (nRange) nRange.value = nextN;
       this.runPowerSimulation({ n: nextN }, 'n');
     }, 550);
+  }
+
+  runBayesianSimulation(overrideParams = {}) {
+    // Read input values with fallbacks
+    const priorInput = document.getElementById('bayesPriorRange');
+    const sampleInput = document.getElementById('bayesSampleRange');
+    const likInput = document.getElementById('bayesLikelihoodRange');
+    const fpInput = document.getElementById('bayesFalsePosRange');
+
+    let prior = overrideParams.prior !== undefined 
+      ? overrideParams.prior 
+      : (priorInput ? parseFloat(priorInput.value) / 100 : 0.0476);
+    let sampleSize = overrideParams.sampleSize !== undefined 
+      ? overrideParams.sampleSize 
+      : (sampleInput ? parseInt(sampleInput.value) : 210);
+    let likelihood = overrideParams.likelihood !== undefined 
+      ? overrideParams.likelihood 
+      : (likInput ? parseFloat(likInput.value) / 100 : 0.40);
+    let falsePositive = overrideParams.falsePositive !== undefined 
+      ? overrideParams.falsePositive 
+      : (fpInput ? parseFloat(fpInput.value) / 100 : 0.10);
+
+    const viewMode = this.currentBayesView || 'square';
+    const preset = overrideParams.preset || this.currentBayesPreset || 'steve';
+
+    // Synchronize UI slider values and numeric display labels
+    if (priorInput && overrideParams.prior !== undefined) {
+      priorInput.value = (prior * 100).toFixed(1);
+    }
+    if (sampleInput && overrideParams.sampleSize !== undefined) {
+      sampleInput.value = sampleSize;
+    }
+    if (likInput && overrideParams.likelihood !== undefined) {
+      likInput.value = (likelihood * 100).toFixed(1);
+    }
+    if (fpInput && overrideParams.falsePositive !== undefined) {
+      fpInput.value = (falsePositive * 100).toFixed(1);
+    }
+
+    const priorValEl = document.getElementById('bayesPriorVal');
+    if (priorValEl) priorValEl.innerText = `${(prior * 100).toFixed(1)}%`;
+
+    const sampleValEl = document.getElementById('bayesSampleVal');
+    if (sampleValEl) sampleValEl.innerText = `N = ${sampleSize} people`;
+
+    const likValEl = document.getElementById('bayesLikelihoodVal');
+    if (likValEl) likValEl.innerText = `${(likelihood * 100).toFixed(1)}%`;
+
+    const fpValEl = document.getElementById('bayesFalsePosVal');
+    if (fpValEl) fpValEl.innerText = `${(falsePositive * 100).toFixed(1)}%`;
+
+    const priorSumEl = document.getElementById('bayesPriorSummary');
+    if (priorSumEl) {
+      const priorOddsRatio = (1 - prior) / prior;
+      priorSumEl.innerText = `Prior: ${(prior * 100).toFixed(1)}% (1:${priorOddsRatio.toFixed(1)})`;
+    }
+
+    const likSumEl = document.getElementById('bayesLikelihoodSummary');
+    if (likSumEl) {
+      likSumEl.innerText = `P(E|H): ${(likelihood * 100).toFixed(0)}% | P(E|¬H): ${(falsePositive * 100).toFixed(0)}%`;
+    }
+
+    // Calculate metrics
+    const metrics = Teaching.bayesianSimulation.getMetrics({
+      prior,
+      likelihood,
+      falsePositive,
+      sampleSize,
+      viewMode,
+      preset
+    });
+
+    // Update real-time Metric Cards
+    const statusPriorVal = document.getElementById('bayesStatusPriorVal');
+    const statusPriorSub = document.getElementById('bayesStatusPriorSub');
+    if (statusPriorVal) statusPriorVal.innerText = `${(metrics.prior * 100).toFixed(1)}%`;
+    if (statusPriorSub) statusPriorSub.innerText = `Prior Odds: 1 : ${(1 / metrics.priorOdds).toFixed(1)}`;
+
+    const statusLikVal = document.getElementById('bayesStatusLikelihoodVal');
+    const statusLikSub = document.getElementById('bayesStatusLikelihoodSub');
+    if (statusLikVal) statusLikVal.innerText = `${(metrics.likelihood * 100).toFixed(1)}%`;
+    if (statusLikSub) statusLikSub.innerText = `True Positive Probability`;
+
+    const statusFPVal = document.getElementById('bayesStatusFalsePosVal');
+    const statusFPSub = document.getElementById('bayesStatusFalsePosSub');
+    if (statusFPVal) statusFPVal.innerText = `${(metrics.falsePositive * 100).toFixed(1)}%`;
+    if (statusFPSub) statusFPSub.innerText = `False Positive Probability`;
+
+    const statusPEVal = document.getElementById('bayesStatusPEvidenceVal');
+    const statusPESub = document.getElementById('bayesStatusPEvidenceSub');
+    if (statusPEVal) statusPEVal.innerText = `${(metrics.pEvidence * 100).toFixed(2)}%`;
+    if (statusPESub) statusPESub.innerText = `Marginal / Area (${metrics.countTotalE} of ${metrics.sampleSize})`;
+
+    const statusBFVal = document.getElementById('bayesStatusBFVal');
+    const statusBFSub = document.getElementById('bayesStatusBFSub');
+    if (statusBFVal) statusBFVal.innerText = `${metrics.bayesFactor.toFixed(2)}×`;
+    if (statusBFSub) statusBFSub.innerText = metrics.evidenceRating;
+
+    const statusPostVal = document.getElementById('bayesStatusPosteriorVal');
+    const statusPostSub = document.getElementById('bayesStatusPosteriorSub');
+    if (statusPostVal) statusPostVal.innerText = `${(metrics.posterior * 100).toFixed(1)}%`;
+    if (statusPostSub) {
+      const sign = metrics.beliefShift >= 0 ? '+' : '';
+      statusPostSub.innerText = `Belief Shift: ${sign}${(metrics.beliefShift * 100).toFixed(1)}%`;
+    }
+
+    // Update Pedagogical Text
+    const pedaEl = document.getElementById('bayesPedagogyText');
+    if (pedaEl) pedaEl.innerText = metrics.explanation;
+
+    // Update Chart Title
+    const titleEl = document.getElementById('teachingBayesChartTitle');
+    if (titleEl) {
+      if (viewMode === 'sample') {
+        titleEl.innerText = `Representative Sample (N = ${metrics.sampleSize}): Natural Counts Frequency Tree (${metrics.countHAndE} vs ${metrics.countNotHAndE})`;
+      } else if (viewMode === 'odds') {
+        titleEl.innerText = `Odds Form & Bayes Factor: Prior Odds (1 : ${(1 / metrics.priorOdds).toFixed(1)}) × LR (${metrics.bayesFactor.toFixed(2)}×) = Posterior Odds (${metrics.posteriorOdds.toFixed(2)})`;
+      } else if (viewMode === 'sequential') {
+        titleEl.innerText = `Sequential Bayesian Updating: Compounding Evidence Trajectory (P₀ = ${(metrics.prior * 100).toFixed(1)}% → P₄ = ${(metrics.trajectory[4].p * 100).toFixed(1)}%)`;
+      } else {
+        titleEl.innerText = `3Blue1Brown 1×1 Unit Square: Visualizing Bayes' Theorem as Proportions of Area (P(H|E) = ${(metrics.posterior * 100).toFixed(1)}%)`;
+      }
+    }
+
+    // Render Canvas
+    if (this.engines['teachingBayesCanvas']) {
+      Plots.renderBayesianSimulation(this.engines['teachingBayesCanvas'], metrics);
+    }
+
+    // Cache
+    if (!this.results.teaching) this.results.teaching = {};
+    this.results.teaching.bayes = metrics;
+  }
+
+  animateBayesRestriction() {
+    const btn = document.getElementById('bayesAnimateBtn');
+    if (this.bayesAnimationTimer) {
+      clearInterval(this.bayesAnimationTimer);
+      this.bayesAnimationTimer = null;
+      if (btn) btn.innerText = '▶ Animate Restriction';
+      return;
+    }
+
+    // Cycle through view modes
+    const views = ['square', 'sample', 'odds', 'sequential'];
+    let idx = views.indexOf(this.currentBayesView || 'square');
+    if (btn) btn.innerText = '⏸ Pause Animation';
+
+    this.bayesAnimationTimer = setInterval(() => {
+      idx = (idx + 1) % views.length;
+      const nextView = views[idx];
+      this.currentBayesView = nextView;
+      document.querySelectorAll('.teaching-bayes-view-btn').forEach(b => {
+        const isActive = b.dataset.view === nextView;
+        b.classList.toggle('btn-primary', isActive);
+        b.classList.toggle('active', isActive);
+        b.classList.toggle('btn-secondary', !isActive);
+      });
+      this.runBayesianSimulation();
+    }, 1200);
   }
 }
 

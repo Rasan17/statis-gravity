@@ -1659,10 +1659,161 @@
               </p>
             </div>
           </div>
+        </div>
 
-          <!-- Clinical Reporting & Pedagogical Narrative Box -->
-          <div class="report-box" style="margin-top: 1.5rem;">
-            <div class="report-title">
+        <!-- Section 6: Bayesian Statistics & Logic (3Blue1Brown Model) -->
+        <div class="card" style="margin-bottom: 1.5rem; border: 1px solid rgba(0, 210, 255, 0.25);">
+          <div class="card-header" style="flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+              <h2 class="card-title" style="display: flex; align-items: center; gap: 0.5rem;">
+                <span>🧠 Section 6: Bayesian Statistics &amp; Logic — The Geometry of Changing Beliefs</span>
+              </h2>
+              <p class="card-subtitle">
+                Inspired by 3Blue1Brown (Grant Sanderson) — Visualizing Bayes' Theorem via 1×1 unit square area, natural counts, and odds updating
+              </p>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+              <!-- View Mode Pills -->
+              <div class="btn-group" role="group" aria-label="Bayes Visualization View">
+                <button type="button" class="btn btn-sm btn-secondary active teaching-bayes-view-btn" data-view="square">📐 1×1 Unit Square</button>
+                <button type="button" class="btn btn-sm btn-secondary teaching-bayes-view-btn" data-view="sample">👥 Natural Counts</button>
+                <button type="button" class="btn btn-sm btn-secondary teaching-bayes-view-btn" data-view="odds">⚖️ Odds &amp; Bayes Factor</button>
+                <button type="button" class="btn btn-sm btn-secondary teaching-bayes-view-btn" data-view="sequential">📈 Sequential Beliefs</button>
+              </div>
+              <button id="bayesAnimateBtn" class="btn btn-secondary btn-sm" title="Animate the geometric restriction of possibilities">▶ Animate Restriction</button>
+              <button id="bayesNextEvidenceBtn" class="btn btn-primary btn-sm" title="Add a second identical piece of evidence to see compounding posterior update">+ Sequential Evidence</button>
+              <button id="bayesResetBtn" class="btn btn-secondary btn-sm" title="Reset all parameters to 3Blue1Brown Steve the Librarian scenario">🔄 Reset to Steve Example</button>
+            </div>
+          </div>
+
+          <div style="padding: 1rem 1.25rem;">
+            <!-- Scenario Preset Quick Buttons -->
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.25rem; background: rgba(0, 210, 255, 0.04); padding: 0.65rem 0.85rem; border-radius: 8px; border: 1px solid rgba(0, 210, 255, 0.15);">
+              <span style="font-weight: 600; font-size: 0.82rem; color: #00d2ff; margin-right: 0.25rem;">Classic Puzzles &amp; Presets:</span>
+              <button type="button" class="btn btn-sm btn-secondary teaching-bayes-preset-btn active" data-preset="steve" style="font-size: 0.78rem;">📚 Steve: Librarian vs. Farmer (3B1B)</button>
+              <button type="button" class="btn btn-sm btn-secondary teaching-bayes-preset-btn" data-preset="disease" style="font-size: 0.78rem;">🩺 Rare Medical Screening Paradox</button>
+              <button type="button" class="btn btn-sm btn-secondary teaching-bayes-preset-btn" data-preset="science" style="font-size: 0.78rem;">🔬 Scientific Discovery (P-Value Fallacy)</button>
+              <button type="button" class="btn btn-sm btn-secondary teaching-bayes-preset-btn" data-preset="equal" style="font-size: 0.78rem;">⚖️ Irrelevant Evidence (Equal Likelihoods)</button>
+              <button type="button" class="btn btn-sm btn-secondary teaching-bayes-preset-btn" data-preset="fair_coin" style="font-size: 0.78rem;">🪙 50/50 Symmetric Prior</button>
+            </div>
+
+            <!-- Interactive Sliders Grid (2 Columns: Prior & Populations vs Likelihoods & Evidence) -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem;">
+              
+              <!-- Column 1: Prior Beliefs & Population Cohort -->
+              <div style="background: rgba(15, 23, 42, 0.45); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                  <span style="font-weight: 600; font-size: 0.88rem; color: #10b981;">🌱 Prior Belief &amp; Population Base Rates</span>
+                  <span id="bayesPriorSummary" style="font-size: 0.78rem; color: #10b981; font-family: monospace;">Prior: 4.8% (1:20.0)</span>
+                </div>
+
+                <!-- Prior Slider -->
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
+                    <label for="bayesPriorRange">Prior Probability P(H):</label>
+                    <span id="bayesPriorVal" style="font-weight: 700; color: #10b981;">4.8%</span>
+                  </div>
+                  <input type="range" id="bayesPriorRange" min="0.1" max="99.0" step="0.1" value="4.8" style="width: 100%;">
+                  <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Initial degree of belief before observing evidence (Steve: 1 librarian per 20 farmers = 4.76%).</span>
+                </div>
+
+                <!-- Sample Population Size Slider -->
+                <div class="form-group" style="margin-bottom: 0;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
+                    <label for="bayesSampleRange">Representative Population Sample (N):</label>
+                    <span id="bayesSampleVal" style="font-weight: 700; color: #06b6d4;">N = 210 people</span>
+                  </div>
+                  <input type="range" id="bayesSampleRange" min="50" max="2000" step="10" value="210" style="width: 100%;">
+                  <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Representative count (e.g. 10 librarians + 200 farmers = 210). Framing as counts drops error rate to 0%.</span>
+                </div>
+              </div>
+
+              <!-- Column 2: Likelihoods & Evidence Rates -->
+              <div style="background: rgba(15, 23, 42, 0.45); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                  <span style="font-weight: 600; font-size: 0.88rem; color: #f59e0b;">🔍 Evidence Likelihoods &amp; False Alarms</span>
+                  <span id="bayesLikelihoodSummary" style="font-size: 0.78rem; color: #f59e0b; font-family: monospace;">P(E|H): 40% | P(E|¬H): 10%</span>
+                </div>
+
+                <!-- Likelihood P(E|H) Slider -->
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
+                    <label for="bayesLikelihoodRange">Likelihood P(E|H) (True Positive Rate):</label>
+                    <span id="bayesLikelihoodVal" style="font-weight: 700; color: #10b981;">40.0%</span>
+                  </div>
+                  <input type="range" id="bayesLikelihoodRange" min="1.0" max="100.0" step="1.0" value="40.0" style="width: 100%;">
+                  <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Probability of evidence if H is true (e.g. 40% of librarians fit meek/tidy description).</span>
+                </div>
+
+                <!-- False Positive P(E|~H) Slider -->
+                <div class="form-group" style="margin-bottom: 0;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
+                    <label for="bayesFalsePosRange">False Positive Rate P(E|¬H) (False Alarm):</label>
+                    <span id="bayesFalsePosVal" style="font-weight: 700; color: #f59e0b;">10.0%</span>
+                  </div>
+                  <input type="range" id="bayesFalsePosRange" min="0.5" max="100.0" step="0.5" value="10.0" style="width: 100%;">
+                  <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Probability of evidence if H is false (e.g. 10% of farmers fit meek/tidy description).</span>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Real-time Metric Cards (6 Cards) -->
+            <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
+              <div class="metric-card" style="border-top: 3px solid #10b981;">
+                <div class="metric-label">Prior Probability P(H)</div>
+                <div id="bayesStatusPriorVal" class="metric-value" style="color: #10b981;">4.8%</div>
+                <div id="bayesStatusPriorSub" class="metric-sub">Prior Odds: 1 : 20.0</div>
+              </div>
+              <div class="metric-card" style="border-top: 3px solid #10b981;">
+                <div class="metric-label">Likelihood P(E|H)</div>
+                <div id="bayesStatusLikelihoodVal" class="metric-value" style="color: #10b981;">40.0%</div>
+                <div id="bayesStatusLikelihoodSub" class="metric-sub">True Positive Probability</div>
+              </div>
+              <div class="metric-card" style="border-top: 3px solid #f59e0b;">
+                <div class="metric-label">False Alarm P(E|¬H)</div>
+                <div id="bayesStatusFalsePosVal" class="metric-value" style="color: #f59e0b;">10.0%</div>
+                <div id="bayesStatusFalsePosSub" class="metric-sub">False Positive Probability</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Total Evidence P(E)</div>
+                <div id="bayesStatusPEvidenceVal" class="metric-value" style="color: #06b6d4;">11.43%</div>
+                <div id="bayesStatusPEvidenceSub" class="metric-sub">Marginal / Shaded Area</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Bayes Factor (LR)</div>
+                <div id="bayesStatusBFVal" class="metric-value" style="color: #a855f7;">4.00×</div>
+                <div id="bayesStatusBFSub" class="metric-sub">Substantial Evidence</div>
+              </div>
+              <div class="metric-card" style="border-top: 3px solid #00d2ff; background: rgba(0, 210, 255, 0.05);">
+                <div class="metric-label">POSTERIOR P(H|E)</div>
+                <div id="bayesStatusPosteriorVal" class="metric-value" style="color: #00d2ff; font-weight: 800;">16.7%</div>
+                <div id="bayesStatusPosteriorSub" class="metric-sub">Belief Shift: +11.9%</div>
+              </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="chart-container" style="margin-bottom: 1.25rem;">
+              <div class="chart-header">
+                <span id="teachingBayesChartTitle" class="card-title">3Blue1Brown 1×1 Unit Square: Visualizing Bayes' Theorem as Proportions of Area</span>
+                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="teachingBayesCanvas">Save PNG</button>
+              </div>
+              <canvas id="teachingBayesCanvas" class="chart-canvas" height="380"></canvas>
+            </div>
+
+            <!-- Pedagogical Explanation Card -->
+            <div style="background: rgba(0, 210, 255, 0.04); border-left: 4px solid #00d2ff; padding: 0.85rem 1.1rem; border-radius: 0 8px 8px 0; font-size: 0.88rem; line-height: 1.55; margin-bottom: 1rem;">
+              <strong style="color: #00d2ff; display: block; margin-bottom: 0.25rem;">3Blue1Brown Geometric Insight &amp; Clinical Logic:</strong>
+              <p id="bayesPedagogyText" style="margin: 0; color: var(--text-main);">
+                Loading Bayesian statistics explanation...
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Clinical Reporting & Pedagogical Narrative Box -->
+        <div class="report-box" style="margin-top: 1.5rem;">
+          <div class="report-title">
               <span>Teaching Report: Distributions, CLT, Student's t &amp; Alpha Significance Simulation</span>
               <div style="display: flex; gap: 0.5rem; align-items: center;">
                 <button id="teachingCopyReportBtn" class="btn btn-secondary btn-sm btn-copy-report" data-report-id="teachingReportText">Copy</button>
@@ -1706,6 +1857,6 @@
     </div>
   </div>
 
-  <script src="js/statis-gravity.js?v=2.7.0"></script>
+  <script src="js/statis-gravity.js?v=2.8.0"></script>
 </body>
 </html>

@@ -883,6 +883,9 @@ export const DocxReports = {
     if (data.overlap) {
       d.addParagraph(`Two-Sample Overlap Simulation: Mean Difference Δ = ${data.overlap.delta.toFixed(2)}, Group 1 (SD₁ = ${data.overlap.sd1.toFixed(2)}, SEM₁ = ${data.overlap.sem1.toFixed(3)}, n₁ = ${data.overlap.n1}), Group 2 (SD₂ = ${data.overlap.sd2.toFixed(2)}, SEM₂ = ${data.overlap.sem2.toFixed(3)}, n₂ = ${data.overlap.n2}), Significance Level α = ${data.overlap.alpha.toFixed(3)}`);
     }
+    if (data.bayes) {
+      d.addParagraph(`Bayesian Statistics & Logic (3Blue1Brown Model): Prior P(H) = ${(data.bayes.prior * 100).toFixed(1)}%, Likelihood P(E|H) = ${(data.bayes.likelihood * 100).toFixed(1)}%, False Positive Rate P(E|¬H) = ${(data.bayes.falsePositive * 100).toFixed(1)}%, Population Sample N = ${data.bayes.sampleSize}`);
+    }
 
     d.addHeading1('2. Statistical Outcome & Empirical Convergence Metrics');
     d.addHeading2('Computer-Generated Distribution Metrics');
@@ -963,10 +966,27 @@ export const DocxReports = {
       );
     }
 
+    if (data.bayes) {
+      d.addHeading2('Bayesian Statistics & Logic (3Blue1Brown Model) Simulation Results');
+      d.addTable(
+        ['Bayesian Parameter', 'Simulated Value', 'Epistemological & Clinical Meaning'],
+        [
+          ['Prior Probability P(H)', `${(data.bayes.prior * 100).toFixed(1)}% (Odds 1:${(1 / data.bayes.priorOdds).toFixed(1)})`, 'Initial degree of belief before observing evidence (Base rate)'],
+          ['Likelihood P(E|H)', `${(data.bayes.likelihood * 100).toFixed(1)}%`, 'True Positive Rate: Probability of evidence given hypothesis H is true'],
+          ['False Positive Rate P(E|¬H)', `${(data.bayes.falsePositive * 100).toFixed(1)}%`, 'False Alarm Rate: Probability of evidence given hypothesis H is false'],
+          ['Total Evidence P(E)', `${(data.bayes.pEvidence * 100).toFixed(2)}%`, 'Marginal likelihood: Total shaded area of possibilities matching evidence'],
+          ['Bayes Factor (Likelihood Ratio)', `${data.bayes.bayesFactor.toFixed(2)}×`, `${data.bayes.evidenceRating} (P(E|H) / P(E|¬H))`],
+          ['Posterior Probability P(H|E)', `${(data.bayes.posterior * 100).toFixed(1)}% (Odds 1:${(1 / data.bayes.posteriorOdds).toFixed(1)})`, `Updated degree of belief after conditioning on evidence (Shift: ${(data.bayes.beliefShift >= 0 ? '+' : '')}${(data.bayes.beliefShift * 100).toFixed(1)}%)`],
+          ['Representative Counts (N)', `H: ${data.bayes.countHAndE} of ${data.bayes.countH} | ¬H: ${data.bayes.countNotHAndE} of ${data.bayes.countNotH}`, `Natural frequencies in population of N=${data.bayes.sampleSize}: ${data.bayes.countHAndE} / ${data.bayes.countTotalE} = ${(data.bayes.posterior * 100).toFixed(1)}%`],
+          ['Sequential Updating (4 Steps)', `P₀: ${(data.bayes.prior * 100).toFixed(1)}% → P₁: ${(data.bayes.trajectory[1].p * 100).toFixed(1)}% → P₄: ${(data.bayes.trajectory[4].p * 100).toFixed(1)}%`, 'Compounding belief trajectory across successive independent observations']
+        ]
+      );
+    }
+
     d.addHeading1('3. Clinical & Statistical Interpretation');
     d.addCalloutBox(
       'Pedagogical Synthesis & Clinical Trial Relevance',
-      data.reportText || 'The Central Limit Theorem, Student\'s t convergence, Two-Sample Overlap, and Statistical Power simulations demonstrate the mathematical foundations of parametric testing, the definition of alpha, and sample size determination in clinical trials.',
+      data.reportText || 'The Central Limit Theorem, Student\'s t convergence, Two-Sample Overlap, Statistical Power, and Bayesian updating simulations demonstrate the mathematical foundations of parametric testing, the definition of alpha, and Bayesian logic in scientific research.',
       'F0FDF4',
       '16A34A'
     );
@@ -980,6 +1000,8 @@ export const DocxReports = {
     d.addBullet('Consequences of Modifying Alpha (α): Relaxing α to 0.10 moves the critical cutoff inward to z = 1.645, lowering the required separation Δcrit and declaring significance on smaller differences or smaller sample sizes, at the expense of doubling the false-positive risk to 10%. Tightening α to 0.01 (z = 2.576) or 0.001 (z = 3.291), as required in confirmatory registration trials or genome-wide studies, shifts the cutoff outward into the extreme tails, demanding either much larger effect sizes or substantially expanded sample sizes before significance can be claimed.');
     d.addBullet('Statistical Power (1 − β) as the Scientific Safeguard Against False Negatives: While alpha (α = 0.05) strictly caps the risk of a false positive, statistical power (1 − β) measures the study\'s ability to identify a genuine therapeutic effect. An underpowered trial (e.g. 50% power) is ethically and scientifically problematic because patients undergo experimental risk when the study has only a coin-toss probability of reaching definitive conclusions.');
     d.addBullet('The Interplay of SD, SEM, Beta, and Power: The non-centrality parameter λ = Δ / (SD · √(2/n)) controls the separation between null and alternative distributions. Because SEM = SD / √n, doubling the sample size shrinks SEM by 1.414, drawing the distributions apart and collapsing the Type II error region β.');
+    d.addBullet('The 3Blue1Brown Geometric Insight into Bayes\' Theorem: Rather than memorizing abstract formulas, Bayes\' theorem is intuitively understood as proportions of area within a 1×1 unit square of all possibilities. Observing evidence restricts our sample space to only the shaded regions where the evidence occurs; the posterior probability is simply the fraction of that restricted space corresponding to the hypothesis of interest.');
+    d.addBullet('Base Rate Neglect and Natural Frequency Framing: In Steve the Librarian problem, people intuitively fixate on the 4:1 likelihood ratio (40% vs 10%) and forget the 20:1 base rate ratio of farmers to librarians. Translating abstract probabilities into natural frequencies (e.g. 4 librarians vs 20 farmers in a village of 210 people) eliminates cognitive bias and reveals why Steve is still 5× more likely to be a farmer.');
 
     d.addHeading1('5. Background Statistical Knowledge & Medical Research Context');
     d.addParagraph('Mathematical Formulations:');
@@ -990,7 +1012,12 @@ export const DocxReports = {
     d.addBullet('Critical Significance Boundary: Δcrit = t_crit(α, df) · SD · √(2/n).');
     d.addBullet('Two-Sample Power Formulation: 1 - β = Φ(Δ / (σ · √(2/n)) - z_{1 - α/2}).');
     d.addBullet('Required Sample Size Equation: n = 2 · (z_{1 - α/2} + z_{1 - β})² · σ² / Δ².');
+    d.addBullet('Bayes\' Theorem in Area Form: P(H|E) = P(H ∩ E) / P(E) = [P(H) · P(E|H)] / [P(H) · P(E|H) + P(¬H) · P(E|¬H)].');
+    d.addBullet('Odds Form of Bayes\' Rule: Posterior Odds = Prior Odds × Bayes Factor (Likelihood Ratio).');
     d.addParagraph('Key Academic References:');
+    d.addBullet('Sanderson G (2019). Bayes theorem, the geometry of changing beliefs. 3Blue1Brown, YouTube.');
+    d.addBullet('Kahneman D, Tversky A (1973). On the psychology of prediction. Psychological Review, 80(4): 237–251.');
+    d.addBullet('Gigerenzer G, Hoffrage U (1995). How to improve Bayesian reasoning without instruction: Frequency formats. Psychological Review, 102(4): 684–704.');
     d.addBullet('Cohen J (1988). Statistical Power Analysis for the Behavioral Sciences. 2nd ed. Hillsdale, NJ: Lawrence Erlbaum Associates.');
     d.addBullet('Moher D, Hopewell S, Schulz KF, et al. (2010). CONSORT 2010 explanation and elaboration: updated guidelines for reporting parallel group randomised trials. BMJ, 340: c869.');
     d.addBullet('Altman DG, Bland JM (1995). Absence of evidence is not evidence of absence. BMJ, 311(7003): 485.');
