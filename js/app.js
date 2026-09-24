@@ -105,7 +105,10 @@ class StatisGravityApp {
     canvasIds.forEach(id => {
       const el = document.getElementById(id);
       if (el) {
-        this.engines[id] = new ChartEngine(el, { theme: this.currentTheme });
+        const opts = id === 'teachingBayesCanvas'
+          ? { theme: this.currentTheme, padding: { top: 20, right: 20, bottom: 24, left: 20 } }
+          : { theme: this.currentTheme };
+        this.engines[id] = new ChartEngine(el, opts);
       }
     });
   }

@@ -237,6 +237,10 @@ textarea.form-control {
   background-color: var(--bg-primary);
 }
 
+#teachingBayesCanvas {
+  height: 540px;
+}
+
 /* Clinical Report Box */
 .report-box {
   background: rgba(0, 210, 255, 0.04);

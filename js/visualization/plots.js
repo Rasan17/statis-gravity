@@ -2779,21 +2779,28 @@ export const Plots = {
     // VIEW MODE 1: 3BLUE1BROWN 1x1 UNIT SQUARE (GEOMETRY OF BAYES)
     // -------------------------------------------------------------
     if (viewMode === 'square') {
-      const sqMarginTop = 32;
-      const sqMarginBottom = 48;
-      const sqMarginLeft = 24;
-      const availableH = b.height - sqMarginTop - sqMarginBottom;
-      const sqSize = Math.max(160, Math.min(availableH, b.width * 0.54));
+      const padTop = 32;
+      const padBottom = 40;
+      const labelLeftW = 90;
+      const labelRightW = 88;
 
-      const sqX = b.x + sqMarginLeft;
-      const sqY = b.y + sqMarginTop;
+      const availableH = b.height - padTop - padBottom;
+      const showRightCard = b.width >= 720;
+      const rightCardW = showRightCard ? Math.min(380, Math.max(260, Math.floor(b.width * 0.36))) : 0;
+      const gap = showRightCard ? 28 : 0;
+
+      const availableW = b.width - labelLeftW - labelRightW - rightCardW - gap;
+      const sqSize = Math.floor(Math.max(220, Math.min(availableH, availableW)));
+
+      const sqX = b.x + labelLeftW;
+      const sqY = b.y + padTop;
 
       // Draw Main 1x1 Possibility Space Square
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.30)';
       ctx.lineWidth = 2.0;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(sqX, sqY, sqSize, sqSize, [4]);
+      if (ctx.roundRect) ctx.roundRect(sqX, sqY, sqSize, sqSize, [6]);
       else ctx.rect(sqX, sqY, sqSize, sqSize);
       ctx.fill();
       ctx.stroke();
@@ -2811,14 +2818,14 @@ export const Plots = {
       const yTopShadeNotH = sqY + sqSize - hShadeNotH;
 
       // 1. Shaded Region: P(H and E) = P(H) * P(E|H) (Emerald Green)
-      if (colWidthH > 1 && hShadeH > 1) {
-        let fillGreen = 'rgba(16, 185, 129, 0.50)';
+      if (colWidthH > 0.5 && hShadeH > 0.5) {
+        let fillGreen = 'rgba(16, 185, 129, 0.55)';
         try {
           if (typeof ctx.createLinearGradient === 'function') {
             const gradGreen = ctx.createLinearGradient(sqX, yTopShadeH, sqX, sqY + sqSize);
             if (gradGreen && typeof gradGreen.addColorStop === 'function') {
-              gradGreen.addColorStop(0, 'rgba(16, 185, 129, 0.65)');
-              gradGreen.addColorStop(1, 'rgba(16, 185, 129, 0.35)');
+              gradGreen.addColorStop(0, 'rgba(16, 185, 129, 0.70)');
+              gradGreen.addColorStop(1, 'rgba(16, 185, 129, 0.40)');
               fillGreen = gradGreen;
             }
           }
@@ -2832,14 +2839,14 @@ export const Plots = {
       }
 
       // 2. Shaded Region: P(~H and E) = P(~H) * P(E|~H) (Amber/Orange)
-      if (colWidthNotH > 1 && hShadeNotH > 1) {
-        let fillAmber = 'rgba(245, 158, 11, 0.50)';
+      if (colWidthNotH > 0.5 && hShadeNotH > 0.5) {
+        let fillAmber = 'rgba(245, 158, 11, 0.55)';
         try {
           if (typeof ctx.createLinearGradient === 'function') {
             const gradAmber = ctx.createLinearGradient(splitX, yTopShadeNotH, splitX, sqY + sqSize);
             if (gradAmber && typeof gradAmber.addColorStop === 'function') {
-              gradAmber.addColorStop(0, 'rgba(245, 158, 11, 0.65)');
-              gradAmber.addColorStop(1, 'rgba(245, 158, 11, 0.35)');
+              gradAmber.addColorStop(0, 'rgba(245, 158, 11, 0.70)');
+              gradAmber.addColorStop(1, 'rgba(245, 158, 11, 0.40)');
               fillAmber = gradAmber;
             }
           }
@@ -2853,9 +2860,9 @@ export const Plots = {
       }
 
       // 3. Vertical Dividing Line between H and ~H
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-      ctx.lineWidth = 1.8;
-      ctx.setLineDash([4, 3]);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.lineWidth = 2.0;
+      ctx.setLineDash([5, 4]);
       ctx.beginPath();
       ctx.moveTo(splitX, sqY);
       ctx.lineTo(splitX, sqY + sqSize);
@@ -2863,95 +2870,123 @@ export const Plots = {
       ctx.setLineDash([]);
 
       // Top Dimension Labels: Prior Hypotheses
-      ctx.font = `600 11px ${font}`;
+      ctx.font = `700 12.5px ${font}`;
       ctx.textAlign = 'center';
+
+      const rawHX = sqX + colWidthH / 2;
+      const rawNotHX = splitX + colWidthNotH / 2;
+      const minHeaderDist = 80;
+      let headerHX = rawHX;
+      let headerNotHX = rawNotHX;
+      if (headerNotHX - headerHX < minHeaderDist) {
+        headerHX = Math.max(sqX - 6, headerNotHX - minHeaderDist);
+      }
 
       // Left Column Header: P(H)
       ctx.fillStyle = '#10b981';
-      const labelHX = sqX + colWidthH / 2;
-      ctx.fillText(`P(H) = ${(prior * 100).toFixed(1)}%`, labelHX, sqY - 14);
-      ctx.font = `400 9.5px ${font}`;
+      ctx.fillText(`P(H) = ${(prior * 100).toFixed(1)}%`, headerHX, sqY - 16);
+      ctx.font = `500 10.5px ${font}`;
       ctx.fillStyle = textMuted;
-      ctx.fillText(preset === 'steve' ? 'Librarians' : 'Hypothesis H', labelHX, sqY - 3);
+      ctx.fillText(preset === 'steve' ? 'Librarians' : 'Hypothesis H', headerHX, sqY - 3);
 
       // Right Column Header: P(~H)
-      ctx.font = `600 11px ${font}`;
+      ctx.font = `700 12.5px ${font}`;
       ctx.fillStyle = '#f59e0b';
-      const labelNotHX = splitX + colWidthNotH / 2;
-      ctx.fillText(`P(¬H) = ${(notPrior * 100).toFixed(1)}%`, labelNotHX, sqY - 14);
-      ctx.font = `400 9.5px ${font}`;
+      ctx.fillText(`P(¬H) = ${(notPrior * 100).toFixed(1)}%`, headerNotHX, sqY - 16);
+      ctx.font = `500 10.5px ${font}`;
       ctx.fillStyle = textMuted;
-      ctx.fillText(preset === 'steve' ? 'Farmers (20× more)' : 'Alternative ¬H', labelNotHX, sqY - 3);
+      ctx.fillText(preset === 'steve' ? 'Farmers (20× more)' : 'Alternative ¬H', headerNotHX, sqY - 3);
 
       // Height Labels for Likelihoods
       // P(E|H) on left edge
       ctx.textAlign = 'right';
       ctx.fillStyle = '#10b981';
-      ctx.font = `600 10.5px ${font}`;
-      ctx.fillText(`P(E|H) = ${(likelihood * 100).toFixed(0)}%`, sqX - 8, yTopShadeH + hShadeH / 2 + 4);
+      ctx.font = `700 12px ${font}`;
+      const yMidH = yTopShadeH + hShadeH / 2 + 4;
+      ctx.fillText(`P(E|H) = ${(likelihood * 100).toFixed(0)}%`, sqX - 10, yMidH);
+      ctx.font = `500 10px ${font}`;
+      ctx.fillStyle = textMuted;
+      ctx.fillText(preset === 'steve' ? 'True Pos' : 'Likelihood', sqX - 10, yMidH + 13);
 
       // P(E|~H) on right edge
       ctx.textAlign = 'left';
       ctx.fillStyle = '#f59e0b';
-      ctx.fillText(`P(E|¬H) = ${(falsePositive * 100).toFixed(0)}%`, sqX + sqSize + 8, yTopShadeNotH + hShadeNotH / 2 + 4);
+      ctx.font = `700 12px ${font}`;
+      const yMidNotH = yTopShadeNotH + hShadeNotH / 2 + 4;
+      ctx.fillText(`P(E|¬H) = ${(falsePositive * 100).toFixed(0)}%`, sqX + sqSize + 10, yMidNotH);
+      ctx.font = `500 10px ${font}`;
+      ctx.fillStyle = textMuted;
+      ctx.fillText(preset === 'steve' ? 'False Alarm' : 'False Pos', sqX + sqSize + 10, yMidNotH + 13);
 
       // Unshaded Region Labels: Ruled Out by Evidence
       ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
-      ctx.font = `italic 10px ${font}`;
+      ctx.font = `italic 11px ${font}`;
       ctx.textAlign = 'center';
-      if (sqSize - hShadeNotH > 35) {
+      if (sqSize - hShadeNotH > 40) {
         ctx.fillText('Ruled out by Evidence ¬E (Dimmed space)', splitX + colWidthNotH / 2, sqY + (sqSize - hShadeNotH) / 2);
       }
 
       // Bottom Area Value Labels
-      ctx.font = `700 10.5px ${font}`;
-      if (colWidthH > 40) {
-        ctx.fillStyle = '#10b981';
-        ctx.textAlign = 'center';
-        ctx.fillText(`Area: ${(areaHAndE * 100).toFixed(1)}%`, labelHX, sqY + sqSize + 16);
+      let areaHX = rawHX;
+      let areaNotHX = rawNotHX;
+      if (areaNotHX - areaHX < 85) {
+        areaHX = Math.max(sqX - 6, areaNotHX - 85);
       }
+
+      ctx.font = `700 12px ${font}`;
+      ctx.fillStyle = '#10b981';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Area: ${(areaHAndE * 100).toFixed(1)}%`, areaHX, sqY + sqSize + 17);
+      ctx.font = `500 10px ${font}`;
+      ctx.fillStyle = textMuted;
+      ctx.fillText('P(H ∩ E)', areaHX, sqY + sqSize + 30);
+
+      ctx.font = `700 12px ${font}`;
       ctx.fillStyle = '#f59e0b';
       ctx.textAlign = 'center';
-      ctx.fillText(`Area: ${(areaNotHAndE * 100).toFixed(1)}%`, labelNotHX, sqY + sqSize + 16);
+      ctx.fillText(`Area: ${(areaNotHAndE * 100).toFixed(1)}%`, areaNotHX, sqY + sqSize + 17);
+      ctx.font = `500 10px ${font}`;
+      ctx.fillStyle = textMuted;
+      ctx.fillText('P(¬H ∩ E)', areaNotHX, sqY + sqSize + 30);
 
       // -------------------------------------------------------------
       // RIGHT SIDE: RESTRICTED SPACE PROPORTION CALLOUT (BAYES RULE)
       // -------------------------------------------------------------
-      const rightX = sqX + sqSize + (b.width > 680 ? 90 : 40);
-      const rightW = b.x + b.width - rightX - 10;
-      const rightY = sqY - 10;
+      if (showRightCard && rightCardW >= 220) {
+        const rightX = sqX + sqSize + labelRightW + gap;
+        const rightY = sqY - 8;
+        const cardH = sqSize + 44;
 
-      if (rightW > 180) {
         // Card Box
-        ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
+        ctx.fillStyle = 'rgba(30, 41, 59, 0.75)';
         ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(rightX, rightY, rightW, sqSize + 48, [8]);
-        else ctx.rect(rightX, rightY, rightW, sqSize + 48);
+        if (ctx.roundRect) ctx.roundRect(rightX, rightY, rightCardW, cardH, [10]);
+        else ctx.rect(rightX, rightY, rightCardW, cardH);
         ctx.fill();
         ctx.stroke();
 
         // Card Header
         ctx.textAlign = 'left';
-        ctx.font = `700 12px ${font}`;
+        ctx.font = `700 12.5px ${font}`;
         ctx.fillStyle = '#38bdf8';
-        ctx.fillText('RESTRICTED POSSIBILITY SPACE P(E)', rightX + 16, rightY + 22);
+        ctx.fillText('RESTRICTED POSSIBILITY SPACE P(E)', rightX + 16, rightY + 24);
 
-        ctx.font = `400 9.5px ${font}`;
+        ctx.font = `400 10px ${font}`;
         ctx.fillStyle = textMuted;
-        ctx.fillText('The evidence discards all unshaded space.', rightX + 16, rightY + 36);
+        ctx.fillText('The evidence discards all unshaded space.', rightX + 16, rightY + 40);
 
         // Total Evidence Area P(E)
-        ctx.font = `700 11px ${font}`;
+        ctx.font = `700 12px ${font}`;
         ctx.fillStyle = '#cbd5e1';
-        ctx.fillText(`Total Evidence Area = ${(pEvidence * 100).toFixed(2)}%`, rightX + 16, rightY + 58);
+        ctx.fillText(`Total Evidence Area = ${(pEvidence * 100).toFixed(2)}%`, rightX + 16, rightY + 66);
 
         // Visual Proportion Bar
         const barX = rightX + 16;
-        const barY = rightY + 68;
-        const barW = rightW - 32;
-        const barH = 22;
+        const barY = rightY + 78;
+        const barW = rightCardW - 32;
+        const barH = 26;
 
         const pwrW = barW * Math.max(0, Math.min(1.0, posterior));
         const remW = barW - pwrW;
@@ -2968,52 +3003,63 @@ export const Plots = {
         ctx.lineWidth = 1.0;
         ctx.strokeRect(barX, barY, barW, barH);
 
-        // Labels inside or above bar
-        ctx.font = `700 10px ${font}`;
+        // Labels inside bar
+        ctx.font = `700 11px ${font}`;
         if (pwrW > 35) {
           ctx.fillStyle = '#ffffff';
           ctx.textAlign = 'center';
-          ctx.fillText(`${(posterior * 100).toFixed(1)}%`, barX + pwrW / 2, barY + 15);
+          ctx.fillText(`${(posterior * 100).toFixed(1)}%`, barX + pwrW / 2, barY + 17);
         }
         if (remW > 45) {
           ctx.fillStyle = '#0f172a';
           ctx.textAlign = 'center';
-          ctx.fillText(`${(posteriorNotH * 100).toFixed(1)}%`, barX + pwrW + remW / 2, barY + 15);
+          ctx.fillText(`${(posteriorNotH * 100).toFixed(1)}%`, barX + pwrW + remW / 2, barY + 17);
         }
 
         // Legend under bar
         ctx.textAlign = 'left';
-        ctx.font = `600 10px ${font}`;
+        ctx.font = `600 10.5px ${font}`;
         ctx.fillStyle = '#10b981';
-        ctx.fillText(`■ P(H|E): ${(posterior * 100).toFixed(1)}%`, barX, barY + 36);
+        ctx.fillText(`■ P(H|E): ${(posterior * 100).toFixed(1)}%`, barX, barY + 44);
         ctx.fillStyle = '#f59e0b';
-        ctx.fillText(`■ P(¬H|E): ${(posteriorNotH * 100).toFixed(1)}%`, barX + barW / 2, barY + 36);
+        ctx.fillText(`■ P(¬H|E): ${(posteriorNotH * 100).toFixed(1)}%`, barX + barW / 2, barY + 44);
 
         // 3Blue1Brown Equation Breakdown
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.fillRect(barX, barY + 46, barW, 64);
+        const eqY = barY + 56;
+        const eqH = 76;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+        ctx.fillRect(barX, eqY, barW, eqH);
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-        ctx.strokeRect(barX, barY + 46, barW, 64);
+        ctx.strokeRect(barX, eqY, barW, eqH);
 
         ctx.fillStyle = '#94a3b8';
-        ctx.font = `600 9.5px ${font}`;
-        ctx.fillText('BAYES\' PROPORTION RULE:', barX + 8, barY + 60);
+        ctx.font = `600 10px ${font}`;
+        ctx.fillText('BAYES\' PROPORTION RULE (3BLUE1BROWN):', barX + 10, eqY + 18);
 
-        ctx.font = `700 11px monospace`;
+        ctx.font = `700 12px monospace`;
         ctx.fillStyle = '#00d2ff';
-        ctx.fillText('P(H|E) = Green Area / Total Shaded Area', barX + 8, barY + 76);
+        ctx.fillText('P(H|E) = Green Area / Total Shaded Area', barX + 10, eqY + 36);
 
         ctx.fillStyle = '#f8fafc';
-        ctx.font = `600 10.5px monospace`;
-        ctx.fillText(`= ${(areaHAndE * 100).toFixed(2)}% / ${(pEvidence * 100).toFixed(2)}% = ${(posterior * 100).toFixed(1)}%`, barX + 8, barY + 95);
+        ctx.font = `600 11px monospace`;
+        ctx.fillText(`= ${(areaHAndE * 100).toFixed(2)}% / ${(pEvidence * 100).toFixed(2)}% = ${(posterior * 100).toFixed(1)}%`, barX + 10, eqY + 56);
 
         // Bottom takeaway callout
+        const shiftY = eqY + eqH + 22;
         ctx.fillStyle = beliefShift >= 0 ? '#10b981' : '#ef4444';
-        ctx.font = `700 11px ${font}`;
+        ctx.font = `700 12px ${font}`;
         ctx.fillText(
-          `Belief Shift: ${(beliefShift >= 0 ? '+' : '')}${(beliefShift * 100).toFixed(1)}% | Prior Odds ${priorOdds < 0.1 ? '1:' + (1/priorOdds).toFixed(1) : priorOdds.toFixed(2)} → ${posteriorOdds < 0.1 ? '1:' + (1/posteriorOdds).toFixed(1) : posteriorOdds.toFixed(2)}`,
+          `Belief Shift: ${(beliefShift >= 0 ? '+' : '')}${(beliefShift * 100).toFixed(1)}%`,
           barX,
-          barY + 124
+          shiftY
+        );
+
+        ctx.font = `600 11px ${font}`;
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillText(
+          `Prior Odds ${priorOdds < 0.1 ? '1:' + (1/priorOdds).toFixed(1) : priorOdds.toFixed(2)} → Posterior Odds ${posteriorOdds < 0.1 ? '1:' + (1/posteriorOdds).toFixed(1) : posteriorOdds.toFixed(2)}`,
+          barX,
+          shiftY + 18
         );
       }
       return;
