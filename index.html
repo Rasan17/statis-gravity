@@ -716,27 +716,91 @@
           <div class="card">
             <div class="card-header">
               <div>
-                <h2 class="card-title">Power &amp; Sample Size</h2>
-                <p class="card-subtitle">Two Independent Means Study Design</p>
+                <h2 class="card-title">Power &amp; Sample Size Determination</h2>
+                <p id="pwrSubtitle" class="card-subtitle">A-priori sample size planning &amp; post-hoc power calculation</p>
               </div>
             </div>
 
-            <div class="input-row">
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label for="pwrStudyDesign" class="form-label" style="font-weight: 600; color: var(--text-main);">Study Design &amp; Statistical Test:</label>
+              <select id="pwrStudyDesign" class="form-control" style="font-weight: 600; cursor: pointer; background: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.45rem 0.75rem;">
+                <option value="independent" selected>Two Independent Groups (Two-Sample t-Test)</option>
+                <option value="paired">Paired Mean Study Design (Before vs After / Paired t-Test)</option>
+                <option value="contingency">Clinical Study: Test vs Control (2x2 Contingency: Chi-Square / Fisher's Exact)</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+              <label for="pwrCalcGoal" class="form-label" style="font-weight: 600; color: var(--text-main);">Calculation Objective:</label>
+              <select id="pwrCalcGoal" class="form-control" style="font-weight: 600; cursor: pointer; background: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.45rem 0.75rem;">
+                <option value="sample_size" selected>Find Required Sample Size (A-Priori, Given Desired Power)</option>
+                <option value="power">Find Statistical Power (Post-Hoc / Sensitivity, Given Available Sample Size N)</option>
+              </select>
+            </div>
+
+            <!-- 1. Independent Means Input Panel -->
+            <div id="pwrSectionIndep">
+              <div class="input-row">
+                <div class="form-group">
+                  <label class="form-label" for="pwrM1">Expected Mean 1 (Control):</label>
+                  <input id="pwrM1" type="number" class="form-control" value="10" step="0.5">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="pwrM2">Expected Mean 2 (Intervention):</label>
+                  <input id="pwrM2" type="number" class="form-control" value="15" step="0.5">
+                </div>
+              </div>
+
               <div class="form-group">
-                <label class="form-label" for="pwrM1">Expected Mean 1 (Control):</label>
-                <input id="pwrM1" type="number" class="form-control" value="10" step="0.5">
+                <label class="form-label" for="pwrSD">Standard Deviation (Pooled SD):</label>
+                <input id="pwrSD" type="number" class="form-control" value="10" step="0.5">
               </div>
+            </div>
+
+            <!-- 2. Paired Means Input Panel -->
+            <div id="pwrSectionPaired" style="display: none;">
+              <div class="input-row">
+                <div class="form-group">
+                  <label class="form-label" for="pwrPairedM1">Baseline Mean (Pre / Control):</label>
+                  <input id="pwrPairedM1" type="number" class="form-control" value="120" step="1">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="pwrPairedM2">Post-Intervention Mean:</label>
+                  <input id="pwrPairedM2" type="number" class="form-control" value="112" step="1">
+                </div>
+              </div>
+
               <div class="form-group">
-                <label class="form-label" for="pwrM2">Expected Mean 2 (Intervention):</label>
-                <input id="pwrM2" type="number" class="form-control" value="15" step="0.5">
+                <label class="form-label" for="pwrPairedSD">Standard Deviation of Paired Differences (σ<sub>d</sub>):</label>
+                <input id="pwrPairedSD" type="number" class="form-control" value="10" step="0.5">
+                <span class="card-subtitle" style="font-size: 0.72rem; margin-top: 3px; display: block;">SD of intra-individual differences (D = X<sub>post</sub> - X<sub>pre</sub>) across matched pairs.</span>
               </div>
             </div>
 
-            <div class="form-group">
-              <label class="form-label" for="pwrSD">Standard Deviation (Pooled SD):</label>
-              <input id="pwrSD" type="number" class="form-control" value="10" step="0.5">
+            <!-- 3. 2x2 Contingency Proportions Input Panel -->
+            <div id="pwrSectionContingency" style="display: none;">
+              <div class="input-row">
+                <div class="form-group">
+                  <label class="form-label" for="pwrP1">Test Group Event Rate (p<sub>1</sub>):</label>
+                  <input id="pwrP1" type="number" class="form-control" value="0.15" min="0.01" max="0.99" step="0.01">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="pwrP2">Control Group Event Rate (p<sub>2</sub>):</label>
+                  <input id="pwrP2" type="number" class="form-control" value="0.30" min="0.01" max="0.99" step="0.01">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="pwrPropTestType">Planned 2x2 Statistical Hypothesis Test:</label>
+                <select id="pwrPropTestType" class="form-control">
+                  <option value="chisq" selected>Pearson Chi-Square Test (Standard asymptotic)</option>
+                  <option value="fisher">Fisher's Exact Test / Continuity-Corrected Chi-Square</option>
+                </select>
+                <span class="card-subtitle" style="font-size: 0.72rem; margin-top: 3px; display: block;">Computes sample size for 2x2 contingency analysis (incorporating Casagrande-Pike-Smith / Fleiss continuity correction for Fisher's exact test).</span>
+              </div>
             </div>
 
+            <!-- Common Parameters -->
             <div class="input-row">
               <div class="form-group">
                 <label class="form-label" for="pwrAlpha">Significance Level (α):</label>
@@ -746,39 +810,66 @@
                   <option value="0.10">α = 0.10 (Two-sided)</option>
                 </select>
               </div>
-              <div class="form-group">
+
+              <div id="pwrTargetPowerGroup" class="form-group">
                 <label class="form-label" for="pwrPower">Desired Statistical Power (1 - β):</label>
                 <select id="pwrPower" class="form-control">
-                  <option value="0.80" selected>80% Power</option>
-                  <option value="0.85">85% Power</option>
-                  <option value="0.90">90% Power</option>
-                  <option value="0.95">95% Power</option>
+                  <option value="0.80" selected>80% Power (β = 0.20)</option>
+                  <option value="0.85">85% Power (β = 0.15)</option>
+                  <option value="0.90">90% Power (β = 0.10)</option>
+                  <option value="0.95">95% Power (β = 0.05)</option>
                 </select>
+              </div>
+
+              <div id="pwrGivenNGroup" class="form-group" style="display: none;">
+                <label id="pwrGivenNLabel" class="form-label" for="pwrGivenN">Available Sample Size per Group (n):</label>
+                <input id="pwrGivenN" type="number" class="form-control" value="50" min="2" step="1">
               </div>
             </div>
 
-            <button id="powerComputeBtn" class="btn btn-primary" style="width: 100%;">Calculate Sample Size</button>
+            <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+              <button id="powerComputeBtn" class="btn btn-primary" style="flex: 2;">Calculate</button>
+              <button id="powerSampleBtn" class="btn btn-secondary" style="flex: 1;">Load Preset</button>
+            </div>
           </div>
 
           <div>
             <div class="metrics-grid">
               <div class="metric-card">
-                <div class="metric-label">Effect Size (Cohen's d)</div>
+                <div id="pwrEffectLabel" class="metric-label">Effect Size (Cohen's d)</div>
                 <div id="pwrD" class="metric-value">--</div>
+                <div id="pwrEffectSub" class="metric-sub">Standardized contrast</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">Sample Size per Group (n)</div>
+                <div id="pwrNGroupLabel" class="metric-label">Sample Size per Group (n)</div>
                 <div id="pwrNGroup" class="metric-value" style="color: var(--cyan-primary);">--</div>
+                <div id="pwrNGroupSub" class="metric-sub">Equal 1:1 allocation</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">Total Sample Size (N)</div>
+                <div id="pwrNTotalLabel" class="metric-label">Total Sample Size (N)</div>
                 <div id="pwrNTotal" class="metric-value" style="color: var(--emerald-primary);">--</div>
+                <div id="pwrNTotalSub" class="metric-sub">Total study enrollment</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Statistical Power (1 - β)</div>
+                <div id="pwrAchievedPower" class="metric-value" style="color: var(--accent);">--</div>
+                <div id="pwrPowerSub" class="metric-sub">1 - Type II error rate</div>
+              </div>
+              <div id="pwrCardFisher" class="metric-card" style="display: none;">
+                <div class="metric-label">Fisher's Exact / CC Sample Size</div>
+                <div id="pwrFisherN" class="metric-value" style="font-size: 0.95rem;">--</div>
+                <div id="pwrFisherSub" class="metric-sub">Fleiss / Casagrande-Pike-Smith</div>
+              </div>
+              <div id="pwrCardClinicalRisk" class="metric-card" style="display: none;">
+                <div class="metric-label">Clinical Risk Profile</div>
+                <div id="pwrClinicalRisk" class="metric-value" style="font-size: 0.88rem;">--</div>
+                <div id="pwrClinicalRiskSub" class="metric-sub">ARR, RR &amp; NNT</div>
               </div>
             </div>
 
-            <div class="report-box">
+            <div class="report-box" style="margin-top: 1rem;">
               <div class="report-title">
-                <span>Study Protocol Justification (Grant / Ethics Ready)</span>
+                <span id="pwrReportTitle">Study Protocol Justification (Grant / Ethics / IRB Ready)</span>
                 <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="pwrReportText">Copy</button>
               </div>
               <p id="pwrReportText" class="report-text">--</p>
@@ -800,6 +891,6 @@
     </footer>
   </div>
 
-  <script src="js/statis-gravity.js?v=2.2.0"></script>
+  <script src="js/statis-gravity.js?v=2.3.0"></script>
 </body>
 </html>

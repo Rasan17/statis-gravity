@@ -196,10 +196,42 @@ assert(approx(d2x2.plr, 21.673, 0.05), `Positive Likelihood Ratio (LR+) is ~21.6
 assert(approx(d2x2.nlr, 0.120, 0.01), `Negative Likelihood Ratio (LR-) is ~0.12 (got ${d2x2.nlr.toFixed(2)})`);
 assert(approx(d2x2.youdenJ, 0.8438, 1e-3), `Youden's J statistic is ~0.844 (got ${d2x2.youdenJ.toFixed(3)})`);
 
-console.log('--- Testing Power Analysis ---');
-// d = 0.5, alpha = 0.05, power = 0.80 -> N per group is ~64
-const pwr = PowerAnalysis.sampleSizeMeans(10, 15, 10, 0.05, 0.80);
-assert(pwr.nPerGroup >= 60 && pwr.nPerGroup <= 70, `Sample size per group is ~64, got ${pwr.nPerGroup}`);
+console.log('--- Testing Power & Sample Size Analysis ---');
+// 1. Two Independent Means
+const pwrIndep = PowerAnalysis.twoIndependentMeans({ m1: 10, m2: 15, sd: 10, alpha: 0.05, power: 0.80 });
+assert(pwrIndep.nPerGroup >= 60 && pwrIndep.nPerGroup <= 70, `Independent means sample size per group is ~63-64, got ${pwrIndep.nPerGroup}`);
+assert(pwrIndep.totalN === 2 * pwrIndep.nPerGroup, `Total sample size is 2 * nPerGroup = ${pwrIndep.totalN}`);
+assert(pwrIndep.achievedPower >= 0.80, `Achieved power meets or exceeds target (got ${(pwrIndep.achievedPower * 100).toFixed(1)}%)`);
+
+// Post-hoc power for independent means
+const pwrIndepPost = PowerAnalysis.twoIndependentMeans({ m1: 10, m2: 15, sd: 10, alpha: 0.05, nPerGroup: 64 });
+assert(approx(pwrIndepPost.achievedPower, 0.805, 0.02), `Post-hoc power for n=64 is ~80.5%, got ${(pwrIndepPost.achievedPower * 100).toFixed(1)}%`);
+
+// 2. Paired Mean Study Design (Before vs After)
+// Effect size dz = |120 - 115| / 10 = 0.50
+const pwrPaired = PowerAnalysis.pairedMeans({ m1: 120, m2: 115, sdDiff: 10, alpha: 0.05, power: 0.80 });
+assert(pwrPaired.dz === 0.50, `Paired effect size dz is 0.50, got ${pwrPaired.dz}`);
+assert(pwrPaired.nPairs >= 31 && pwrPaired.nPairs <= 35, `Required paired subjects is ~32-34 pairs, got ${pwrPaired.nPairs}`);
+assert(pwrPaired.achievedPower >= 0.80, `Paired achieved power meets target (got ${(pwrPaired.achievedPower * 100).toFixed(1)}%)`);
+
+// Post-hoc power for paired design
+const pwrPairedPost = PowerAnalysis.pairedMeans({ m1: 120, m2: 115, sdDiff: 10, alpha: 0.05, nPairs: 34 });
+assert(pwrPairedPost.achievedPower >= 0.80, `Paired post-hoc power for N=34 is >= 80%, got ${(pwrPairedPost.achievedPower * 100).toFixed(1)}%`);
+
+// 3. Clinical Study Design: 2x2 Contingency Table (Chi-Square & Fisher's Exact)
+// p1 = 0.15 (Test), p2 = 0.30 (Control) -> ARR = 0.15, RR = 0.50, NNT = 6.67
+const pwrContChisq = PowerAnalysis.contingency2x2({ p1: 0.15, p2: 0.30, alpha: 0.05, power: 0.80, testType: 'chisq' });
+assert(approx(pwrContChisq.arr, 0.15, 1e-3), `Absolute Risk Reduction (ARR) is 0.15, got ${pwrContChisq.arr}`);
+assert(approx(pwrContChisq.rr, 0.50, 1e-3), `Relative Risk (RR) is 0.50, got ${pwrContChisq.rr}`);
+assert(approx(pwrContChisq.nnt, 6.67, 0.05), `NNT is ~6.67, got ${pwrContChisq.nnt.toFixed(2)}`);
+assert(pwrContChisq.uncorrectedN >= 118 && pwrContChisq.uncorrectedN <= 125, `Chi-Square n per group is ~121, got ${pwrContChisq.uncorrectedN}`);
+assert(pwrContChisq.continuityCorrectedN >= 130 && pwrContChisq.continuityCorrectedN <= 140, `Continuity-corrected Fisher's exact n per group is ~134, got ${pwrContChisq.continuityCorrectedN}`);
+assert(pwrContChisq.continuityCorrectedN > pwrContChisq.uncorrectedN, `Fisher's continuity-corrected sample size is strictly greater than uncorrected`);
+
+// Post-hoc power for 2x2 contingency study
+const pwrContPost = PowerAnalysis.contingency2x2({ p1: 0.15, p2: 0.30, alpha: 0.05, nPerGroup: 134, testType: 'fisher' });
+assert(pwrContPost.powerFisher >= 0.79, `Fisher's exact power at n=134 is ~80%, got ${(pwrContPost.powerFisher * 100).toFixed(1)}%`);
+assert(pwrContPost.powerChisq > pwrContPost.powerFisher, `Standard Chi-Square power is higher than Fisher's exact at same N`);
 
 console.log('--- Testing Hypothesis Error Bar / Dispersion Modes ---');
 const sampleHypo = [20, 22, 24, 25, 26, 28, 30, 31, 34];

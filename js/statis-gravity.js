@@ -1198,16 +1198,225 @@
   // 8. POWER ANALYSIS
   // ==========================================
   const PowerAnalysis = {
-    sampleSizeMeans(m1, m2, sd, alpha = 0.05, power = 0.80) {
+    twoIndependentMeans({ m1, m2, sd, alpha = 0.05, power = 0.80, nPerGroup = null, ratio = 1.0 }) {
+      m1 = parseFloat(m1);
+      m2 = parseFloat(m2);
+      sd = parseFloat(sd);
+      alpha = parseFloat(alpha);
+      power = parseFloat(power);
+
       const diff = Math.abs(m1 - m2);
-      if (diff === 0 || sd <= 0) return { error: 'Difference must be > 0 and SD > 0.' };
+      if (diff === 0 || sd <= 0) {
+        return { error: 'Mean difference must be greater than zero and SD positive.' };
+      }
 
       const cohensD = diff / sd;
       const zAlpha = Distributions.invNormalCDF(1 - alpha / 2);
-      const zBeta = Distributions.invNormalCDF(power);
-      const n1 = Math.ceil(2 * Math.pow(zAlpha + zBeta, 2) * Math.pow(sd, 2) / Math.pow(diff, 2));
 
-      return { diff, sd, cohensD, alpha, power, nPerGroup: n1, totalN: 2 * n1 };
+      if (nPerGroup !== null && nPerGroup > 0) {
+        const n1 = Math.round(nPerGroup);
+        const n2 = Math.ceil(n1 * ratio);
+        const effectiveN = (n1 * n2) / (n1 + n2);
+        const zBeta = cohensD * Math.sqrt(effectiveN) - zAlpha;
+        const achievedPower = Math.min(0.9999, Math.max(0.0001, Distributions.normalCDF(zBeta)));
+
+        return {
+          design: 'independent_means',
+          testName: 'Two Independent Groups (Two-Sample t-Test)',
+          m1, m2, diff, sd,
+          effectSize: cohensD,
+          effectSizeLabel: "Cohen's d",
+          cohensD,
+          alpha,
+          power: achievedPower,
+          achievedPower,
+          nPerGroup: n1,
+          n1, n2,
+          totalN: n1 + n2,
+          isPostHoc: true
+        };
+      } else {
+        const zBeta = Distributions.invNormalCDF(power);
+        const n1 = Math.ceil(
+          Math.pow(zAlpha + zBeta, 2) * Math.pow(sd, 2) * (1 + 1 / ratio) / Math.pow(diff, 2)
+        );
+        const n2 = Math.ceil(n1 * ratio);
+        const effectiveN = (n1 * n2) / (n1 + n2);
+        const actualZBeta = cohensD * Math.sqrt(effectiveN) - zAlpha;
+        const achievedPower = Math.min(0.9999, Math.max(0.0001, Distributions.normalCDF(actualZBeta)));
+
+        return {
+          design: 'independent_means',
+          testName: 'Two Independent Groups (Two-Sample t-Test)',
+          m1, m2, diff, sd,
+          effectSize: cohensD,
+          effectSizeLabel: "Cohen's d",
+          cohensD,
+          alpha,
+          power,
+          achievedPower,
+          nPerGroup: ratio === 1 ? n1 : null,
+          n1, n2,
+          totalN: n1 + n2,
+          isPostHoc: false
+        };
+      }
+    },
+
+    pairedMeans({ m1, m2, sdDiff, alpha = 0.05, power = 0.80, nPairs = null }) {
+      m1 = parseFloat(m1);
+      m2 = parseFloat(m2);
+      sdDiff = parseFloat(sdDiff);
+      alpha = parseFloat(alpha);
+      power = parseFloat(power);
+
+      const diff = Math.abs(m1 - m2);
+      if (diff === 0 || sdDiff <= 0) {
+        return { error: 'Paired mean difference must be greater than zero and SD of differences positive.' };
+      }
+
+      const dz = diff / sdDiff;
+      const zAlpha = Distributions.invNormalCDF(1 - alpha / 2);
+
+      if (nPairs !== null && nPairs > 0) {
+        const n = Math.round(nPairs);
+        const zBeta = dz * Math.sqrt(n) - zAlpha;
+        const achievedPower = Math.min(0.9999, Math.max(0.0001, Distributions.normalCDF(zBeta)));
+
+        return {
+          design: 'paired_means',
+          testName: 'Paired Mean Study Design (Paired t-Test)',
+          m1, m2, diff, sdDiff,
+          effectSize: dz,
+          effectSizeLabel: "Cohen's d_z (Paired)",
+          dz,
+          alpha,
+          power: achievedPower,
+          achievedPower,
+          nPairs: n,
+          nPerGroup: n,
+          totalN: n,
+          isPostHoc: true
+        };
+      } else {
+        const zBeta = Distributions.invNormalCDF(power);
+        const rawN = Math.pow(zAlpha + zBeta, 2) / Math.pow(dz, 2);
+        const nCalc = Math.ceil(rawN);
+        const actualZBeta = dz * Math.sqrt(nCalc) - zAlpha;
+        const achievedPower = Math.min(0.9999, Math.max(0.0001, Distributions.normalCDF(actualZBeta)));
+
+        return {
+          design: 'paired_means',
+          testName: 'Paired Mean Study Design (Paired t-Test)',
+          m1, m2, diff, sdDiff,
+          effectSize: dz,
+          effectSizeLabel: "Cohen's d_z (Paired)",
+          dz,
+          alpha,
+          power,
+          achievedPower,
+          nPairs: nCalc,
+          nPerGroup: nCalc,
+          totalN: nCalc,
+          isPostHoc: false
+        };
+      }
+    },
+
+    contingency2x2({ p1, p2, alpha = 0.05, power = 0.80, nPerGroup = null, testType = 'chisq' }) {
+      p1 = parseFloat(p1);
+      p2 = parseFloat(p2);
+      alpha = parseFloat(alpha);
+      power = parseFloat(power);
+
+      if (isNaN(p1) || isNaN(p2) || p1 <= 0 || p1 >= 1 || p2 <= 0 || p2 >= 1) {
+        return { error: 'Event proportions (p1 and p2) must be strictly between 0 and 1.' };
+      }
+      const diff = Math.abs(p1 - p2);
+      if (diff === 0) {
+        return { error: 'Event proportions must differ (p1 ≠ p2).' };
+      }
+
+      const zAlpha = Distributions.invNormalCDF(1 - alpha / 2);
+      const pBar = (p1 + p2) / 2;
+      const qBar = 1 - pBar;
+
+      const arr = diff;
+      const rr = p1 / p2;
+      const rrr = p2 > 0 ? (p2 - p1) / p2 : 0;
+      const or = (p1 / (1 - p1)) / (p2 / (1 - p2));
+      const nnt = 1 / arr;
+      const cohenH = 2 * Math.abs(Math.asin(Math.sqrt(p1)) - Math.asin(Math.sqrt(p2)));
+
+      const sigma0 = Math.sqrt(2 * pBar * qBar);
+      const sigma1 = Math.sqrt(p1 * (1 - p1) + p2 * (1 - p2));
+
+      if (nPerGroup !== null && nPerGroup > 0) {
+        const n = Math.round(nPerGroup);
+
+        const zBetaChisq = (Math.sqrt(n) * diff - zAlpha * sigma0) / sigma1;
+        const powerChisq = Math.min(0.9999, Math.max(0.0001, Distributions.normalCDF(zBetaChisq)));
+
+        const zBetaCC = (Math.sqrt(n) * diff - (1 / Math.sqrt(n)) - zAlpha * sigma0) / sigma1;
+        const powerCC = Math.min(0.9999, Math.max(0.0001, Distributions.normalCDF(zBetaCC)));
+
+        const activePower = testType === 'fisher' ? powerCC : powerChisq;
+
+        return {
+          design: 'contingency_2x2',
+          testName: testType === 'fisher' ? "Fisher's Exact / Continuity-Corrected Chi-Square" : "Pearson Chi-Square Test",
+          p1, p2, diff, arr, rr, rrr, or, nnt, cohenH,
+          effectSize: arr,
+          effectSizeLabel: 'ARR (|p1 - p2|)',
+          alpha,
+          power: activePower,
+          achievedPower: activePower,
+          powerChisq,
+          powerFisher: powerCC,
+          nPerGroup: n,
+          n1: n, n2: n,
+          totalN: 2 * n,
+          testType,
+          isPostHoc: true
+        };
+      } else {
+        const zBeta = Distributions.invNormalCDF(power);
+        const term1 = zAlpha * Math.sqrt(2 * pBar * qBar);
+        const term2 = zBeta * Math.sqrt(p1 * (1 - p1) + p2 * (1 - p2));
+        const uncorrectedN = Math.ceil(Math.pow(term1 + term2, 2) / Math.pow(diff, 2));
+
+        const ccN = Math.ceil((uncorrectedN / 4) * Math.pow(1 + Math.sqrt(1 + 4 / (uncorrectedN * diff)), 2));
+        const chosenN = testType === 'fisher' ? ccN : uncorrectedN;
+
+        const zBetaAchieved = (Math.sqrt(chosenN) * diff - zAlpha * sigma0) / sigma1;
+        const achievedPower = Math.min(0.9999, Math.max(0.0001, Distributions.normalCDF(zBetaAchieved)));
+
+        return {
+          design: 'contingency_2x2',
+          testName: testType === 'fisher' ? "Fisher's Exact / Continuity-Corrected Chi-Square" : "Pearson Chi-Square Test",
+          p1, p2, diff, arr, rr, rrr, or, nnt, cohenH,
+          effectSize: arr,
+          effectSizeLabel: 'ARR (|p1 - p2|)',
+          alpha,
+          power,
+          achievedPower,
+          uncorrectedN,
+          continuityCorrectedN: ccN,
+          nPerGroup: chosenN,
+          n1: chosenN, n2: chosenN,
+          totalN: 2 * chosenN,
+          testType,
+          isPostHoc: false
+        };
+      }
+    },
+
+    sampleSizeMeans(m1, m2, sd, alpha = 0.05, power = 0.80) {
+      return this.twoIndependentMeans({ m1, m2, sd, alpha, power });
+    },
+
+    sampleSizeProportions(p1, p2, alpha = 0.05, power = 0.80) {
+      return this.contingency2x2({ p1, p2, alpha, power, testType: 'chisq' });
     }
   };
 
@@ -2465,8 +2674,77 @@
         this.runROC();
       });
 
-      // 7. Power
+      // 7. Power Analysis Events
+      const pwrInputs = [
+        'pwrM1', 'pwrM2', 'pwrSD',
+        'pwrPairedM1', 'pwrPairedM2', 'pwrPairedSD',
+        'pwrP1', 'pwrP2', 'pwrAlpha', 'pwrPower', 'pwrGivenN', 'pwrPropTestType'
+      ];
+      pwrInputs.forEach(id => {
+        document.getElementById(id)?.addEventListener('input', () => this.runPower());
+        document.getElementById(id)?.addEventListener('change', () => this.runPower());
+      });
+
+      document.getElementById('pwrStudyDesign')?.addEventListener('change', (e) => {
+        const design = e.target.value;
+        const indepSec = document.getElementById('pwrSectionIndep');
+        const pairedSec = document.getElementById('pwrSectionPaired');
+        const contSec = document.getElementById('pwrSectionContingency');
+        const cardFisher = document.getElementById('pwrCardFisher');
+        const cardRisk = document.getElementById('pwrCardClinicalRisk');
+        const subtitle = document.getElementById('pwrSubtitle');
+        const givenNLabel = document.getElementById('pwrGivenNLabel');
+
+        if (indepSec) indepSec.style.display = design === 'independent' ? 'block' : 'none';
+        if (pairedSec) pairedSec.style.display = design === 'paired' ? 'block' : 'none';
+        if (contSec) contSec.style.display = design === 'contingency' ? 'block' : 'none';
+
+        if (cardFisher) cardFisher.style.display = design === 'contingency' ? 'block' : 'none';
+        if (cardRisk) cardRisk.style.display = design === 'contingency' ? 'block' : 'none';
+
+        if (subtitle) {
+          if (design === 'independent') subtitle.innerText = 'Two Independent Groups (Independent Samples t-Test)';
+          else if (design === 'paired') subtitle.innerText = 'Paired Mean Study Design (Before vs After / Paired t-Test)';
+          else subtitle.innerText = 'Clinical Study: Test vs Control (2x2 Contingency: Chi-Square / Fisher\'s Exact)';
+        }
+
+        if (givenNLabel) {
+          givenNLabel.innerText = design === 'paired'
+            ? 'Available Number of Pairs (N):'
+            : 'Available Sample Size per Group (n):';
+        }
+
+        this.runPower();
+      });
+
+      document.getElementById('pwrCalcGoal')?.addEventListener('change', (e) => {
+        const goal = e.target.value;
+        const targetGroup = document.getElementById('pwrTargetPowerGroup');
+        const givenGroup = document.getElementById('pwrGivenNGroup');
+        if (targetGroup) targetGroup.style.display = goal === 'sample_size' ? 'block' : 'none';
+        if (givenGroup) givenGroup.style.display = goal === 'power' ? 'block' : 'none';
+        this.runPower();
+      });
+
       document.getElementById('powerComputeBtn')?.addEventListener('click', () => this.runPower());
+
+      document.getElementById('powerSampleBtn')?.addEventListener('click', () => {
+        const design = document.getElementById('pwrStudyDesign')?.value || 'independent';
+        if (design === 'independent') {
+          document.getElementById('pwrM1').value = '10';
+          document.getElementById('pwrM2').value = '15';
+          document.getElementById('pwrSD').value = '10';
+        } else if (design === 'paired') {
+          document.getElementById('pwrPairedM1').value = '120';
+          document.getElementById('pwrPairedM2').value = '112';
+          document.getElementById('pwrPairedSD').value = '10';
+        } else if (design === 'contingency') {
+          document.getElementById('pwrP1').value = '0.08';
+          document.getElementById('pwrP2').value = '0.20';
+          document.getElementById('pwrPropTestType').value = 'fisher';
+        }
+        this.runPower();
+      });
 
       // Copy buttons
       document.querySelectorAll('.btn-copy-report').forEach(btn => {
@@ -3042,24 +3320,153 @@
     }
 
     runPower() {
-      const m1 = parseFloat(document.getElementById('pwrM1')?.value) || 10;
-      const m2 = parseFloat(document.getElementById('pwrM2')?.value) || 15;
-      const sd = parseFloat(document.getElementById('pwrSD')?.value) || 10;
+      const design = document.getElementById('pwrStudyDesign')?.value || 'independent';
+      const goal = document.getElementById('pwrCalcGoal')?.value || 'sample_size';
       const alpha = parseFloat(document.getElementById('pwrAlpha')?.value) || 0.05;
       const power = parseFloat(document.getElementById('pwrPower')?.value) || 0.80;
+      const givenN = goal === 'power' ? (parseFloat(document.getElementById('pwrGivenN')?.value) || 50) : null;
 
-      const res = PowerAnalysis.sampleSizeMeans(m1, m2, sd, alpha, power);
-      if (res.error) {
-        alert(res.error);
-        return;
+      const effectLabel = document.getElementById('pwrEffectLabel');
+      const effectVal = document.getElementById('pwrD');
+      const effectSub = document.getElementById('pwrEffectSub');
+      const nGroupLabel = document.getElementById('pwrNGroupLabel');
+      const nGroupVal = document.getElementById('pwrNGroup');
+      const nGroupSub = document.getElementById('pwrNGroupSub');
+      const nTotalLabel = document.getElementById('pwrNTotalLabel');
+      const nTotalVal = document.getElementById('pwrNTotal');
+      const nTotalSub = document.getElementById('pwrNTotalSub');
+      const achievedPowerVal = document.getElementById('pwrAchievedPower');
+      const powerSub = document.getElementById('pwrPowerSub');
+      const cardFisher = document.getElementById('pwrCardFisher');
+      const cardRisk = document.getElementById('pwrCardClinicalRisk');
+      const fisherNVal = document.getElementById('pwrFisherN');
+      const fisherSub = document.getElementById('pwrFisherSub');
+      const riskVal = document.getElementById('pwrClinicalRisk');
+      const riskSub = document.getElementById('pwrClinicalRiskSub');
+      const reportBox = document.getElementById('pwrReportText');
+
+      if (design === 'independent') {
+        if (cardFisher) cardFisher.style.display = 'none';
+        if (cardRisk) cardRisk.style.display = 'none';
+
+        const m1 = parseFloat(document.getElementById('pwrM1')?.value) || 10;
+        const m2 = parseFloat(document.getElementById('pwrM2')?.value) || 15;
+        const sd = parseFloat(document.getElementById('pwrSD')?.value) || 10;
+
+        const res = PowerAnalysis.twoIndependentMeans({ m1, m2, sd, alpha, power, nPerGroup: givenN });
+        if (res.error) {
+          if (reportBox) reportBox.innerText = res.error;
+          return;
+        }
+
+        if (effectLabel) effectLabel.innerText = "Effect Size (Cohen's d)";
+        if (effectVal) effectVal.innerText = res.cohensD.toFixed(2);
+        if (effectSub) effectSub.innerText = `|Δ| = ${res.diff.toFixed(2)} | SD = ${res.sd.toFixed(2)}`;
+
+        if (nGroupLabel) nGroupLabel.innerText = 'Sample Size per Group (n)';
+        if (nGroupVal) nGroupVal.innerText = res.nPerGroup;
+        if (nGroupSub) nGroupSub.innerText = 'Equal 1:1 allocation';
+
+        if (nTotalLabel) nTotalLabel.innerText = 'Total Study Sample Size (N)';
+        if (nTotalVal) nTotalVal.innerText = res.totalN;
+        if (nTotalSub) nTotalSub.innerText = 'Across both arms (n₁ + n₂)';
+
+        if (achievedPowerVal) achievedPowerVal.innerText = `${(res.achievedPower * 100).toFixed(1)}%`;
+        if (powerSub) powerSub.innerText = `Type II error β = ${(1 - res.achievedPower).toFixed(3)} | α = ${res.alpha}`;
+
+        let report = '';
+        if (goal === 'sample_size') {
+          report = `For a two-arm parallel randomized study (independent samples t-test) to detect a standardized effect size of Cohen's d = ${res.cohensD.toFixed(2)} (mean difference |Δ| = ${res.diff.toFixed(2)}, pooled SD = ${res.sd.toFixed(2)}) with ${Math.round(res.power * 100)}% statistical power at two-sided α = ${res.alpha}, a minimum of n = ${res.nPerGroup} patients per group (total N = ${res.totalN}) is required. Allowing for a standard 10% loss-to-follow-up buffer, a target enrollment of N = ${Math.ceil(res.totalN / 0.9)} patients (${Math.ceil(res.nPerGroup / 0.9)} per arm) is recommended.`;
+        } else {
+          report = `With an enrolled sample size of n = ${res.nPerGroup} patients per group (total N = ${res.totalN}) comparing two independent continuous means (Cohen's d = ${res.cohensD.toFixed(2)}, |Δ| = ${res.diff.toFixed(2)}, SD = ${res.sd.toFixed(2)}), the achieved statistical power to detect a true difference at two-sided α = ${res.alpha} is ${(res.achievedPower * 100).toFixed(1)}% (Type II error rate β = ${(1 - res.achievedPower).toFixed(3)}).`;
+        }
+        if (reportBox) reportBox.innerText = report;
+
+      } else if (design === 'paired') {
+        if (cardFisher) cardFisher.style.display = 'none';
+        if (cardRisk) cardRisk.style.display = 'none';
+
+        const m1 = parseFloat(document.getElementById('pwrPairedM1')?.value) || 120;
+        const m2 = parseFloat(document.getElementById('pwrPairedM2')?.value) || 112;
+        const sdDiff = parseFloat(document.getElementById('pwrPairedSD')?.value) || 10;
+
+        const res = PowerAnalysis.pairedMeans({ m1, m2, sdDiff, alpha, power, nPairs: givenN });
+        if (res.error) {
+          if (reportBox) reportBox.innerText = res.error;
+          return;
+        }
+
+        if (effectLabel) effectLabel.innerText = "Effect Size (Cohen's d_z)";
+        if (effectVal) effectVal.innerText = res.dz.toFixed(2);
+        if (effectSub) effectSub.innerText = `|Δ| = ${res.diff.toFixed(2)} | σ_d = ${res.sdDiff.toFixed(2)}`;
+
+        if (nGroupLabel) nGroupLabel.innerText = 'Required Number of Pairs (N)';
+        if (nGroupVal) nGroupVal.innerText = res.nPairs;
+        if (nGroupSub) nGroupSub.innerText = 'Matched pairs / repeat measures';
+
+        if (nTotalLabel) nTotalLabel.innerText = 'Total Paired Subjects (N)';
+        if (nTotalVal) nTotalVal.innerText = res.totalN;
+        if (nTotalSub) nTotalSub.innerText = 'Pre-to-post repeated subjects';
+
+        if (achievedPowerVal) achievedPowerVal.innerText = `${(res.achievedPower * 100).toFixed(1)}%`;
+        if (powerSub) powerSub.innerText = `Type II error β = ${(1 - res.achievedPower).toFixed(3)} | α = ${res.alpha}`;
+
+        let report = '';
+        if (goal === 'sample_size') {
+          report = `In a paired / before-and-after repeated measures study design (paired t-test), evaluating a mean intra-individual shift of |Δ| = ${res.diff.toFixed(2)} (SD of paired differences σ_d = ${res.sdDiff.toFixed(2)}, standardized effect size Cohen's d_z = ${res.dz.toFixed(2)}) with ${Math.round(res.power * 100)}% statistical power at two-sided α = ${res.alpha}, a minimum of N = ${res.nPairs} paired subjects is required. Accounting for an estimated 10% withdrawal or uninterpretable paired follow-up, an enrollment of N = ${Math.ceil(res.nPairs / 0.9)} subjects is recommended.`;
+        } else {
+          report = `For a paired study design with N = ${res.nPairs} evaluable paired subjects evaluating a mean difference of |Δ| = ${res.diff.toFixed(2)} (SD of differences σ_d = ${res.sdDiff.toFixed(2)}, Cohen's d_z = ${res.dz.toFixed(2)}), the achieved statistical power at two-sided α = ${res.alpha} is ${(res.achievedPower * 100).toFixed(1)}% (Type II error rate β = ${(1 - res.achievedPower).toFixed(3)}).`;
+        }
+        if (reportBox) reportBox.innerText = report;
+
+      } else if (design === 'contingency') {
+        if (cardFisher) cardFisher.style.display = 'block';
+        if (cardRisk) cardRisk.style.display = 'block';
+
+        const p1 = parseFloat(document.getElementById('pwrP1')?.value) || 0.15;
+        const p2 = parseFloat(document.getElementById('pwrP2')?.value) || 0.30;
+        const propTestType = document.getElementById('pwrPropTestType')?.value || 'chisq';
+
+        const res = PowerAnalysis.contingency2x2({ p1, p2, alpha, power, nPerGroup: givenN, testType: propTestType });
+        if (res.error) {
+          if (reportBox) reportBox.innerText = res.error;
+          return;
+        }
+
+        if (effectLabel) effectLabel.innerText = 'Absolute Risk Reduction (ARR)';
+        if (effectVal) effectVal.innerText = `${(res.arr * 100).toFixed(1)}%`;
+        if (effectSub) effectSub.innerText = `Cohen's h = ${res.cohenH.toFixed(2)} | p₁=${(res.p1*100).toFixed(0)}% vs p₂=${(res.p2*100).toFixed(0)}%`;
+
+        if (nGroupLabel) nGroupLabel.innerText = 'Sample Size per Group (n)';
+        if (nGroupVal) nGroupVal.innerText = res.nPerGroup;
+        if (nGroupSub) nGroupSub.innerText = `${res.testType === 'fisher' ? 'Continuity-corrected (Fleiss)' : 'Standard uncorrected'} 1:1`;
+
+        if (nTotalLabel) nTotalLabel.innerText = 'Total Study Sample Size (N)';
+        if (nTotalVal) nTotalVal.innerText = res.totalN;
+        if (nTotalSub) nTotalSub.innerText = `Test + Control (2 × ${res.nPerGroup})`;
+
+        if (achievedPowerVal) achievedPowerVal.innerText = `${(res.achievedPower * 100).toFixed(1)}%`;
+        if (powerSub) powerSub.innerText = `Type II error β = ${(1 - res.achievedPower).toFixed(3)} | α = ${res.alpha}`;
+
+        if (fisherNVal) fisherNVal.innerText = `n = ${res.continuityCorrectedN || res.nPerGroup}`;
+        if (fisherSub) fisherSub.innerText = `Total N = ${2 * (res.continuityCorrectedN || res.nPerGroup)} (Fleiss / CC)`;
+
+        if (riskVal) riskVal.innerText = `RR: ${res.rr.toFixed(2)} | OR: ${res.or.toFixed(2)}`;
+        if (riskSub) riskSub.innerText = `NNT: ${res.nnt.toFixed(1)} | RRR: ${(res.rrr * 100).toFixed(1)}%`;
+
+        let report = '';
+        if (goal === 'sample_size') {
+          report = `In a clinical trial comparing test (intervention) versus control cohorts with binary outcomes evaluated via a 2x2 contingency table (${res.testName}), expecting an event rate of ${(res.p1 * 100).toFixed(1)}% in the test arm versus ${(res.p2 * 100).toFixed(1)}% in the control arm (Absolute Risk Reduction ARR = ${(res.arr * 100).toFixed(1)}%, Relative Risk RR = ${res.rr.toFixed(2)}, Odds Ratio OR = ${res.or.toFixed(2)}, Number Needed to Treat NNT = ${res.nnt.toFixed(1)}):\n` +
+            `• Uncorrected Pearson Chi-Square test requires n = ${res.uncorrectedN} patients per arm (total N = ${2 * res.uncorrectedN}) for ${Math.round(res.power * 100)}% power at two-sided α = ${res.alpha}.\n` +
+            `• Fisher's Exact test / Continuity-Corrected Chi-Square (Fleiss & Casagrande-Pike-Smith formula) requires n = ${res.continuityCorrectedN} patients per arm (total N = ${2 * res.continuityCorrectedN}).\n` +
+            `With an anticipated 15% loss-to-follow-up buffer, a target enrollment of N = ${Math.ceil((2 * res.nPerGroup) / 0.85)} patients (${Math.ceil(res.nPerGroup / 0.85)} per arm) is recommended.`;
+        } else {
+          report = `In a 2x2 contingency cohort study of n = ${res.nPerGroup} patients per group (total N = ${res.totalN}) comparing event rates of ${(res.p1 * 100).toFixed(1)}% (test) vs ${(res.p2 * 100).toFixed(1)}% (control) (ARR = ${(res.arr * 100).toFixed(1)}%, RR = ${res.rr.toFixed(2)}, OR = ${res.or.toFixed(2)}):\n` +
+            `• Pearson Chi-Square test achieved power = ${(res.powerChisq * 100).toFixed(1)}% (β = ${(1 - res.powerChisq).toFixed(3)}).\n` +
+            `• Fisher's Exact test / Continuity-Corrected achieved power = ${(res.powerFisher * 100).toFixed(1)}% (β = ${(1 - res.powerFisher).toFixed(3)}).`;
+        }
+        if (reportBox) reportBox.innerText = report;
       }
-
-      document.getElementById('pwrD').innerText = res.cohensD.toFixed(2);
-      document.getElementById('pwrNGroup').innerText = res.nPerGroup;
-      document.getElementById('pwrNTotal').innerText = res.totalN;
-
-      document.getElementById('pwrReportText').innerText =
-        `To detect an effect size of Cohen's d = ${res.cohensD.toFixed(2)} (|Δ| = ${res.diff.toFixed(2)}, SD = ${res.sd.toFixed(2)}) with ${Math.round(res.power * 100)}% power at two-sided α = ${res.alpha}, a minimum sample size of n = ${res.nPerGroup} patients per group (total N = ${res.totalN}) is required.`;
     }
   }
 
