@@ -75,6 +75,8 @@ class StatisGravityApp {
           if (targetId === 'tab-teaching') {
             if (typeof this.runTwoSampleOverlap === 'function') this.runTwoSampleOverlap();
             if (typeof this.runPowerSimulation === 'function') this.runPowerSimulation();
+          }
+          if (targetId === 'tab-teaching-bayesian') {
             if (typeof this.runBayesianSimulation === 'function') this.runBayesianSimulation();
           }
         }
@@ -1687,8 +1689,12 @@ window.addEventListener('DOMContentLoaded', () => {
         tConv: res.tConv || Teaching.tConvergence.getMetrics(4),
         overlap: res.overlap || Teaching.significanceOverlap.getMetrics(),
         power: res.power || Teaching.powerSimulation.getMetrics(),
-        bayes: res.bayes || Teaching.bayesianSimulation.getMetrics(),
         reportText: document.getElementById('teachingReportText')?.innerText
+      };
+    } else if (tabId === 'teaching-bayesian') {
+      exportData = {
+        bayes: res.bayes || Teaching.bayesianSimulation.getMetrics(),
+        reportText: document.getElementById('teachingBayesReportText')?.innerText || document.getElementById('bayesPedagogyText')?.innerText
       };
     }
 
@@ -2706,6 +2712,9 @@ window.addEventListener('DOMContentLoaded', () => {
     // Update Pedagogical Text
     const pedaEl = document.getElementById('bayesPedagogyText');
     if (pedaEl) pedaEl.innerText = metrics.explanation;
+
+    const bayesReportEl = document.getElementById('teachingBayesReportText');
+    if (bayesReportEl) bayesReportEl.innerText = metrics.explanation;
 
     // Update Chart Title
     const titleEl = document.getElementById('teachingBayesChartTitle');

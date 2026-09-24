@@ -181,6 +181,9 @@ export const Exporter = {
       case 'teaching':
         builder = DocxReports.createTeachingDocx(data);
         break;
+      case 'teaching-bayesian':
+        builder = DocxReports.createTeachingBayesianDocx ? DocxReports.createTeachingBayesianDocx(data) : DocxReports.createTeachingDocx(data);
+        break;
       default:
         console.error('Unknown tab for DOCX export:', tabId);
         return;

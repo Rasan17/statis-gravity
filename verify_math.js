@@ -875,6 +875,21 @@ try {
 }
 assert(docxBayesPass, 'DocxReports.createTeachingDocx successfully bundles Section 6 Bayesian Simulation data into valid DOCX archive');
 
+// 12.8 Dedicated Teaching - Baysian Tab DOCX Export Test
+let docxDedicatedBayesPass = false;
+try {
+  const docx = DocxReports.createTeachingBayesianDocx({
+    bayes: steve,
+    reportText: steve.explanation
+  });
+  const buf = docx.generateUint8Array();
+  docxDedicatedBayesPass = buf && buf.length > 15000 && isZip(buf);
+} catch (err) {
+  console.error('Docx Dedicated Bayes error:', err);
+  docxDedicatedBayesPass = false;
+}
+assert(docxDedicatedBayesPass, 'DocxReports.createTeachingBayesianDocx successfully generates valid DOCX archive for Teaching - Baysian tab');
+
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);
 

@@ -58,6 +58,9 @@
       <button class="tab-btn" data-target="tab-teaching">
         🎓 Teaching
       </button>
+      <button class="tab-btn" data-target="tab-teaching-bayesian">
+        🧠 Teaching - Baysian
+      </button>
     </nav>
 
     <!-- Tab Panels Container -->
@@ -1661,12 +1664,32 @@
           </div>
         </div>
 
-        <!-- Section 6: Bayesian Statistics & Logic (3Blue1Brown Model) -->
+        <!-- Clinical Reporting & Pedagogical Narrative Box -->
+        <div class="report-box" style="margin-top: 1.5rem;">
+          <div class="report-title">
+              <span>Teaching Report: Distributions, CLT, Student's t &amp; Alpha Significance Simulation</span>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button id="teachingCopyReportBtn" class="btn btn-secondary btn-sm btn-copy-report" data-report-id="teachingReportText">Copy</button>
+                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="teaching" title="Export full teaching report, outcomes, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+              </div>
+            </div>
+            <p id="teachingReportText" class="report-text">Select a distribution above or run the Central Limit Theorem and Student's t simulations to generate educational outcomes.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 9. Teaching - Bayesian Statistics Tab -->
+      <section id="tab-teaching-bayesian" class="tab-pane">
+        <div class="tab-pane-toolbar">
+          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="teaching-bayesian" title="Export full Bayesian statistics report, outcomes, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+        </div>
+
+        <!-- Bayesian Statistics & Logic (3Blue1Brown Model) -->
         <div class="card" style="margin-bottom: 1.5rem; border: 1px solid rgba(0, 210, 255, 0.25);">
           <div class="card-header" style="flex-wrap: wrap; gap: 0.75rem;">
             <div>
               <h2 class="card-title" style="display: flex; align-items: center; gap: 0.5rem;">
-                <span>🧠 Section 6: Bayesian Statistics &amp; Logic — The Geometry of Changing Beliefs</span>
+                <span>🧠 Bayesian Statistics &amp; Logic — The Geometry of Changing Beliefs</span>
               </h2>
               <p class="card-subtitle">
                 Inspired by 3Blue1Brown (Grant Sanderson) — Visualizing Bayes' Theorem via 1×1 unit square area, natural counts, and odds updating
@@ -1814,14 +1837,13 @@
         <!-- Clinical Reporting & Pedagogical Narrative Box -->
         <div class="report-box" style="margin-top: 1.5rem;">
           <div class="report-title">
-              <span>Teaching Report: Distributions, CLT, Student's t &amp; Alpha Significance Simulation</span>
-              <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <button id="teachingCopyReportBtn" class="btn btn-secondary btn-sm btn-copy-report" data-report-id="teachingReportText">Copy</button>
-                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="teaching" title="Export full teaching report, outcomes, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
-              </div>
+            <span>Teaching Report: Bayesian Statistics, Logic &amp; 3Blue1Brown Geometric Belief Updating</span>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <button id="teachingBayesCopyReportBtn" class="btn btn-secondary btn-sm btn-copy-report" data-report-id="teachingBayesReportText">Copy</button>
+              <button class="btn btn-primary btn-sm btn-export-docx" data-tab="teaching-bayesian" title="Export full Bayesian statistics report, outcomes, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
             </div>
-            <p id="teachingReportText" class="report-text">Select a distribution above or run the Central Limit Theorem and Student's t simulations to generate educational outcomes.</p>
           </div>
+          <p id="teachingBayesReportText" class="report-text">Loading Bayesian statistics clinical and educational narrative...</p>
         </div>
       </section>
     </main>
@@ -1857,6 +1879,6 @@
     </div>
   </div>
 
-  <script src="js/statis-gravity.js?v=2.8.0"></script>
+  <script src="js/statis-gravity.js?v=2.9.0"></script>
 </body>
 </html>

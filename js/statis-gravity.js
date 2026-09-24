@@ -3356,6 +3356,65 @@ const DocxReports = {
     d.addBullet('Gauss CF (1809). Theoria motus corporum coelestium in sectionibus conicis solem ambientium. Hamburg: Perthes et Besser.');
 
     return d;
+  },
+
+  createTeachingBayesianDocx(data) {
+    const d = new DocxBuilder();
+    d.addTitle('STATIS-GRAVITY CLINICAL BIOSTATISTICS REPORT')
+      .addSubTitle('Module: Teaching - Bayesian Statistics & Logic (3Blue1Brown Model)')
+      .addAttributionHeader()
+      .addDisclaimerBox();
+
+    const bayes = data.bayes || {};
+
+    d.addHeading1('1. Bayesian Model & Parameter Specification');
+    d.addParagraph(`Prior Probability P(H): ${(bayes.prior * 100).toFixed(1)}% (Prior Odds: 1 : ${(1 / (bayes.priorOdds || 0.05)).toFixed(1)})`);
+    d.addParagraph(`Likelihood P(E|H) [True Positive Rate]: ${(bayes.likelihood * 100).toFixed(1)}%`);
+    d.addParagraph(`False Positive Rate P(E|¬H) [False Alarm Rate]: ${(bayes.falsePositive * 100).toFixed(1)}%`);
+    d.addParagraph(`Representative Population Sample (N): ${bayes.sampleSize || 210} individuals`);
+    d.addParagraph(`Clinical Scenario Preset: ${bayes.preset || 'Steve the Librarian (3Blue1Brown)'}`);
+
+    d.addHeading1('2. Statistical Outcome & Empirical Updating Metrics');
+    d.addTable(
+      ['Bayesian Parameter', 'Simulated Value', 'Epistemological & Clinical Meaning'],
+      [
+        ['Prior Probability P(H)', `${(bayes.prior * 100).toFixed(1)}% (Odds 1:${(1 / (bayes.priorOdds || 0.05)).toFixed(1)})`, 'Initial degree of belief before observing evidence (Base rate)'],
+        ['Likelihood P(E|H)', `${(bayes.likelihood * 100).toFixed(1)}%`, 'True Positive Rate: Probability of evidence given hypothesis H is true'],
+        ['False Positive Rate P(E|¬H)', `${(bayes.falsePositive * 100).toFixed(1)}%`, 'False Alarm Rate: Probability of evidence given hypothesis H is false'],
+        ['Total Evidence P(E)', `${(bayes.pEvidence * 100).toFixed(2)}%`, 'Marginal likelihood: Total shaded area of possibilities matching evidence'],
+        ['Bayes Factor (Likelihood Ratio)', `${bayes.bayesFactor?.toFixed(2)}×`, `${bayes.evidenceRating || 'Evidence Ratio'} (P(E|H) / P(E|¬H))`],
+        ['Posterior Probability P(H|E)', `${(bayes.posterior * 100).toFixed(1)}% (Odds 1:${(1 / (bayes.posteriorOdds || 0.2)).toFixed(1)})`, `Updated degree of belief after conditioning on evidence (Shift: ${(bayes.beliefShift >= 0 ? '+' : '')}${(bayes.beliefShift * 100).toFixed(1)}%)`],
+        ['Representative Counts (N)', `H: ${bayes.countHAndE} of ${bayes.countH} | ¬H: ${bayes.countNotHAndE} of ${bayes.countNotH}`, `Natural frequencies in population of N=${bayes.sampleSize}: ${bayes.countHAndE} / ${bayes.countTotalE} = ${(bayes.posterior * 100).toFixed(1)}%`],
+        ['Sequential Updating (4 Steps)', `P₀: ${(bayes.prior * 100).toFixed(1)}% → P₁: ${(bayes.trajectory?.[1]?.p * 100).toFixed(1)}% → P₄: ${(bayes.trajectory?.[4]?.p * 100).toFixed(1)}%`, 'Compounding belief trajectory across successive independent observations']
+      ]
+    );
+
+    d.addHeading1('3. Clinical & Epistemological Interpretation');
+    d.addCalloutBox(
+      'Pedagogical Synthesis & Decision-Making Under Uncertainty',
+      data.reportText || bayes.explanation || 'Bayes\' theorem provides the mathematical framework for updating rational beliefs in light of new evidence.',
+      'F0FDF4',
+      '16A34A'
+    );
+
+    d.addHeading1('4. Reason This Particular Method Was Chosen');
+    d.addBullet('The 3Blue1Brown Geometric Insight into Bayes\' Theorem: Rather than memorizing abstract formulas, Bayes\' theorem is intuitively understood as proportions of area within a 1×1 unit square of all possibilities. Observing evidence restricts our sample space to only the shaded regions where the evidence occurs; the posterior probability is simply the fraction of that restricted space corresponding to the hypothesis of interest.');
+    d.addBullet('Base Rate Neglect and Natural Frequency Framing: In Steve the Librarian problem, people intuitively fixate on the 4:1 likelihood ratio (40% vs 10%) and forget the 20:1 base rate ratio of farmers to librarians. Translating abstract probabilities into natural frequencies (e.g. 4 librarians vs 20 farmers in a village of 210 people) eliminates cognitive bias and reveals why Steve is still 5× more likely to be a farmer.');
+    d.addBullet('Sequential Updating and Continuous Learning: In medical diagnosis and scientific research, evidence arrives sequentially. By taking the posterior probability of test #1 as the prior probability for test #2, Bayes\' rule provides a recursive framework for learning and resolving uncertainty.');
+
+    d.addHeading1('5. Background Statistical Knowledge & Medical Research Context');
+    d.addParagraph('Mathematical Formulations:');
+    d.addBullet('Bayes\' Theorem in Area Form: P(H|E) = P(H ∩ E) / P(E) = [P(H) · P(E|H)] / [P(H) · P(E|H) + P(¬H) · P(E|¬H)].');
+    d.addBullet('Odds Form of Bayes\' Rule: Posterior Odds = Prior Odds × Bayes Factor (Likelihood Ratio).');
+    d.addBullet('Jeffreys Evidence Scale: Bayes factor > 100 = Decisive; 30–100 = Very Strong; 10–30 = Strong; 3–10 = Substantial; 1–3 = Barely worth mentioning.');
+    d.addParagraph('Key Academic References:');
+    d.addBullet('Sanderson G (2019). Bayes theorem, the geometry of changing beliefs. 3Blue1Brown, YouTube.');
+    d.addBullet('Kahneman D, Tversky A (1973). On the psychology of prediction. Psychological Review, 80(4): 237–251.');
+    d.addBullet('Gigerenzer G, Hoffrage U (1995). How to improve Bayesian reasoning without instruction: Frequency formats. Psychological Review, 102(4): 684–704.');
+    d.addBullet('Jeffreys H (1961). Theory of Probability. 3rd ed. Oxford Classic Texts in the Physical Sciences.');
+    d.addBullet('Kass RE, Raftery AE (1995). Bayes factors. Journal of the American Statistical Association, 90(430): 773–795.');
+
+    return d;
   }
 };
 
@@ -3419,6 +3478,7 @@ const DocxReports = {
         case 'diagnostic': builder = DocxReports.createDiagnosticDocx(data); break;
         case 'power': builder = DocxReports.createPowerDocx(data); break;
         case 'teaching': builder = DocxReports.createTeachingDocx(data); break;
+        case 'teaching-bayesian': builder = DocxReports.createTeachingBayesianDocx ? DocxReports.createTeachingBayesianDocx(data) : DocxReports.createTeachingDocx(data); break;
         default: console.error('Unknown tab for DOCX export:', tabId); return;
       }
       const blob = builder.generateBlob();
@@ -6737,6 +6797,8 @@ const DocxReports = {
             if (target === 'tab-teaching') {
               if (typeof this.runTwoSampleOverlap === 'function') this.runTwoSampleOverlap();
               if (typeof this.runPowerSimulation === 'function') this.runPowerSimulation();
+            }
+            if (target === 'tab-teaching-bayesian') {
               if (typeof this.runBayesianSimulation === 'function') this.runBayesianSimulation();
             }
           }
@@ -8376,8 +8438,12 @@ const DocxReports = {
           tConv: res.tConv || Teaching.tConvergence.getMetrics(4),
           overlap: res.overlap || Teaching.significanceOverlap.getMetrics(),
           power: res.power || Teaching.powerSimulation.getMetrics(),
-          bayes: res.bayes || Teaching.bayesianSimulation.getMetrics(),
           reportText: document.getElementById('teachingReportText')?.innerText
+        };
+      } else if (tabId === 'teaching-bayesian') {
+        exportData = {
+          bayes: res.bayes || Teaching.bayesianSimulation.getMetrics(),
+          reportText: document.getElementById('teachingBayesReportText')?.innerText || document.getElementById('bayesPedagogyText')?.innerText
         };
       }
 
@@ -9393,6 +9459,9 @@ const DocxReports = {
       // Update Pedagogical Text
       const pedaEl = document.getElementById('bayesPedagogyText');
       if (pedaEl) pedaEl.innerText = metrics.explanation;
+
+      const bayesReportEl = document.getElementById('teachingBayesReportText');
+      if (bayesReportEl) bayesReportEl.innerText = metrics.explanation;
 
       // Update Chart Title
       const titleEl = document.getElementById('teachingBayesChartTitle');
