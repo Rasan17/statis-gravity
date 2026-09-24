@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Statis-Gravity | Clinical Biostatistics & Visualization Suite</title>
+  <meta name="description" content="State-of-the-art interactive clinical biostatistics, hypothesis testing, ANOVA, ROC analysis, risk metrics, and publication-ready medical reporting suite.">
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand-wrapper">
+        <div class="brand-icon">∑</div>
+        <div class="brand-info">
+          <h1>Statis-Gravity</h1>
+          <p>Clinical Biostatistics &amp; Exploratory Visualization Platform</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="themeToggleBtn" class="btn btn-secondary btn-sm" title="Toggle Light / Dark Mode">
+          🌓 Theme
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tab-bar" aria-label="Statistical Analysis Categories">
+      <button class="tab-btn active" data-target="tab-descriptive">
+        📊 Descriptive Stats
+      </button>
+      <button class="tab-btn" data-target="tab-hypothesis">
+        ⚖️ Hypothesis Testing
+      </button>
+      <button class="tab-btn" data-target="tab-anova">
+        🧬 Multi-Group ANOVA
+      </button>
+      <button class="tab-btn" data-target="tab-categorical">
+        🏥 2x2 Risk &amp; Contingency
+      </button>
+      <button class="tab-btn" data-target="tab-correlation">
+        📈 Correlation &amp; Regression
+      </button>
+      <button class="tab-btn" data-target="tab-diagnostic">
+        🎯 Diagnostic &amp; ROC
+      </button>
+      <button class="tab-btn" data-target="tab-power">
+        ⚡ Sample Size &amp; Power
+      </button>
+    </nav>
+
+    <!-- Tab Panels Container -->
+    <main class="tab-content">
+      <!-- 1. Descriptive Stats Tab -->
+      <section id="tab-descriptive" class="tab-pane active">
+        <div class="analysis-grid">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Dataset Input</h2>
+                <p class="card-subtitle">Paste numeric values or load clinical sample</p>
+              </div>
+              <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                <button id="descSampleBtn" class="btn btn-secondary btn-sm">Normal Sample</button>
+                <button id="descOutlierSampleBtn" class="btn btn-secondary btn-sm" title="Load sample with positive skew and mild/extreme outliers">Sample Skew &amp; Outliers</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="descInput">Numeric Series (comma or newline separated):</label>
+              <textarea id="descInput" class="form-control" rows="8" placeholder="10.2, 11.5, 9.8, 12.1..."></textarea>
+            </div>
+            <button id="descComputeBtn" class="btn btn-primary" style="width: 100%;">Calculate Descriptive Statistics</button>
+          </div>
+
+          <div>
+            <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+              <div class="metric-card">
+                <div class="metric-label">Sample Size (n)</div>
+                <div id="descN" class="metric-value">--</div>
+                <div id="descRange" class="metric-sub">Range: --</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Mean (M)</div>
+                <div id="descMean" class="metric-value">--</div>
+                <div id="descSDSub" class="metric-sub">SD: ±--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Median (50%)</div>
+                <div id="descMedian" class="metric-value">--</div>
+                <div class="metric-sub">50th Percentile</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Mode</div>
+                <div id="descMode" class="metric-value" style="font-size: 0.95rem;">--</div>
+                <div id="descModeSub" class="metric-sub">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Interquartile Range (IQR)</div>
+                <div id="descIQR" class="metric-value" style="color: var(--cyan-primary);">--</div>
+                <div id="descIQRSub" class="metric-sub">Q1: -- | Q3: --</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Std Dev (SD)</div>
+                <div id="descSD" class="metric-value">--</div>
+                <div id="descVar" class="metric-sub">Var: --</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">95% CI for Mean</div>
+                <div id="descCI95" class="metric-value" style="font-size: 0.9rem;">[--, --]</div>
+                <div id="descSEM" class="metric-sub">SEM: --</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Skewness (G₁)</div>
+                <div id="descSkewnessVal" class="metric-value" style="font-size: 0.95rem;">--</div>
+                <div id="descSkewnessSub" class="metric-sub">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Kurtosis (Excess G₂)</div>
+                <div id="descKurtosisVal" class="metric-value" style="font-size: 0.95rem;">--</div>
+                <div id="descKurtosisSub" class="metric-sub">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Outliers (Tukey's)</div>
+                <div id="descOutliersVal" class="metric-value" style="font-size: 0.95rem;">--</div>
+                <div id="descOutliersSub" class="metric-sub">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label" title="Jarque-Bera Omnibus Test of Normality (Skewness & Kurtosis)">Normality Test (Jarque-Bera)</div>
+                <div id="descNormality" class="metric-value" style="font-size: 0.9rem;">--</div>
+                <div id="descNormalitySub" class="metric-sub">JB Stat: -- | p = --</div>
+                <div id="descSkewness" style="display: none;"></div>
+              </div>
+            </div>
+
+            <!-- Outlier & Shape Diagnostics Banner -->
+            <div id="descDiagBanner" style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 0.85rem 1rem; margin-top: 1rem; margin-bottom: 1.25rem; display: none;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim);">Distribution Diagnostics &amp; Anomaly Detection</span>
+                <span id="descDiagBadge" class="badge">--</span>
+              </div>
+              <div id="descDiagTitle" style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">--</div>
+              <p id="descDiagDetail" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0;">--</p>
+            </div>
+
+            <!-- 1. Frequency Distribution Histogram -->
+            <div class="chart-container">
+              <div class="chart-header">
+                <div>
+                  <span class="card-title">Frequency Distribution &amp; Normal Curve Fit</span>
+                  <span style="font-size: 0.72rem; color: var(--text-dim); margin-left: 0.5rem;">Binned Histogram &amp; Parametric Gaussian Fit</span>
+                </div>
+                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="descCanvas">Save PNG</button>
+              </div>
+              <canvas id="descCanvas" class="chart-canvas"></canvas>
+            </div>
+
+            <!-- 2 & 3: Box-and-Whisker Plot & Violin Plot (Dual Column Grid) -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; margin-top: 1.25rem;">
+              <div class="chart-container" style="margin-bottom: 0;">
+                <div class="chart-header">
+                  <div>
+                    <span class="card-title">Box &amp; Whiskers Plot</span>
+                    <span style="font-size: 0.72rem; color: var(--text-dim); display: block;">Median, IQR Box, Tukey Fences &amp; Outliers</span>
+                  </div>
+                  <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="descBoxCanvas">Save PNG</button>
+                </div>
+                <canvas id="descBoxCanvas" class="chart-canvas"></canvas>
+              </div>
+
+              <div class="chart-container" style="margin-bottom: 0;">
+                <div class="chart-header">
+                  <div>
+                    <span class="card-title">Violin Density Plot</span>
+                    <span style="font-size: 0.72rem; color: var(--text-dim); display: block;">Kernel Density Estimation (KDE) &amp; Quartiles</span>
+                  </div>
+                  <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="descViolinCanvas">Save PNG</button>
+                </div>
+                <canvas id="descViolinCanvas" class="chart-canvas"></canvas>
+              </div>
+            </div>
+
+            <div class="report-box" style="margin-top: 1.25rem;">
+              <div class="report-title">
+                <span>Descriptive Statistical Summary (ICMJE &amp; APA Ready)</span>
+                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="descReportText">Copy</button>
+              </div>
+              <p id="descReportText" class="report-text">--</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Hypothesis Testing Tab -->
+      <section id="tab-hypothesis" class="tab-pane">
+        <div class="analysis-grid">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Two-Group Comparison</h2>
+                <p class="card-subtitle">Select parametric or non-parametric test</p>
+              </div>
+              <button id="hypoSampleBtn" class="btn btn-secondary btn-sm">Load Pre/Post ICP</button>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="hypoTestType">Statistical Test:</label>
+              <select id="hypoTestType" class="form-control">
+                <option value="welch" selected>Welch's t-test (Unequal Variances - Recommended)</option>
+                <option value="student">Student's t-test (Equal Variances)</option>
+                <option value="paired">Paired Samples t-test (Pre vs Post)</option>
+                <option value="mannwhitney">Mann-Whitney U Test (Non-parametric)</option>
+              </select>
+            </div>
+
+            <div class="input-row">
+              <div class="form-group">
+                <label class="form-label" for="hypoNameA">Group 1 Label:</label>
+                <input id="hypoNameA" type="text" class="form-control" value="Pre-Infusion">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="hypoNameB">Group 2 Label:</label>
+                <input id="hypoNameB" type="text" class="form-control" value="Post-Infusion">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="hypoGroupA">Group 1 Observations:</label>
+              <textarea id="hypoGroupA" class="form-control" rows="4"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="hypoGroupB">Group 2 Observations:</label>
+              <textarea id="hypoGroupB" class="form-control" rows="4"></textarea>
+            </div>
+
+            <button id="hypoComputeBtn" class="btn btn-primary" style="width: 100%;">Run Hypothesis Test</button>
+          </div>
+
+          <div>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <div class="metric-label">Test Statistic</div>
+                <div id="hypoStat" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">p-Value</div>
+                <div id="hypoPVal" class="metric-value">--</div>
+                <span id="hypoPValBadge" class="badge badge-sig" style="margin-top: 0.25rem;">--</span>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Effect Size (Cohen's d)</div>
+                <div id="hypoEffect" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Mean Difference</div>
+                <div id="hypoDiff" class="metric-value">--</div>
+              </div>
+            </div>
+
+            <div class="chart-container">
+              <div class="chart-header">
+                <span class="card-title">Comparative Box-and-Whisker &amp; Jitter Plot</span>
+                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="hypoCanvas">Save PNG</button>
+              </div>
+              <canvas id="hypoCanvas" class="chart-canvas"></canvas>
+            </div>
+
+            <div class="report-box">
+              <div class="report-title">
+                <span>Clinical / Publication Summary (APA Style)</span>
+                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="hypoReportText">Copy</button>
+              </div>
+              <p id="hypoReportText" class="report-text">--</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. ANOVA Tab -->
+      <section id="tab-anova" class="tab-pane">
+        <div class="analysis-grid">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Multi-Cohort Analysis</h2>
+                <p class="card-subtitle">One-Way ANOVA &amp; Kruskal-Wallis</p>
+              </div>
+              <button id="anovaSampleBtn" class="btn btn-secondary btn-sm">Load Cranial Cohorts</button>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="anovaName1">Cohort 1 Name &amp; Data:</label>
+              <input id="anovaName1" type="text" class="form-control" value="Conservative" style="margin-bottom: 0.3rem;">
+              <textarea id="anovaG1" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="anovaName2">Cohort 2 Name &amp; Data:</label>
+              <input id="anovaName2" type="text" class="form-control" value="Orthotic Helmet" style="margin-bottom: 0.3rem;">
+              <textarea id="anovaG2" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="anovaName3">Cohort 3 Name &amp; Data:</label>
+              <input id="anovaName3" type="text" class="form-control" value="Endoscopic Strip" style="margin-bottom: 0.3rem;">
+              <textarea id="anovaG3" class="form-control" rows="2"></textarea>
+            </div>
+
+            <button id="anovaComputeBtn" class="btn btn-primary" style="width: 100%;">Compute ANOVA</button>
+          </div>
+
+          <div>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <div class="metric-label">F-Statistic</div>
+                <div id="anovaF" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">ANOVA p-Value</div>
+                <div id="anovaP" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Eta-Squared (η²)</div>
+                <div id="anovaEta" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Omega-Squared (ω²)</div>
+                <div id="anovaOmega" class="metric-value">--</div>
+              </div>
+            </div>
+
+            <div class="chart-container">
+              <div class="chart-header">
+                <span class="card-title">Multi-Cohort Variance &amp; Quartiles</span>
+                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="anovaCanvas">Save PNG</button>
+              </div>
+              <canvas id="anovaCanvas" class="chart-canvas"></canvas>
+            </div>
+
+            <!-- Post-Hoc Pairwise Analysis Table -->
+            <div class="card" style="margin-top: 1.25rem;">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">🔬 Tukey HSD Post-Hoc Pairwise Contrasts</h3>
+                  <p class="card-subtitle">Pinpoints which specific cohorts contribute to the statistically significant difference</p>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Pairwise Contrast</th>
+                      <th>Mean Difference (ΔM)</th>
+                      <th>Std. Error</th>
+                      <th>Tukey q / t</th>
+                      <th>Adjusted p-Value</th>
+                      <th>95% CI of Difference</th>
+                      <th>Cohen's d</th>
+                      <th>Significance</th>
+                    </tr>
+                  </thead>
+                  <tbody id="anovaPostHocBody">
+                    <tr><td colspan="8" style="text-align: center; color: var(--text-dim);">Run ANOVA to view post-hoc pairwise contrasts</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="report-box" style="margin-top: 1.25rem;">
+              <div class="report-title">
+                <span>ANOVA &amp; Post-Hoc Clinical Summary</span>
+                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="anovaReportText">Copy</button>
+              </div>
+              <p id="anovaReportText" class="report-text">--</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Categorical & 2x2 Tab -->
+      <section id="tab-categorical" class="tab-pane">
+        <div class="analysis-grid">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">2x2 Contingency Table</h2>
+                <p class="card-subtitle">Chi-Square, Fisher's Exact &amp; Risk Metrics</p>
+              </div>
+              <button id="catSampleBtn" class="btn btn-secondary btn-sm">Sample 2x2</button>
+            </div>
+
+            <div class="matrix-2x2">
+              <div></div>
+              <div class="matrix-header">Intervention</div>
+              <div class="matrix-header">Control</div>
+
+              <div class="matrix-header">Event (+)</div>
+              <div class="matrix-cell">
+                <input id="catA" type="number" class="matrix-input" value="14">
+              </div>
+              <div class="matrix-cell">
+                <input id="catB" type="number" class="matrix-input" value="36">
+              </div>
+
+              <div class="matrix-header">No Event (-)</div>
+              <div class="matrix-cell">
+                <input id="catC" type="number" class="matrix-input" value="186">
+              </div>
+              <div class="matrix-cell">
+                <input id="catD" type="number" class="matrix-input" value="164">
+              </div>
+            </div>
+
+            <div style="margin-top: 1.25rem;">
+              <p class="card-subtitle" style="line-height: 1.5;">
+                Instant computation of Odds Ratio (Woolf 95% CI), Relative Risk, Absolute Risk Reduction, Number Needed to Treat (NNT), and Fisher's exact test.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <div class="metric-label">Odds Ratio (OR) [95% CI]</div>
+                <div id="catOR" class="metric-value" style="font-size: 0.95rem;">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Relative Risk (RR) [95% CI]</div>
+                <div id="catRR" class="metric-value" style="font-size: 0.95rem;">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Pearson χ² (p-value)</div>
+                <div id="catChiSq" class="metric-value">--</div>
+                <div id="catPVal" class="metric-sub">p = --</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Fisher's Exact (p-value)</div>
+                <div id="catFisher" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Number Needed to Treat (NNT)</div>
+                <div id="catNNT" class="metric-value">--</div>
+              </div>
+            </div>
+
+            <div class="report-box">
+              <div class="report-title">
+                <span>Epidemiological &amp; Clinical Risk Report</span>
+                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="catReportText">Copy</button>
+              </div>
+              <p id="catReportText" class="report-text">--</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Correlation & Regression Tab -->
+      <section id="tab-correlation" class="tab-pane">
+        <div class="analysis-grid">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Bivariate Relationship</h2>
+                <p class="card-subtitle">Pearson, Spearman &amp; OLS Regression</p>
+              </div>
+              <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                <button id="corrSampleBtn" class="btn btn-secondary btn-sm">Sample Linear</button>
+                <button id="corrUShapeBtn" class="btn btn-secondary btn-sm" title="Load classic neurosurgical U-shaped dataset (Cerebral Perfusion Pressure vs Mortality)">Sample U-Curve</button>
+                <button id="corrNCurveBtn" class="btn btn-secondary btn-sm" title="Load tri-phasic non-monotonic dataset (Increase → Decrease → Increase)">Sample N-Curve</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="corrX">Independent Variable X (e.g. Cranial Circumference):</label>
+              <textarea id="corrX" class="form-control" rows="4"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="corrY">Dependent Variable Y (e.g. Brain Volume):</label>
+              <textarea id="corrY" class="form-control" rows="4"></textarea>
+            </div>
+
+            <button id="corrComputeBtn" class="btn btn-primary" style="width: 100%;">Compute Correlation &amp; Fit</button>
+          </div>
+
+          <div>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <div class="metric-label">Pearson r</div>
+                <div id="corrR" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">R-Squared (R²)</div>
+                <div id="corrR2" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Spearman Rank (ρ)</div>
+                <div id="corrRho" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">p-Value</div>
+                <div id="corrP" class="metric-value">--</div>
+              </div>
+              <div class="metric-card" style="grid-column: span 2;">
+                <div class="metric-label">Fitted Regression Equation</div>
+                <div id="regEq" class="metric-value" style="font-size: 0.95rem;">y = mx + c</div>
+              </div>
+            </div>
+
+            <div class="chart-container">
+              <div class="chart-header">
+                <span class="card-title">Scatter Plot &amp; Regression Fit</span>
+                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="corrCanvas">Save PNG</button>
+              </div>
+              <canvas id="corrCanvas" class="chart-canvas"></canvas>
+            </div>
+
+            <!-- Assumption Diagnostics & Automated Test Selector -->
+            <div class="card" style="margin-top: 1.25rem;">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">🛡️ Assumption Diagnostics &amp; Test Decision Engine</h3>
+                  <p class="card-subtitle">Automated statistical verification of normality, outliers, homoscedasticity &amp; linear vs U-shaped non-linear curvature</p>
+                </div>
+              </div>
+
+              <!-- Recommendation Banner -->
+              <div id="corrRecBanner" style="background: rgba(0, 210, 255, 0.08); border: 1px solid var(--border-focus); border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                  <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim);">Recommended Method</span>
+                  <span id="corrRecBadge" class="badge badge-sig">--</span>
+                </div>
+                <div id="corrRecTitle" style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">--</div>
+                <p id="corrRecDetail" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">--</p>
+              </div>
+
+              <!-- 5-Pillar Assumption Metrics -->
+              <div class="metrics-grid" style="margin-bottom: 0; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+                <div class="metric-card">
+                  <div class="metric-label">1. Normality of X</div>
+                  <div id="corrAssumpX" class="metric-value" style="font-size: 0.9rem;">--</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">2. Normality of Y</div>
+                  <div id="corrAssumpY" class="metric-value" style="font-size: 0.9rem;">--</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">3. Outlier / Leverage</div>
+                  <div id="corrAssumpOutlier" class="metric-value" style="font-size: 0.9rem;">--</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">4. Homoscedasticity</div>
+                  <div id="corrAssumpHomo" class="metric-value" style="font-size: 0.9rem;">--</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">5. Curve Morphology</div>
+                  <div id="corrAssumpShape" class="metric-value" style="font-size: 0.9rem;">--</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="report-box" style="margin-top: 1.25rem;">
+              <div class="report-title">
+                <span>Correlation &amp; Regression Clinical Statement</span>
+                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="corrReportText">Copy</button>
+              </div>
+              <p id="corrReportText" class="report-text">--</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. Diagnostic & ROC Tab -->
+      <section id="tab-diagnostic" class="tab-pane">
+        <div class="analysis-grid">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Biomarker &amp; Diagnostic Test</h2>
+                <p class="card-subtitle">Continuous score and true disease status (0 or 1)</p>
+              </div>
+              <button id="rocSampleBtn" class="btn btn-secondary btn-sm">Sample NfL Biomarker</button>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="rocInput">Biomarker Value, True Status (1 line per subject):</label>
+              <textarea id="rocInput" class="form-control" rows="9" placeholder="1850, 1&#10;1720, 1&#10;920, 0..."></textarea>
+            </div>
+
+            <button id="rocComputeBtn" class="btn btn-primary" style="width: 100%;">Generate ROC &amp; Cutoff</button>
+          </div>
+
+          <div>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <div class="metric-label">ROC Area Under Curve (AUC)</div>
+                <div id="rocAUC" class="metric-value" style="font-size: 0.95rem;">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Optimal Cutoff (Youden J)</div>
+                <div id="rocCutoff" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Sensitivity</div>
+                <div id="rocSens" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Specificity</div>
+                <div id="rocSpec" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Positive LR (+LR)</div>
+                <div id="rocPLR" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Negative LR (-LR)</div>
+                <div id="rocNLR" class="metric-value">--</div>
+              </div>
+            </div>
+
+            <div class="chart-container">
+              <div class="chart-header">
+                <span class="card-title">Empirical ROC Curve &amp; Optimal Youden J</span>
+                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="rocCanvas">Save PNG</button>
+              </div>
+              <canvas id="rocCanvas" class="chart-canvas"></canvas>
+            </div>
+
+            <div class="report-box">
+              <div class="report-title">
+                <span>Diagnostic Accuracy Statement</span>
+                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="rocReportText">Copy</button>
+              </div>
+              <p id="rocReportText" class="report-text">--</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. Sample Size & Power Tab -->
+      <section id="tab-power" class="tab-pane">
+        <div class="analysis-grid">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Power &amp; Sample Size</h2>
+                <p class="card-subtitle">Two Independent Means Study Design</p>
+              </div>
+            </div>
+
+            <div class="input-row">
+              <div class="form-group">
+                <label class="form-label" for="pwrM1">Expected Mean 1 (Control):</label>
+                <input id="pwrM1" type="number" class="form-control" value="10" step="0.5">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="pwrM2">Expected Mean 2 (Intervention):</label>
+                <input id="pwrM2" type="number" class="form-control" value="15" step="0.5">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="pwrSD">Standard Deviation (Pooled SD):</label>
+              <input id="pwrSD" type="number" class="form-control" value="10" step="0.5">
+            </div>
+
+            <div class="input-row">
+              <div class="form-group">
+                <label class="form-label" for="pwrAlpha">Significance Level (α):</label>
+                <select id="pwrAlpha" class="form-control">
+                  <option value="0.05" selected>α = 0.05 (Two-sided)</option>
+                  <option value="0.01">α = 0.01 (Two-sided)</option>
+                  <option value="0.10">α = 0.10 (Two-sided)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="pwrPower">Desired Statistical Power (1 - β):</label>
+                <select id="pwrPower" class="form-control">
+                  <option value="0.80" selected>80% Power</option>
+                  <option value="0.85">85% Power</option>
+                  <option value="0.90">90% Power</option>
+                  <option value="0.95">95% Power</option>
+                </select>
+              </div>
+            </div>
+
+            <button id="powerComputeBtn" class="btn btn-primary" style="width: 100%;">Calculate Sample Size</button>
+          </div>
+
+          <div>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <div class="metric-label">Effect Size (Cohen's d)</div>
+                <div id="pwrD" class="metric-value">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Sample Size per Group (n)</div>
+                <div id="pwrNGroup" class="metric-value" style="color: var(--cyan-primary);">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Total Sample Size (N)</div>
+                <div id="pwrNTotal" class="metric-value" style="color: var(--emerald-primary);">--</div>
+              </div>
+            </div>
+
+            <div class="report-box">
+              <div class="report-title">
+                <span>Study Protocol Justification (Grant / Ethics Ready)</span>
+                <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="pwrReportText">Copy</button>
+              </div>
+              <p id="pwrReportText" class="report-text">--</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>
+        <strong>Statis-Gravity</strong> — Clinical Biostatistics &amp; Data Visualization Suite.
+        Developed by <strong>Dr G Narenthiran</strong> BSc(MedSci)(Hons) MB ChB MRCSE FEBNS FRCS(SN).
+      </p>
+      <p style="margin-top: 0.35rem; font-size: 0.7rem; color: var(--text-muted);">
+        Dedicated to <strong>Mrs Nirmaladevy Ganesalingam BSc (mother)</strong>. Part of the Anti-Gravity neurosurgical productivity ecosystem.
+      </p>
+    </footer>
+  </div>
+
+  <script src="js/statis-gravity.js"></script>
+</body>
+</html>
