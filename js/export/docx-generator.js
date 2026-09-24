@@ -880,6 +880,9 @@ export const DocxReports = {
     if (data.tConv) {
       d.addParagraph(`Student's t Simulation: Sample Size n = ${data.tConv.sampleSize} (Degrees of Freedom ν = ${data.tConv.df})`);
     }
+    if (data.overlap) {
+      d.addParagraph(`Two-Sample Overlap Simulation: Mean Difference Δ = ${data.overlap.delta.toFixed(2)}, Patient SD = ${data.overlap.sd.toFixed(2)}, Sample Size n = ${data.overlap.n}, Significance Level α = ${data.overlap.alpha.toFixed(3)}`);
+    }
 
     d.addHeading1('2. Statistical Outcome & Empirical Convergence Metrics');
     d.addHeading2('Computer-Generated Distribution Metrics');
@@ -922,10 +925,30 @@ export const DocxReports = {
       );
     }
 
+    if (data.overlap) {
+      d.addHeading2('Two-Sample Overlap, Dispersion (SD vs. SEM) & Alpha Significance Results');
+      d.addTable(
+        ['Analytical Parameter', 'Simulated Value', 'Clinical & Inferential Meaning'],
+        [
+          ['Mean Difference (Δ = μ₂ - μ₁)', `Δ = ${data.overlap.delta.toFixed(2)}`, 'Observed separation between the two group means'],
+          ['Patient Standard Deviation (SD)', `SD = ${data.overlap.sd.toFixed(2)} (Cohen\'s d = ${data.overlap.cohensD.toFixed(2)})`, 'Biological variability between individual human subjects (does not shrink with n)'],
+          ['Sample Size per Group (n)', `n = ${data.overlap.n} (df = ${data.overlap.df})`, 'Enrollment capacity per treatment arm'],
+          ['Standard Error of the Mean (SEM)', `SEM = ${data.overlap.sem.toFixed(3)}`, 'Precision of mean estimate: SEM = SD / √n (shrinks by 1/√n)'],
+          ['Standard Error of Difference (SE_diff)', `SE_diff = ${data.overlap.seDiff.toFixed(3)}`, 'Pooled uncertainty in the difference: SD · √(2/n)'],
+          ['Chosen Significance Level (α)', `α = ${data.overlap.alpha.toFixed(3)}`, `Type I error tolerance: ${data.overlap.alpha === 0.05 ? 'Standard 5% biomedical risk' : (data.overlap.alpha < 0.05 ? 'Strict threshold' : 'Relaxed exploratory threshold')}`],
+          ['Critical Value (t_crit vs z_crit)', `t_crit = ${data.overlap.tCrit.toFixed(3)} (z = ${data.overlap.zCrit.toFixed(3)})`, 'Required number of standard errors to claim statistical significance'],
+          ['Critical Difference Boundary (Δcrit)', `Δcrit = ${data.overlap.deltaCrit.toFixed(2)}`, 'Minimum mean separation needed to achieve p < α (Δcrit = t_crit · SE_diff)'],
+          ['Test Statistic & p-value', `t = ${data.overlap.tStat.toFixed(2)}, p = ${data.overlap.pValue < 0.0001 ? '< 0.0001' : data.overlap.pValue.toFixed(4)}`, `Significance: ${data.overlap.isSignificant ? 'REJECT H₀ (p < α)' : 'FAIL TO REJECT H₀ (p ≥ α)'}`],
+          ['Individual Patient Overlap (OVL_SD)', `${(data.overlap.patientOVL * 100).toFixed(1)}%`, 'Proportion of overlapping individual patient values (Weitzman\'s OVL)'],
+          ['Sampling Distribution Overlap (OVL_SEM)', `${(data.overlap.meansOVL * 100).toFixed(1)}%`, 'Proportion of overlap between the sampling distributions of sample means']
+        ]
+      );
+    }
+
     d.addHeading1('3. Clinical & Statistical Interpretation');
     d.addCalloutBox(
       'Pedagogical Synthesis & Clinical Trial Relevance',
-      data.reportText || 'The Central Limit Theorem and Student\'s t convergence demonstrate the mathematical foundations of parametric testing in clinical trials.',
+      data.reportText || 'The Central Limit Theorem, Student\'s t convergence, and Two-Sample Overlap simulations demonstrate the mathematical foundations of parametric testing and the definition of alpha in clinical trials.',
       'F0FDF4',
       '16A34A'
     );
@@ -934,17 +957,24 @@ export const DocxReports = {
     d.addBullet('Foundation of Inferential Biostatistics: Parametric hypothesis tests (Student t-test, ANOVA, ordinary least squares regression) mathematically assume normally distributed errors or sample means. The Central Limit Theorem provides the mathematical justification for deploying these tests in clinical trials with n ≥ 30 even when raw clinical metrics (e.g. ICU stay, recovery hours) are skewed.');
     d.addBullet('Gosset\'s Student\'s t Adjustment: In small clinical cohorts (n < 30), estimating population variance σ² using sample variance s² introduces substantial stochastic instability into the test statistic denominator. Using Gaussian critical values (z = 1.96) severely inflates the Type I error rate (e.g. to 14.5% at n = 4). Student\'s t distribution compensates for this extra uncertainty by thickening the tails and demanding a higher critical threshold (t = 3.182 at n = 4).');
     d.addBullet('The n ≥ 31 Clinical Threshold: As demonstrated by the simulation, when sample size reaches n ≥ 31 (degrees of freedom ν ≥ 30), the critical t cutoff drops to 2.042 (only 4.2% wider than 1.960), and tail probability converges close to 5.0%. This mathematical threshold explains why sample sizes of 30 or greater historically permit Gaussian approximation in medical trial protocols.');
+    d.addBullet('Why α = 0.05 Defines the Point of Significance: In 1925, Ronald A. Fisher proposed the 5% significance level (p < 0.05) as a pragmatic convention for scientific research—representing a 1 in 20 chance of observing an effect as extreme under the null hypothesis of no difference. On a standard Gaussian distribution, exactly 5% of probability mass lies in the tails beyond ±1.960 standard errors (2.5% in each tail). Hence, the critical separation distance between sample means is Δcrit = 1.960 · SE_diff. When the observed difference Δ exceeds Δcrit, the p-value falls below 0.05.');
+    d.addBullet('The Fundamental Distinction Between SD and SEM: Standard Deviation (SD) reflects real inter-individual biological diversity among patients and does not contract when sample size increases. In contrast, the Standard Error of the Mean (SEM = SD/√n) quantifies our uncertainty in the population mean estimate and contracts steadily as 1/√n. Consequently, two treatment groups can exhibit 70% biological overlap in individual patient scores, yet their treatment difference can be verified as statistically significant (p < 0.001) once sufficient patients are enrolled to shrink the SEM.');
+    d.addBullet('Consequences of Modifying Alpha (α): Relaxing α to 0.10 moves the critical cutoff inward to z = 1.645, lowering the required separation Δcrit and declaring significance on smaller differences or smaller sample sizes, at the expense of doubling the false-positive risk to 10%. Tightening α to 0.01 (z = 2.576) or 0.001 (z = 3.291), as required in confirmatory registration trials or genome-wide studies, shifts the cutoff outward into the extreme tails, demanding either much larger effect sizes or substantially expanded sample sizes before significance can be claimed.');
 
     d.addHeading1('5. Background Statistical Knowledge & Medical Research Context');
     d.addParagraph('Mathematical Formulations:');
     d.addBullet('Classical Lindberg-Lévy Central Limit Theorem: Let X₁, X₂, ..., X_n be independent and identically distributed (i.i.d.) random variables with mean μ and finite variance σ². Then as n → ∞: √n (X̄_n - μ) / σ → N(0, 1).');
     d.addBullet('Student\'s t Distribution Density: f(t; ν) = [ Γ((ν+1)/2) / (√(πν) Γ(ν/2)) ] · [ 1 + t²/ν ]^{-(ν+1)/2}. As ν → ∞, [ 1 + t²/ν ]^{-(ν+1)/2} → exp(-t²/2), converging to Standard Normal N(0, 1).');
-    d.addBullet('Standard Error of the Mean: SE = σ / √n. Quadrupling patient enrollment cuts the estimation uncertainty in half.');
+    d.addBullet('Standard Error of the Mean: SEM = σ / √n. Quadrupling patient enrollment cuts the estimation uncertainty in half.');
+    d.addBullet('Weitzman\'s Distribution Overlap Coefficient (OVL): For two equal-variance Gaussian curves separated by difference Δ: OVL = 2 · Φ(-|Δ| / (2 · s)), where s = SD for patient-level overlap and s = SEM for sampling-mean-level overlap.');
+    d.addBullet('Critical Significance Boundary: Δcrit = t_crit(α, df) · SD · √(2/n).');
     d.addParagraph('Key Academic References:');
+    d.addBullet('Fisher RA (1925). Statistical Methods for Research Workers. Edinburgh: Oliver and Boyd.');
+    d.addBullet('Cumming G, Finch S (2005). Inference by eye: confidence intervals and how to read pictures of data. Am Psychol, 60(2): 170–180.');
     d.addBullet('Student [Gosset WS] (1908). The probable error of a mean. Biometrika, 6(1): 1–25.');
+    d.addBullet('Altman DG, Bland JM (2005). Standard deviations and standard errors. BMJ, 331(7521): 903.');
     d.addBullet('Laplace PS (1810). Mémoire sur les approximations des formules qui sont fonctions de très grands nombres et sur leur application aux probabilités. Mémoires de l\'Académie Royale des Sciences de Paris.');
     d.addBullet('Gauss CF (1809). Theoria motus corporum coelestium in sectionibus conicis solem ambientium. Hamburg: Perthes et Besser.');
-    d.addBullet('Altman DG, Bland JM (1995). Statistics Notes: The normal distribution. BMJ, 310(6975): 298–299.');
 
     return d;
   }

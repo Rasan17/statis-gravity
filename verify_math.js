@@ -419,7 +419,8 @@ const bTeach = DocxReports.createTeachingDocx({
     isNormal: true
   },
   tConv: Teaching.tConvergence.getMetrics(4),
-  reportText: 'CLT and t-distribution convergence summary text'
+  overlap: Teaching.significanceOverlap.getMetrics({ delta: 2.0, sd: 2.5, n: 16, alpha: 0.05 }),
+  reportText: 'CLT, t-distribution, and two-sample alpha overlap convergence summary text'
 });
 const bufTeach = bTeach.generateUint8Array();
 assert(isZip(bufTeach), `Teaching DOCX is a valid PKZIP archive (${bufTeach.length} bytes)`);
@@ -498,6 +499,51 @@ const mLarge = Teaching.tConvergence.getMetrics(121);
 assert(approx(mLarge.tCrit, 1.980, 0.005), `Large trial df=120 t_crit is practically identical to 1.960, got ${mLarge.tCrit.toFixed(3)}`);
 assert(approx(mLarge.tailProb, 0.050, 0.005), `Large trial df=120 tail probability matches normal 5.0%, got ${(mLarge.tailProb*100).toFixed(1)}%`);
 
+console.log('--- Testing Two-Sample Overlap, SD vs. SEM & Alpha Significance Simulation ---');
+// Baseline parameters: Delta=2.0, SD=2.5, n=16, alpha=0.05
+const ovlBase = Teaching.significanceOverlap.getMetrics({ delta: 2.0, sd: 2.5, n: 16, alpha: 0.05 });
+assert(approx(ovlBase.sem, 0.625, 1e-3), `SEM is SD / sqrt(n) = 2.5 / 4 = 0.625, got ${ovlBase.sem.toFixed(3)}`);
+assert(approx(ovlBase.seDiff, 0.8839, 1e-3), `SE_diff is SD * sqrt(2/n) = 0.8839, got ${ovlBase.seDiff.toFixed(4)}`);
+assert(ovlBase.df === 30, `Degrees of freedom df = 2*n - 2 = 30, got ${ovlBase.df}`);
+assert(approx(ovlBase.tStat, 2.2627, 1e-3), `t-statistic is Delta / SE_diff = 2.2627, got ${ovlBase.tStat.toFixed(4)}`);
+assert(approx(ovlBase.tCrit, 2.0423, 0.005), `t_crit for df=30, alpha=0.05 is ~2.042, got ${ovlBase.tCrit.toFixed(3)}`);
+assert(approx(ovlBase.deltaCrit, 1.805, 0.01), `Critical separation Delta_crit is ~1.805, got ${ovlBase.deltaCrit.toFixed(3)}`);
+assert(ovlBase.isSignificant === true, `Observed Delta (2.0) > Delta_crit (1.805) correctly flagged as significant`);
+assert(ovlBase.pValue < 0.05, `p-value (${ovlBase.pValue.toFixed(4)}) is strictly less than 0.05`);
+assert(approx(ovlBase.patientOVL, 0.689, 0.01), `High patient overlap (~68.9%) despite statistical significance, got ${(ovlBase.patientOVL*100).toFixed(1)}%`);
+assert(approx(ovlBase.meansOVL, 0.110, 0.01), `Means sampling overlap has shrunk to ~11.0%, got ${(ovlBase.meansOVL*100).toFixed(1)}%`);
+
+// Non-significant scenario: Delta=1.0, SD=2.5, n=16, alpha=0.05
+const ovlNonSig = Teaching.significanceOverlap.getMetrics({ delta: 1.0, sd: 2.5, n: 16, alpha: 0.05 });
+assert(ovlNonSig.isSignificant === false, `Observed Delta (1.0) < Delta_crit (1.805) correctly flagged as not significant`);
+assert(ovlNonSig.pValue > 0.05, `p-value (${ovlNonSig.pValue.toFixed(4)}) is strictly greater than 0.05`);
+assert(ovlNonSig.meansOVL > 0.35, `Heavy means overlap in non-significant state, got ${(ovlNonSig.meansOVL*100).toFixed(1)}%`);
+
+// Demonstrating effect of modifying alpha:
+// At alpha = 0.05: Delta=2.0 is significant (p = 0.031)
+// If we tighten alpha to 0.01 (e.g. confirmatory phase III trial or Bonferroni correction):
+const ovlStrictAlpha = Teaching.significanceOverlap.getMetrics({ delta: 2.0, sd: 2.5, n: 16, alpha: 0.01 });
+assert(approx(ovlStrictAlpha.tCrit, 2.750, 0.01), `Tightened alpha=0.01 pushes t_crit up to ~2.750, got ${ovlStrictAlpha.tCrit.toFixed(3)}`);
+assert(approx(ovlStrictAlpha.deltaCrit, 2.431, 0.02), `Tightened alpha=0.01 pushes Delta_crit out to 2.431, got ${ovlStrictAlpha.deltaCrit.toFixed(3)}`);
+assert(ovlStrictAlpha.isSignificant === false, `Same Delta=2.0 is NO LONGER significant at alpha=0.01 (p=0.031 >= 0.01)`);
+
+// If we relax alpha to 0.10 on borderline Delta=1.6 (not significant at 0.05):
+const ovlBorderline05 = Teaching.significanceOverlap.getMetrics({ delta: 1.6, sd: 2.5, n: 16, alpha: 0.05 });
+const ovlBorderline10 = Teaching.significanceOverlap.getMetrics({ delta: 1.6, sd: 2.5, n: 16, alpha: 0.10 });
+assert(ovlBorderline05.isSignificant === false, `Delta=1.6 is NOT significant at alpha=0.05`);
+assert(ovlBorderline10.isSignificant === true, `Delta=1.6 BECOMES significant when alpha relaxed to 0.10 (t_crit drops to ~1.697)`);
+
+// Demonstrating SD vs. SEM separation mechanism:
+// Increase sample size from n=16 to n=64 while holding Delta=2.0 and SD=2.5 constant:
+const ovlLargeN = Teaching.significanceOverlap.getMetrics({ delta: 2.0, sd: 2.5, n: 64, alpha: 0.05 });
+assert(approx(ovlLargeN.sd, 2.50, 1e-4), `Patient SD remains constant at 2.50`);
+assert(approx(ovlLargeN.patientOVL, ovlBase.patientOVL, 1e-4), `Patient biological overlap remains identical at 68.9%`);
+assert(approx(ovlLargeN.sem, 0.3125, 1e-4), `SEM cuts in half from 0.625 to 0.3125`);
+assert(ovlLargeN.tStat > 4.5, `t-statistic doubles from 2.26 to 4.53, got ${ovlLargeN.tStat.toFixed(2)}`);
+assert(ovlLargeN.pValue < 0.0001, `p-value plunges to < 0.0001, got ${ovlLargeN.pValue.toFixed(6)}`);
+assert(ovlLargeN.meansOVL < 0.005, `Means overlap drops to near-zero (<0.5%), separating the curves decisively`);
+
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);
+
 

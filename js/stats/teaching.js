@@ -498,5 +498,146 @@ export const Teaching = {
         clinicalNote
       };
     }
+  },
+
+  /**
+   * Two-Sample Overlap, Dispersion (SD vs. SEM), and Alpha Significance Simulation
+   * Explains how two distributions overlap and separate as SD and SEM (via sample size n)
+   * change, how alpha = 0.05 defines the boundary of significance, and what happens when alpha changes.
+   */
+  significanceOverlap: {
+    /**
+     * Compute two-tailed critical value for Student's t distribution at arbitrary alpha
+     */
+    getTCriticalValue(df, alpha = 0.05) {
+      if (df <= 0) return NaN;
+      const sigAlpha = Math.min(0.20, Math.max(0.0001, alpha));
+      const p = 1 - sigAlpha / 2;
+      const z = Distributions.invNormalCDF(p);
+      if (df >= 500) return z;
+      if (df === 1) return Math.tan((p - 0.5) * Math.PI);
+      if (df === 2) {
+        // Exact formula for df=2
+        return Math.sqrt(2 / (4 * (1 - p) * p) - 2);
+      }
+      // Cornish-Fisher 4th-order asymptotic expansion
+      const nu = df;
+      const z2 = z * z, z3 = z2 * z, z5 = z3 * z2, z7 = z5 * z2, z9 = z7 * z2;
+      const a = (z3 + z) / (4 * nu);
+      const b = (5 * z5 + 16 * z3 + 3 * z) / (96 * nu * nu);
+      const c = (3 * z7 + 19 * z5 + 17 * z3 - 15 * z) / (384 * Math.pow(nu, 3));
+      const d = (79 * z9 + 776 * z7 + 1482 * z5 - 1920 * z3 - 945 * z) / (92160 * Math.pow(nu, 4));
+      return Math.max(z, z + a + b + c + d);
+    },
+
+    /**
+     * Compute full analytical metrics for two-sample overlap and alpha boundary
+     */
+    getMetrics({
+      mean1 = 10.0,
+      delta = 2.0,
+      sd = 2.5,
+      n = 16,
+      alpha = 0.05,
+      viewMode = 'means'
+    } = {}) {
+      const mu1 = parseFloat(mean1) || 10.0;
+      const dMu = Math.max(0, parseFloat(delta) !== undefined && !isNaN(parseFloat(delta)) ? parseFloat(delta) : 2.0);
+      const mu2 = mu1 + dMu;
+      const sigma = Math.max(0.2, parseFloat(sd) || 2.5);
+      const sampleN = Math.max(3, Math.round(n) || 16);
+      const sigAlpha = Math.min(0.20, Math.max(0.001, parseFloat(alpha) || 0.05));
+
+      // Precision metrics
+      const sem = sigma / Math.sqrt(sampleN);
+      const seDiff = sigma * Math.sqrt(2.0 / sampleN); // sqrt(sd^2/n + sd^2/n) = sqrt(2)*sem
+      const df = 2 * sampleN - 2;
+
+      // Critical values
+      const zCrit = Distributions.invNormalCDF(1 - sigAlpha / 2);
+      const tCrit = this.getTCriticalValue(df, sigAlpha);
+
+      // Critical Difference threshold: minimum mean difference needed to reject H0 at alpha
+      const deltaCrit = tCrit * seDiff;
+      const deltaCritZ = zCrit * seDiff;
+
+      // Test statistics
+      const tStat = seDiff > 0 ? dMu / seDiff : 0;
+      const zStat = seDiff > 0 ? dMu / seDiff : 0;
+      const pValue = Distributions.tPValue(tStat, df);
+      const isSignificant = pValue < sigAlpha;
+
+      // Effect Size
+      const cohensD = sigma > 0 ? dMu / sigma : 0;
+
+      // Overlap Coefficients (Weitzman's OVL for equal variance normals)
+      const patientOVL = Math.max(0, Math.min(1.0, 2.0 * Distributions.normalCDF(-cohensD / 2.0)));
+      const semD = sem > 0 ? dMu / sem : 0;
+      const meansOVL = Math.max(0, Math.min(1.0, 2.0 * Distributions.normalCDF(-semD / 2.0)));
+
+      // Confidence Intervals for the means: mu +/- tCrit * SEM
+      const moe = tCrit * sem;
+      const ci1 = [mu1 - moe, mu1 + moe];
+      const ci2 = [mu2 - moe, mu2 + moe];
+      const ciOverlapDist = Math.max(0, ci1[1] - ci2[0]);
+      const ciOverlapFraction = moe > 0 ? ciOverlapDist / moe : 0;
+
+      // Null hypothesis bounds (H0: difference centered at 0 with SE = seDiff)
+      const nullCritLeft = -deltaCrit;
+      const nullCritRight = deltaCrit;
+
+      // Pedagogical explanation synthesis
+      let statusText = '';
+      if (isSignificant) {
+        statusText = `STATISTICALLY SIGNIFICANT (p = ${pValue < 0.0001 ? '< 0.0001' : pValue.toFixed(4)} < α = ${sigAlpha.toFixed(3)})`;
+      } else {
+        statusText = `NOT STATISTICALLY SIGNIFICANT (p = ${pValue.toFixed(4)} ≥ α = ${sigAlpha.toFixed(3)})`;
+      }
+
+      let explanation = '';
+      if (isSignificant) {
+        explanation = `The observed difference between means (Δ = ${dMu.toFixed(2)}) meets or exceeds the critical significance threshold (Δcrit = ${deltaCrit.toFixed(2)} at α = ${sigAlpha.toFixed(3)}). ` +
+          `While individual patient values overlap substantially (${(patientOVL * 100).toFixed(1)}% patient overlap due to clinical SD = ${sigma.toFixed(2)}), ` +
+          `the standard error of the mean (SEM = ${sem.toFixed(3)}) has contracted with sample size n = ${sampleN} so that the sampling distributions of the two means only overlap by ${(meansOVL * 100).toFixed(1)}%. ` +
+          `Under H₀, observing a mean difference this large occurs with probability p = ${pValue.toFixed(4)} < α = ${sigAlpha.toFixed(3)}, rejecting the null hypothesis.`;
+      } else {
+        explanation = `The observed difference between means (Δ = ${dMu.toFixed(2)}) is smaller than the required critical threshold (Δcrit = ${deltaCrit.toFixed(2)} at α = ${sigAlpha.toFixed(3)}). ` +
+          `The sampling distributions of the two sample means overlap too heavily (${(meansOVL * 100).toFixed(1)}% overlap, p = ${pValue.toFixed(3)} ≥ α). ` +
+          `To achieve significance at this α level, you must either: (1) observe a larger effect size Δ, (2) reduce measurement noise (lower SD), or (3) recruit more patients (increasing n from ${sampleN} to shrink SEM).`;
+      }
+
+      return {
+        mean1: mu1,
+        mean2: mu2,
+        delta: dMu,
+        sd: sigma,
+        n: sampleN,
+        alpha: sigAlpha,
+        viewMode,
+        sem,
+        seDiff,
+        df,
+        zCrit,
+        tCrit,
+        deltaCrit,
+        deltaCritZ,
+        tStat,
+        zStat,
+        pValue,
+        isSignificant,
+        statusText,
+        cohensD,
+        patientOVL,
+        meansOVL,
+        moe,
+        ci1,
+        ci2,
+        ciOverlapDist,
+        ciOverlapFraction,
+        nullCritLeft,
+        nullCritRight,
+        explanation
+      };
+    }
   }
 };

@@ -39,6 +39,10 @@ export const Distributions = {
    * Inverse Normal Cumulative Distribution Function (Quantile / Probit)
    * Peter John Acklam algorithm (precision 1.15e-9)
    */
+  inverseNormalCDF(p) {
+    return this.invNormalCDF(p);
+  },
+
   invNormalCDF(p) {
     if (p <= 0) return -Infinity;
     if (p >= 1) return Infinity;

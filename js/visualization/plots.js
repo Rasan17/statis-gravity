@@ -1711,6 +1711,411 @@ export const Plots = {
       ctx.fillStyle = '#ef4444';
       ctx.fillText(`░░ Fat Tail Risk: P(|T| > 1.96) = ${(metrics.tailProb * 100).toFixed(1)}% vs 5.0%`, b.x + b.width - 10, b.y + 66);
     }
+  },
+
+  /**
+   * Two-Sample Overlap, Dispersion (SD vs. SEM), and Alpha Significance Plot
+   * @param {ChartEngine} engine
+   * @param {object} metrics Output from Teaching.significanceOverlap.getMetrics()
+   * @param {object} options
+   */
+  renderTwoSampleOverlap(engine, metrics, options = {}) {
+    engine.lastRenderFn = () => this.renderTwoSampleOverlap(engine, metrics, options);
+    engine.clear();
+    const b = engine.getPlotBounds ? engine.getPlotBounds() : engine.getBounds();
+    const ctx = engine.ctx;
+    const pal = engine.palette;
+
+    const {
+      mean1, mean2, delta, sd, n, alpha, viewMode,
+      sem, seDiff, df, tCrit, zCrit, deltaCrit,
+      tStat, pValue, isSignificant, cohensD,
+      patientOVL, meansOVL, moe, ci1, ci2
+    } = metrics;
+
+    // View mode branching
+    if (viewMode === 'null') {
+      // -------------------------------------------------------------
+      // NULL HYPOTHESIS VIEW: Sampling Distribution of Difference H0
+      // -------------------------------------------------------------
+      const xSpan = Math.max(4.2 * seDiff, delta + 2.5 * seDiff);
+      const minX = -xSpan;
+      const maxX = xSpan;
+      const peakY = 1.0 / (seDiff * Math.sqrt(2 * Math.PI));
+      const maxY = peakY * 1.25;
+
+      const toX = (val) => b.x + ((val - minX) / (maxX - minX)) * b.width;
+      const toY = (val) => b.y + b.height - (val / maxY) * b.height;
+
+      // Draw Grid & Axes
+      ctx.strokeStyle = pal.grid;
+      ctx.lineWidth = 1;
+      const xSteps = 6;
+      for (let i = 0; i <= xSteps; i++) {
+        const xVal = minX + (i / xSteps) * (maxX - minX);
+        const xPix = toX(xVal);
+        ctx.beginPath();
+        ctx.moveTo(xPix, b.y);
+        ctx.lineTo(xPix, b.y + b.height);
+        ctx.stroke();
+
+        ctx.fillStyle = pal.textMuted;
+        ctx.font = `500 10px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(xVal.toFixed(2), xPix, b.y + b.height + 15);
+      }
+
+      // Generate points for H0 distribution N(0, seDiff^2)
+      const numPts = 250;
+      const pts = [];
+      for (let i = 0; i <= numPts; i++) {
+        const xVal = minX + (i / numPts) * (maxX - minX);
+        const z = xVal / seDiff;
+        const yVal = (1.0 / (seDiff * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * z * z);
+        pts.push({ x: xVal, y: yVal });
+      }
+
+      // Rejection Zones Shading (x <= -deltaCrit and x >= deltaCrit)
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.25)'; // Red Rejection Area
+      // Left tail
+      ctx.beginPath();
+      ctx.moveTo(toX(minX), toY(0));
+      for (const pt of pts) {
+        if (pt.x <= -deltaCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+      }
+      ctx.lineTo(toX(-deltaCrit), toY(0));
+      ctx.closePath();
+      ctx.fill();
+
+      // Right tail
+      ctx.beginPath();
+      ctx.moveTo(toX(deltaCrit), toY(0));
+      for (const pt of pts) {
+        if (pt.x >= deltaCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+      }
+      ctx.lineTo(toX(maxX), toY(0));
+      ctx.closePath();
+      ctx.fill();
+
+      // Retention Zone Shading (Green tinted center)
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+      ctx.beginPath();
+      ctx.moveTo(toX(-deltaCrit), toY(0));
+      for (const pt of pts) {
+        if (pt.x >= -deltaCrit && pt.x <= deltaCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+      }
+      ctx.lineTo(toX(deltaCrit), toY(0));
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw H0 Curve
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      pts.forEach((pt, idx) => {
+        if (idx === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+        else ctx.lineTo(toX(pt.x), toY(pt.y));
+      });
+      ctx.stroke();
+
+      // Critical Boundary Lines
+      [-deltaCrit, deltaCrit].forEach((cVal, idx) => {
+        const xPix = toX(cVal);
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 1.8;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(xPix, toY(0));
+        ctx.lineTo(xPix, toY(peakY * 0.75));
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#ef4444';
+        ctx.font = `600 10px ${engine.options.fontFamily}`;
+        ctx.textAlign = idx === 0 ? 'right' : 'left';
+        ctx.fillText(idx === 0 ? `-Δcrit (${cVal.toFixed(2)})` : `+Δcrit (${cVal.toFixed(2)})`, xPix + (idx === 0 ? -5 : 5), toY(peakY * 0.75));
+      });
+
+      // Observed Difference Indicator
+      const obsXPix = toX(delta);
+      const obsColor = isSignificant ? '#10b981' : '#f59e0b';
+      ctx.strokeStyle = obsColor;
+      ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      ctx.moveTo(obsXPix, toY(0));
+      ctx.lineTo(obsXPix, toY(peakY * 0.95));
+      ctx.stroke();
+
+      // Arrow head at top
+      ctx.fillStyle = obsColor;
+      ctx.beginPath();
+      ctx.moveTo(obsXPix, toY(peakY * 0.98));
+      ctx.lineTo(obsXPix - 6, toY(peakY * 0.90));
+      ctx.lineTo(obsXPix + 6, toY(peakY * 0.90));
+      ctx.closePath();
+      ctx.fill();
+
+      // Observed label
+      ctx.fillStyle = obsColor;
+      ctx.font = `700 11px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`Observed Δ = ${delta.toFixed(2)} (t = ${tStat.toFixed(2)})`, obsXPix, toY(peakY * 1.06));
+
+      // Status Pill at Top Right
+      const badgeText = isSignificant ? `✓ SIGNIFICANT (p = ${pValue.toFixed(4)} < α)` : `✗ NOT SIGNIFICANT (p = ${pValue.toFixed(4)} ≥ α)`;
+      ctx.fillStyle = isSignificant ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+      ctx.strokeStyle = isSignificant ? '#10b981' : '#ef4444';
+      ctx.lineWidth = 1;
+      const badgeWidth = ctx.measureText(badgeText).width + 24;
+      ctx.fillRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
+      ctx.strokeRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
+
+      ctx.fillStyle = isSignificant ? '#10b981' : '#ef4444';
+      ctx.font = `700 11px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'right';
+      ctx.fillText(badgeText, b.x + b.width - 22, b.y + 26);
+
+      // Legend
+      ctx.textAlign = 'left';
+      ctx.font = `500 11px ${engine.options.fontFamily}`;
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText(`— Null Distribution H₀: Δ ~ N(0, SE²diff), SE = ${seDiff.toFixed(3)}`, b.x + 12, b.y + 20);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText(`░ Rejection Region (α = ${alpha.toFixed(3)}, t_crit = ±${tCrit.toFixed(3)})`, b.x + 12, b.y + 36);
+      return;
+    }
+
+    // -------------------------------------------------------------
+    // MEANS, PATIENTS, OR DUAL VIEW
+    // -------------------------------------------------------------
+    const activeSigma = (viewMode === 'patients') ? sd : sem;
+    const minX = mean1 - Math.max(3.8 * sd, 4.0);
+    const maxX = Math.max(mean2 + Math.max(3.8 * sd, 4.0), mean1 + 7.5);
+    const xSpan = maxX - minX;
+
+    const maxDensity = 1.0 / (activeSigma * Math.sqrt(2 * Math.PI));
+    const maxY = maxDensity * 1.30;
+
+    const toX = (val) => b.x + ((val - minX) / xSpan) * b.width;
+    const toY = (val) => b.y + b.height - (val / maxY) * b.height;
+
+    // Draw Grid & X-axis
+    ctx.strokeStyle = pal.grid;
+    ctx.lineWidth = 1;
+    const xSteps = 7;
+    for (let i = 0; i <= xSteps; i++) {
+      const xVal = minX + (i / xSteps) * xSpan;
+      const xPix = toX(xVal);
+      ctx.beginPath();
+      ctx.moveTo(xPix, b.y);
+      ctx.lineTo(xPix, b.y + b.height);
+      ctx.stroke();
+
+      ctx.fillStyle = pal.textMuted;
+      ctx.font = `500 10px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(xVal.toFixed(1), xPix, b.y + b.height + 15);
+    }
+
+    // Generate points for both distributions
+    const numPts = 300;
+    const pts1 = [];
+    const pts2 = [];
+    const ptsOverlap = [];
+
+    const normPDF = (x, mu, s) => (1.0 / (s * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mu) / s, 2));
+
+    for (let i = 0; i <= numPts; i++) {
+      const x = minX + (i / numPts) * xSpan;
+      const y1 = normPDF(x, mean1, activeSigma);
+      const y2 = normPDF(x, mean2, activeSigma);
+      const yOverlap = Math.min(y1, y2);
+
+      pts1.push({ x, y: y1 });
+      pts2.push({ x, y: y2 });
+      ptsOverlap.push({ x, y: yOverlap });
+    }
+
+    // 1. Shaded Overlap Area
+    ctx.fillStyle = isSignificant ? 'rgba(16, 185, 129, 0.22)' : 'rgba(239, 68, 68, 0.24)';
+    ctx.beginPath();
+    ctx.moveTo(toX(minX), toY(0));
+    ptsOverlap.forEach(pt => ctx.lineTo(toX(pt.x), toY(pt.y)));
+    ctx.lineTo(toX(maxX), toY(0));
+    ctx.closePath();
+    ctx.fill();
+
+    // 2. Dual Mode Background Patient Density (translucent dashed curves)
+    if (viewMode === 'dual') {
+      // Scale patient density to fit visually alongside SEM
+      const patientMaxDensity = 1.0 / (sd * Math.sqrt(2 * Math.PI));
+      const dualScale = (maxDensity * 0.45) / patientMaxDensity;
+
+      [mean1, mean2].forEach((mu, gIdx) => {
+        ctx.strokeStyle = gIdx === 0 ? 'rgba(6, 182, 212, 0.45)' : 'rgba(168, 85, 247, 0.45)';
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        for (let i = 0; i <= numPts; i++) {
+          const x = minX + (i / numPts) * xSpan;
+          const y = normPDF(x, mu, sd) * dualScale;
+          if (i === 0) ctx.moveTo(toX(x), toY(y));
+          else ctx.lineTo(toX(x), toY(y));
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+    }
+
+    // 3. Render Distribution 1 (Group 1 / Control, Cyan)
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    pts1.forEach((pt, idx) => {
+      if (idx === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+      else ctx.lineTo(toX(pt.x), toY(pt.y));
+    });
+    ctx.stroke();
+
+    // 4. Render Distribution 2 (Group 2 / Treatment, Violet)
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    pts2.forEach((pt, idx) => {
+      if (idx === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+      else ctx.lineTo(toX(pt.x), toY(pt.y));
+    });
+    ctx.stroke();
+
+    // 5. Mean Centers & Drop Lines
+    [
+      { mu: mean1, color: '#06b6d4', label: `Group 1 (μ₁ = ${mean1.toFixed(1)})` },
+      { mu: mean2, color: '#a855f7', label: `Group 2 (μ₂ = ${mean2.toFixed(1)})` }
+    ].forEach((grp) => {
+      const xPix = toX(grp.mu);
+      ctx.strokeStyle = grp.color;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(xPix, toY(0));
+      ctx.lineTo(xPix, toY(maxDensity));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = grp.color;
+      ctx.font = `600 10px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(grp.label, xPix, toY(maxDensity) - 8);
+    });
+
+    // 6. Critical Separation Boundary Line (at mu1 + deltaCrit)
+    const critX = mean1 + deltaCrit;
+    if (critX <= maxX) {
+      const critXPix = toX(critX);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.0;
+      ctx.setLineDash([5, 3]);
+      ctx.beginPath();
+      ctx.moveTo(critXPix, toY(0));
+      ctx.lineTo(critXPix, toY(maxDensity * 0.85));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = `600 10px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`Significance Boundary (Δcrit = ${deltaCrit.toFixed(2)})`, critXPix, toY(maxDensity * 0.85) - 6);
+    }
+
+    // 7. Error Bars / Confidence Intervals at the Base
+    if (viewMode === 'means' || viewMode === 'dual') {
+      const barY1 = toY(maxDensity * 0.05);
+      const barY2 = toY(maxDensity * 0.12);
+
+      // CI 1
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(toX(ci1[0]), barY1);
+      ctx.lineTo(toX(ci1[1]), barY1);
+      ctx.stroke();
+      // Caps
+      [ci1[0], ci1[1]].forEach(cx => {
+        ctx.beginPath();
+        ctx.moveTo(toX(cx), barY1 - 4);
+        ctx.lineTo(toX(cx), barY1 + 4);
+        ctx.stroke();
+      });
+
+      // CI 2
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(toX(ci2[0]), barY2);
+      ctx.lineTo(toX(ci2[1]), barY2);
+      ctx.stroke();
+      // Caps
+      [ci2[0], ci2[1]].forEach(cx => {
+        ctx.beginPath();
+        ctx.moveTo(toX(cx), barY2 - 4);
+        ctx.lineTo(toX(cx), barY2 + 4);
+        ctx.stroke();
+      });
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = `500 9px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'left';
+      ctx.fillText(`(1-α)% CIs: ±t_crit·SEM`, b.x + 10, barY2 - 8);
+    }
+
+    // 8. Overlap Badge in the Middle
+    const midXPix = toX((mean1 + mean2) / 2);
+    const activeOVL = viewMode === 'patients' ? patientOVL : meansOVL;
+    ctx.fillStyle = isSignificant ? '#10b981' : '#ef4444';
+    ctx.font = `700 11px ${engine.options.fontFamily}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`Overlap: ${(activeOVL * 100).toFixed(1)}%`, midXPix, toY(maxDensity * 0.35));
+
+    // 9. Status Pill at Top Right
+    const badgeText = isSignificant ? `✓ SIGNIFICANT (p = ${pValue.toFixed(4)} < α)` : `✗ NOT SIGNIFICANT (p = ${pValue.toFixed(4)} ≥ α)`;
+    ctx.fillStyle = isSignificant ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+    ctx.strokeStyle = isSignificant ? '#10b981' : '#ef4444';
+    ctx.lineWidth = 1;
+    const badgeWidth = ctx.measureText(badgeText).width + 24;
+    ctx.fillRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
+    ctx.strokeRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
+
+    ctx.fillStyle = isSignificant ? '#10b981' : '#ef4444';
+    ctx.font = `700 11px ${engine.options.fontFamily}`;
+    ctx.textAlign = 'right';
+    ctx.fillText(badgeText, b.x + b.width - 22, b.y + 26);
+
+    // 10. Dynamic Legend
+    ctx.textAlign = 'left';
+    ctx.font = `500 11px ${engine.options.fontFamily}`;
+
+    if (viewMode === 'patients') {
+      ctx.fillStyle = '#06b6d4';
+      ctx.fillText(`— Group 1 Patient Population N(μ₁, SD²), SD = ${sd.toFixed(2)}`, b.x + 12, b.y + 20);
+      ctx.fillStyle = '#a855f7';
+      ctx.fillText(`— Group 2 Patient Population N(μ₂, SD²), SD = ${sd.toFixed(2)}`, b.x + 12, b.y + 36);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`░ Patient Overlap = ${(patientOVL * 100).toFixed(1)}% (Cohen's d = ${cohensD.toFixed(2)})`, b.x + 12, b.y + 52);
+    } else if (viewMode === 'dual') {
+      ctx.fillStyle = '#06b6d4';
+      ctx.fillText(`— Group 1 Means (Solid, SEM = ${sem.toFixed(3)}) & Patients (Dashed, SD = ${sd.toFixed(2)})`, b.x + 12, b.y + 20);
+      ctx.fillStyle = '#a855f7';
+      ctx.fillText(`— Group 2 Means (Solid, SEM = ${sem.toFixed(3)}) & Patients (Dashed, SD = ${sd.toFixed(2)})`, b.x + 12, b.y + 36);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`░ Means Overlap = ${(meansOVL * 100).toFixed(1)}% vs Patient Overlap = ${(patientOVL * 100).toFixed(1)}%`, b.x + 12, b.y + 52);
+    } else {
+      ctx.fillStyle = '#06b6d4';
+      ctx.fillText(`— Group 1 Sampling Distribution of Mean (SEM = ${sem.toFixed(3)}, n = ${n})`, b.x + 12, b.y + 20);
+      ctx.fillStyle = '#a855f7';
+      ctx.fillText(`— Group 2 Sampling Distribution of Mean (SEM = ${sem.toFixed(3)}, n = ${n})`, b.x + 12, b.y + 36);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText(`┆ Boundary: Δcrit = ${deltaCrit.toFixed(2)} at α = ${alpha.toFixed(3)} (t_crit = ${tCrit.toFixed(3)})`, b.x + 12, b.y + 52);
+    }
   }
 };
 

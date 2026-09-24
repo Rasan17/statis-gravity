@@ -1254,10 +1254,173 @@
             </div>
           </div>
 
+          <!-- Section 4: Two-Sample Overlap, SD vs. SEM & Alpha Significance Simulator -->
+          <div style="margin-top: 2rem; border-top: 1px dashed var(--border-subtle); padding-top: 1.5rem;">
+            <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem; padding: 0 0 1rem 0;">
+              <div>
+                <h2 class="card-title">Two-Sample Overlap, Dispersion (SD vs. SEM) &amp; Alpha Significance Boundary</h2>
+                <p class="card-subtitle">Explore how sample curves overlap and separate as SD, SEM (via n), and difference (Δ) change, why α = 0.05 defines significance, and what happens when α is adjusted</p>
+              </div>
+              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button id="overlapAnimateBtn" class="btn btn-primary btn-sm" title="Animate the separation of two sample curves from non-significant overlap to statistical significance">▶ Animate Separation</button>
+                <button id="overlapResetBtn" class="btn btn-secondary btn-sm" title="Reset parameters to baseline (Δ=2.0, SD=2.5, n=16, α=0.05)">↺ Reset (Baseline)</button>
+              </div>
+            </div>
+
+            <!-- Conceptual Explanation Box -->
+            <div style="background: rgba(6, 182, 212, 0.05); border: 1px solid rgba(6, 182, 212, 0.25); border-radius: 8px; padding: 0.85rem 1.15rem; margin-bottom: 1.25rem; font-size: 0.88rem; line-height: 1.55; color: var(--text-main);">
+              <strong style="color: #06b6d4;">The Fundamental Distinction Between SD, SEM, and Alpha (α):</strong>
+              <strong>Standard Deviation (SD)</strong> measures real biological variability between individual patients—it does <em>not</em> shrink as sample size grows.
+              <strong>Standard Error (SEM = SD/√n)</strong> measures our uncertainty in the mean—it <em>shrinks</em> steadily as <em>n</em> increases.
+              Two patient populations can overlap by 70% (large SD), yet their treatment means can separate completely (small SEM).
+              <strong>Significance level α</strong> sets our tolerance for false-positive claims (Type I error).
+              At <strong>α = 0.05</strong>, the required separation boundary is <strong>1.96 standard errors</strong>.
+              Tightening α to 0.01 pushes this boundary out to 2.58 SEs; relaxing α to 0.10 pulls it inward to 1.65 SEs.
+            </div>
+
+            <!-- Controls Panel -->
+            <div style="background: var(--bg-surface-elevated); padding: 1.15rem; border-radius: 8px; border: 1px solid var(--border-subtle); margin-bottom: 1.25rem;">
+              <!-- Top Row: Sliders Grid -->
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 1.1rem;">
+                <!-- 1. Difference Delta -->
+                <div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                    <label for="overlapDeltaRange" class="form-label" style="margin: 0; font-weight: 600;">Mean Difference (Δ = μ₂ - μ₁):</label>
+                    <span id="overlapDeltaVal" style="font-weight: 700; color: #06b6d4;">2.00</span>
+                  </div>
+                  <input id="overlapDeltaRange" type="range" min="0" max="6.0" step="0.1" value="2.0" style="width: 100%; cursor: pointer;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
+                    <span>Δ=0 (Identical)</span>
+                    <span>Δ=1.5 (Moderate)</span>
+                    <span>Δ=3.5 (Large)</span>
+                    <span>Δ=6.0</span>
+                  </div>
+                </div>
+
+                <!-- 2. Standard Deviation SD -->
+                <div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                    <label for="overlapSDRange" class="form-label" style="margin: 0; font-weight: 600;">Patient Variability (SD / σ):</label>
+                    <span id="overlapSDVal" style="font-weight: 700; color: #a855f7;">2.50</span>
+                  </div>
+                  <input id="overlapSDRange" type="range" min="0.5" max="6.0" step="0.1" value="2.5" style="width: 100%; cursor: pointer;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
+                    <span>SD=0.5 (Homogeneous)</span>
+                    <span>SD=2.5</span>
+                    <span>SD=6.0 (High Variance)</span>
+                  </div>
+                </div>
+
+                <!-- 3. Sample Size n -->
+                <div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                    <label for="overlapNRange" class="form-label" style="margin: 0; font-weight: 600;">Sample Size per Group (n):</label>
+                    <span id="overlapNVal" style="font-weight: 700; color: #22c55e;">n = 16 (SEM = 0.625)</span>
+                  </div>
+                  <input id="overlapNRange" type="range" min="3" max="150" step="1" value="16" style="width: 100%; cursor: pointer;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
+                    <span>n=3 (Wide SEM)</span>
+                    <span>n=16</span>
+                    <span>n=64</span>
+                    <span>n=150 (Razor SEM)</span>
+                  </div>
+                </div>
+
+                <!-- 4. Significance Level Alpha -->
+                <div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                    <label for="overlapAlphaRange" class="form-label" style="margin: 0; font-weight: 600;">Significance Level (α):</label>
+                    <span id="overlapAlphaVal" style="font-weight: 700; color: #f59e0b;">α = 0.050 (z = 1.960)</span>
+                  </div>
+                  <input id="overlapAlphaRange" type="range" min="0.001" max="0.200" step="0.005" value="0.050" style="width: 100%; cursor: pointer;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
+                    <span>α=0.001 (0.1%)</span>
+                    <span>α=0.01</span>
+                    <span style="color: #f59e0b; font-weight: 600;">α=0.05 (Standard)</span>
+                    <span>α=0.10</span>
+                    <span>α=0.20</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bottom Row: Presets & View Mode Toggle -->
+              <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 0.85rem;">
+                <!-- Alpha Presets -->
+                <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+                  <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-right: 0.25rem;">Alpha Presets:</span>
+                  <button class="btn btn-secondary btn-sm btn-overlap-alpha" data-alpha="0.10" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">α = 0.10 (90% CI | z=1.65)</button>
+                  <button class="btn btn-secondary btn-sm btn-overlap-alpha" data-alpha="0.05" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; border-color: #f59e0b; color: #f59e0b; font-weight: 600;">α = 0.05 (95% CI | z=1.96)</button>
+                  <button class="btn btn-secondary btn-sm btn-overlap-alpha" data-alpha="0.01" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">α = 0.01 (99% CI | z=2.58)</button>
+                  <button class="btn btn-secondary btn-sm btn-overlap-alpha" data-alpha="0.001" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">α = 0.001 (99.9% CI | z=3.29)</button>
+                </div>
+
+                <!-- View Mode Segmented Switch -->
+                <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+                  <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-right: 0.25rem;">View Mode:</span>
+                  <button class="btn btn-primary btn-sm btn-overlap-mode" data-mode="means" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">📊 Means (SEM)</button>
+                  <button class="btn btn-secondary btn-sm btn-overlap-mode" data-mode="patients" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">👥 Patients (SD)</button>
+                  <button class="btn btn-secondary btn-sm btn-overlap-mode" data-mode="dual" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">🔀 Dual Overlay</button>
+                  <button class="btn btn-secondary btn-sm btn-overlap-mode" data-mode="null" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">⚖️ Null Difference Test</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Metric Cards (6 Live Indicators) -->
+            <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); margin-bottom: 1.25rem;">
+              <div class="metric-card">
+                <div class="metric-label">Significance Decision</div>
+                <div id="overlapStatusValue" class="metric-value" style="font-size: 0.95rem; color: #10b981;">SIGNIFICANT</div>
+                <div id="overlapPValueSub" class="metric-sub">p = 0.031 &lt; α = 0.050</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Observed vs Δcrit</div>
+                <div id="overlapDeltaDisplay" class="metric-value">Δ = 2.00</div>
+                <div id="overlapDeltaCritSub" class="metric-sub">Δcrit = 1.80 (Boundary)</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Standard Error (SEM)</div>
+                <div id="overlapSEMValue" class="metric-value">0.625</div>
+                <div id="overlapSEDiffSub" class="metric-sub">SE_diff: 0.884 (n = 16)</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Standard Deviation (SD)</div>
+                <div id="overlapSDValue" class="metric-value">2.50</div>
+                <div id="overlapCohenDSub" class="metric-sub">Cohen's d = 0.80</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Distribution Overlap</div>
+                <div id="overlapMeansOVLValue" class="metric-value">11.0%</div>
+                <div id="overlapPatientOVLSub" class="metric-sub">Patient Overlap: 68.9%</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Critical Cutoff</div>
+                <div id="overlapCritValue" class="metric-value" style="color: #f59e0b;">t = 2.042</div>
+                <div id="overlapAlphaSub" class="metric-sub">α = 0.050 (z = 1.960)</div>
+              </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="chart-container" style="margin-bottom: 1.25rem;">
+              <div class="chart-header">
+                <span id="overlapChartTitle" class="card-title">Sampling Distributions of Means (SEM): Overlap &amp; Alpha Boundary</span>
+                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="teachingOverlapCanvas">Save PNG</button>
+              </div>
+              <canvas id="teachingOverlapCanvas" class="chart-canvas" height="320"></canvas>
+            </div>
+
+            <!-- Pedagogical Explanation Card -->
+            <div style="background: rgba(6, 182, 212, 0.04); border-left: 4px solid #06b6d4; padding: 0.85rem 1.1rem; border-radius: 0 8px 8px 0; font-size: 0.88rem; line-height: 1.55; margin-bottom: 1rem;">
+              <strong style="color: #06b6d4; display: block; margin-bottom: 0.25rem;">Mathematical &amp; Clinical Explanation:</strong>
+              <p id="overlapPedagogyText" style="margin: 0; color: var(--text-main);">
+                Loading overlap simulation explanation...
+              </p>
+            </div>
+          </div>
+
           <!-- Clinical Reporting & Pedagogical Narrative Box -->
           <div class="report-box" style="margin-top: 1.5rem;">
             <div class="report-title">
-              <span>Teaching Report: Distributions, CLT &amp; Student's t Convergence</span>
+              <span>Teaching Report: Distributions, CLT, Student's t &amp; Alpha Significance Simulation</span>
               <div style="display: flex; gap: 0.5rem; align-items: center;">
                 <button id="teachingCopyReportBtn" class="btn btn-secondary btn-sm btn-copy-report" data-report-id="teachingReportText">Copy</button>
                 <button class="btn btn-primary btn-sm btn-export-docx" data-tab="teaching" title="Export full teaching report, outcomes, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>

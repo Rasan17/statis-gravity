@@ -1906,6 +1906,126 @@
           clinicalNote
         };
       }
+    },
+
+    /**
+     * Two-Sample Overlap, Dispersion (SD vs. SEM), and Alpha Significance Simulation
+     */
+    significanceOverlap: {
+      getTCriticalValue(df, alpha = 0.05) {
+        if (df <= 0) return NaN;
+        const sigAlpha = Math.min(0.20, Math.max(0.0001, alpha));
+        const p = 1 - sigAlpha / 2;
+        const z = Distributions.invNormalCDF(p);
+        if (df >= 500) return z;
+        if (df === 1) return Math.tan((p - 0.5) * Math.PI);
+        if (df === 2) return Math.sqrt(2 / (4 * (1 - p) * p) - 2);
+        const nu = df;
+        const z2 = z * z, z3 = z2 * z, z5 = z3 * z2, z7 = z5 * z2, z9 = z7 * z2;
+        const a = (z3 + z) / (4 * nu);
+        const b = (5 * z5 + 16 * z3 + 3 * z) / (96 * nu * nu);
+        const c = (3 * z7 + 19 * z5 + 17 * z3 - 15 * z) / (384 * Math.pow(nu, 3));
+        const d = (79 * z9 + 776 * z7 + 1482 * z5 - 1920 * z3 - 945 * z) / (92160 * Math.pow(nu, 4));
+        return Math.max(z, z + a + b + c + d);
+      },
+
+      getMetrics({
+        mean1 = 10.0,
+        delta = 2.0,
+        sd = 2.5,
+        n = 16,
+        alpha = 0.05,
+        viewMode = 'means'
+      } = {}) {
+        const mu1 = parseFloat(mean1) || 10.0;
+        const dMu = Math.max(0, parseFloat(delta) !== undefined && !isNaN(parseFloat(delta)) ? parseFloat(delta) : 2.0);
+        const mu2 = mu1 + dMu;
+        const sigma = Math.max(0.2, parseFloat(sd) || 2.5);
+        const sampleN = Math.max(3, Math.round(n) || 16);
+        const sigAlpha = Math.min(0.20, Math.max(0.001, parseFloat(alpha) || 0.05));
+
+        const sem = sigma / Math.sqrt(sampleN);
+        const seDiff = sigma * Math.sqrt(2.0 / sampleN);
+        const df = 2 * sampleN - 2;
+
+        const zCrit = Distributions.invNormalCDF(1 - sigAlpha / 2);
+        const tCrit = this.getTCriticalValue(df, sigAlpha);
+
+        const deltaCrit = tCrit * seDiff;
+        const deltaCritZ = zCrit * seDiff;
+
+        const tStat = seDiff > 0 ? dMu / seDiff : 0;
+        const zStat = seDiff > 0 ? dMu / seDiff : 0;
+        const pValue = Distributions.tPValue(tStat, df);
+        const isSignificant = pValue < sigAlpha;
+
+        const cohensD = sigma > 0 ? dMu / sigma : 0;
+
+        const patientOVL = Math.max(0, Math.min(1.0, 2.0 * Distributions.normalCDF(-cohensD / 2.0)));
+        const semD = sem > 0 ? dMu / sem : 0;
+        const meansOVL = Math.max(0, Math.min(1.0, 2.0 * Distributions.normalCDF(-semD / 2.0)));
+
+        const moe = tCrit * sem;
+        const ci1 = [mu1 - moe, mu1 + moe];
+        const ci2 = [mu2 - moe, mu2 + moe];
+        const ciOverlapDist = Math.max(0, ci1[1] - ci2[0]);
+        const ciOverlapFraction = moe > 0 ? ciOverlapDist / moe : 0;
+
+        const nullCritLeft = -deltaCrit;
+        const nullCritRight = deltaCrit;
+
+        let statusText = '';
+        if (isSignificant) {
+          statusText = `STATISTICALLY SIGNIFICANT (p = ${pValue < 0.0001 ? '< 0.0001' : pValue.toFixed(4)} < α = ${sigAlpha.toFixed(3)})`;
+        } else {
+          statusText = `NOT STATISTICALLY SIGNIFICANT (p = ${pValue.toFixed(4)} ≥ α = ${sigAlpha.toFixed(3)})`;
+        }
+
+        let explanation = '';
+        if (isSignificant) {
+          explanation = `The observed difference between means (Δ = ${dMu.toFixed(2)}) meets or exceeds the critical significance threshold (Δcrit = ${deltaCrit.toFixed(2)} at α = ${sigAlpha.toFixed(3)}). ` +
+            `While individual patient values overlap substantially (${(patientOVL * 100).toFixed(1)}% patient overlap due to clinical SD = ${sigma.toFixed(2)}), ` +
+            `the standard error of the mean (SEM = ${sem.toFixed(3)}) has contracted with sample size n = ${sampleN} so that the sampling distributions of the two means only overlap by ${(meansOVL * 100).toFixed(1)}%. ` +
+            `Under H₀, observing a mean difference this large occurs with probability p = ${pValue.toFixed(4)} < α = ${sigAlpha.toFixed(3)}, rejecting the null hypothesis.`;
+        } else {
+          explanation = `The observed difference between means (Δ = ${dMu.toFixed(2)}) is smaller than the required critical threshold (Δcrit = ${deltaCrit.toFixed(2)} at α = ${sigAlpha.toFixed(3)}). ` +
+            `The sampling distributions of the two sample means overlap too heavily (${(meansOVL * 100).toFixed(1)}% overlap, p = ${pValue.toFixed(3)} ≥ α). ` +
+            `To achieve significance at this α level, you must either: (1) observe a larger effect size Δ, (2) reduce measurement noise (lower SD), or (3) recruit more patients (increasing n from ${sampleN} to shrink SEM).`;
+        }
+
+        return {
+          mean1: mu1,
+          mean2: mu2,
+          delta: dMu,
+          sd: sigma,
+          n: sampleN,
+          alpha: sigAlpha,
+          viewMode,
+          sem,
+          seDiff,
+          df,
+          zCrit,
+          tCrit,
+          deltaCrit,
+          deltaCritZ,
+          tStat,
+          zStat,
+          pValue,
+          isSignificant,
+          statusText,
+          cohensD,
+          patientOVL,
+          meansOVL,
+          moe,
+          ci1,
+          ci2,
+          ciOverlapDist,
+          ciOverlapFraction,
+          nullCritLeft,
+          nullCritRight,
+          explanation
+        };
+      }
     }
   };
 
@@ -2791,6 +2911,9 @@ const DocxReports = {
     if (data.tConv) {
       d.addParagraph(`Student's t Simulation: Sample Size n = ${data.tConv.sampleSize} (Degrees of Freedom ν = ${data.tConv.df})`);
     }
+    if (data.overlap) {
+      d.addParagraph(`Two-Sample Overlap Simulation: Mean Difference Δ = ${data.overlap.delta.toFixed(2)}, Patient SD = ${data.overlap.sd.toFixed(2)}, Sample Size n = ${data.overlap.n}, Significance Level α = ${data.overlap.alpha.toFixed(3)}`);
+    }
 
     d.addHeading1('2. Statistical Outcome & Empirical Convergence Metrics');
     d.addHeading2('Computer-Generated Distribution Metrics');
@@ -2833,10 +2956,30 @@ const DocxReports = {
       );
     }
 
+    if (data.overlap) {
+      d.addHeading2('Two-Sample Overlap, Dispersion (SD vs. SEM) & Alpha Significance Results');
+      d.addTable(
+        ['Analytical Parameter', 'Simulated Value', 'Clinical & Inferential Meaning'],
+        [
+          ['Mean Difference (Δ = μ₂ - μ₁)', `Δ = ${data.overlap.delta.toFixed(2)}`, 'Observed separation between the two group means'],
+          ['Patient Standard Deviation (SD)', `SD = ${data.overlap.sd.toFixed(2)} (Cohen\'s d = ${data.overlap.cohensD.toFixed(2)})`, 'Biological variability between individual human subjects (does not shrink with n)'],
+          ['Sample Size per Group (n)', `n = ${data.overlap.n} (df = ${data.overlap.df})`, 'Enrollment capacity per treatment arm'],
+          ['Standard Error of the Mean (SEM)', `SEM = ${data.overlap.sem.toFixed(3)}`, 'Precision of mean estimate: SEM = SD / √n (shrinks by 1/√n)'],
+          ['Standard Error of Difference (SE_diff)', `SE_diff = ${data.overlap.seDiff.toFixed(3)}`, 'Pooled uncertainty in the difference: SD · √(2/n)'],
+          ['Chosen Significance Level (α)', `α = ${data.overlap.alpha.toFixed(3)}`, `Type I error tolerance: ${data.overlap.alpha === 0.05 ? 'Standard 5% biomedical risk' : (data.overlap.alpha < 0.05 ? 'Strict threshold' : 'Relaxed exploratory threshold')}`],
+          ['Critical Value (t_crit vs z_crit)', `t_crit = ${data.overlap.tCrit.toFixed(3)} (z = ${data.overlap.zCrit.toFixed(3)})`, 'Required number of standard errors to claim statistical significance'],
+          ['Critical Difference Boundary (Δcrit)', `Δcrit = ${data.overlap.deltaCrit.toFixed(2)}`, 'Minimum mean separation needed to achieve p < α (Δcrit = t_crit · SE_diff)'],
+          ['Test Statistic & p-value', `t = ${data.overlap.tStat.toFixed(2)}, p = ${data.overlap.pValue < 0.0001 ? '< 0.0001' : data.overlap.pValue.toFixed(4)}`, `Significance: ${data.overlap.isSignificant ? 'REJECT H₀ (p < α)' : 'FAIL TO REJECT H₀ (p ≥ α)'}`],
+          ['Individual Patient Overlap (OVL_SD)', `${(data.overlap.patientOVL * 100).toFixed(1)}%`, 'Proportion of overlapping individual patient values (Weitzman\'s OVL)'],
+          ['Sampling Distribution Overlap (OVL_SEM)', `${(data.overlap.meansOVL * 100).toFixed(1)}%`, 'Proportion of overlap between the sampling distributions of sample means']
+        ]
+      );
+    }
+
     d.addHeading1('3. Clinical & Statistical Interpretation');
     d.addCalloutBox(
       'Pedagogical Synthesis & Clinical Trial Relevance',
-      data.reportText || 'The Central Limit Theorem and Student\'s t convergence demonstrate the mathematical foundations of parametric testing in clinical trials.',
+      data.reportText || 'The Central Limit Theorem, Student\'s t convergence, and Two-Sample Overlap simulations demonstrate the mathematical foundations of parametric testing and the definition of alpha in clinical trials.',
       'F0FDF4',
       '16A34A'
     );
@@ -2845,17 +2988,24 @@ const DocxReports = {
     d.addBullet('Foundation of Inferential Biostatistics: Parametric hypothesis tests (Student t-test, ANOVA, ordinary least squares regression) mathematically assume normally distributed errors or sample means. The Central Limit Theorem provides the mathematical justification for deploying these tests in clinical trials with n ≥ 30 even when raw clinical metrics (e.g. ICU stay, recovery hours) are skewed.');
     d.addBullet('Gosset\'s Student\'s t Adjustment: In small clinical cohorts (n < 30), estimating population variance σ² using sample variance s² introduces substantial stochastic instability into the test statistic denominator. Using Gaussian critical values (z = 1.96) severely inflates the Type I error rate (e.g. to 14.5% at n = 4). Student\'s t distribution compensates for this extra uncertainty by thickening the tails and demanding a higher critical threshold (t = 3.182 at n = 4).');
     d.addBullet('The n ≥ 31 Clinical Threshold: As demonstrated by the simulation, when sample size reaches n ≥ 31 (degrees of freedom ν ≥ 30), the critical t cutoff drops to 2.042 (only 4.2% wider than 1.960), and tail probability converges close to 5.0%. This mathematical threshold explains why sample sizes of 30 or greater historically permit Gaussian approximation in medical trial protocols.');
+    d.addBullet('Why α = 0.05 Defines the Point of Significance: In 1925, Ronald A. Fisher proposed the 5% significance level (p < 0.05) as a pragmatic convention for scientific research—representing a 1 in 20 chance of observing an effect as extreme under the null hypothesis of no difference. On a standard Gaussian distribution, exactly 5% of probability mass lies in the tails beyond ±1.960 standard errors (2.5% in each tail). Hence, the critical separation distance between sample means is Δcrit = 1.960 · SE_diff. When the observed difference Δ exceeds Δcrit, the p-value falls below 0.05.');
+    d.addBullet('The Fundamental Distinction Between SD and SEM: Standard Deviation (SD) reflects real inter-individual biological diversity among patients and does not contract when sample size increases. In contrast, the Standard Error of the Mean (SEM = SD/√n) quantifies our uncertainty in the population mean estimate and contracts steadily as 1/√n. Consequently, two treatment groups can exhibit 70% biological overlap in individual patient scores, yet their treatment difference can be verified as statistically significant (p < 0.001) once sufficient patients are enrolled to shrink the SEM.');
+    d.addBullet('Consequences of Modifying Alpha (α): Relaxing α to 0.10 moves the critical cutoff inward to z = 1.645, lowering the required separation Δcrit and declaring significance on smaller differences or smaller sample sizes, at the expense of doubling the false-positive risk to 10%. Tightening α to 0.01 (z = 2.576) or 0.001 (z = 3.291), as required in confirmatory registration trials or genome-wide studies, shifts the cutoff outward into the extreme tails, demanding either much larger effect sizes or substantially expanded sample sizes before significance can be claimed.');
 
     d.addHeading1('5. Background Statistical Knowledge & Medical Research Context');
     d.addParagraph('Mathematical Formulations:');
     d.addBullet('Classical Lindberg-Lévy Central Limit Theorem: Let X₁, X₂, ..., X_n be independent and identically distributed (i.i.d.) random variables with mean μ and finite variance σ². Then as n → ∞: √n (X̄_n - μ) / σ → N(0, 1).');
     d.addBullet('Student\'s t Distribution Density: f(t; ν) = [ Γ((ν+1)/2) / (√(πν) Γ(ν/2)) ] · [ 1 + t²/ν ]^{-(ν+1)/2}. As ν → ∞, [ 1 + t²/ν ]^{-(ν+1)/2} → exp(-t²/2), converging to Standard Normal N(0, 1).');
-    d.addBullet('Standard Error of the Mean: SE = σ / √n. Quadrupling patient enrollment cuts the estimation uncertainty in half.');
+    d.addBullet('Standard Error of the Mean: SEM = σ / √n. Quadrupling patient enrollment cuts the estimation uncertainty in half.');
+    d.addBullet('Weitzman\'s Distribution Overlap Coefficient (OVL): For two equal-variance Gaussian curves separated by difference Δ: OVL = 2 · Φ(-|Δ| / (2 · s)), where s = SD for patient-level overlap and s = SEM for sampling-mean-level overlap.');
+    d.addBullet('Critical Significance Boundary: Δcrit = t_crit(α, df) · SD · √(2/n).');
     d.addParagraph('Key Academic References:');
+    d.addBullet('Fisher RA (1925). Statistical Methods for Research Workers. Edinburgh: Oliver and Boyd.');
+    d.addBullet('Cumming G, Finch S (2005). Inference by eye: confidence intervals and how to read pictures of data. Am Psychol, 60(2): 170–180.');
     d.addBullet('Student [Gosset WS] (1908). The probable error of a mean. Biometrika, 6(1): 1–25.');
+    d.addBullet('Altman DG, Bland JM (2005). Standard deviations and standard errors. BMJ, 331(7521): 903.');
     d.addBullet('Laplace PS (1810). Mémoire sur les approximations des formules qui sont fonctions de très grands nombres et sur leur application aux probabilités. Mémoires de l\'Académie Royale des Sciences de Paris.');
     d.addBullet('Gauss CF (1809). Theoria motus corporum coelestium in sectionibus conicis solem ambientium. Hamburg: Perthes et Besser.');
-    d.addBullet('Altman DG, Bland JM (1995). Statistics Notes: The normal distribution. BMJ, 310(6975): 298–299.');
 
     return d;
   }
@@ -4567,6 +4717,369 @@ const DocxReports = {
         ctx.fillStyle = '#ef4444';
         ctx.fillText(`░░ Fat Tail Risk: P(|T| > 1.96) = ${(metrics.tailProb * 100).toFixed(1)}% vs 5.0%`, b.x + b.width - 10, b.y + 66);
       }
+    },
+
+    renderTwoSampleOverlap(engine, metrics, options = {}) {
+      engine.lastRender = () => this.renderTwoSampleOverlap(engine, metrics, options);
+      engine.lastRenderFn = engine.lastRender;
+      engine.clear();
+      const b = engine.getPlotBounds ? engine.getPlotBounds() : engine.getBounds();
+      const ctx = engine.ctx;
+      const pal = engine.palette;
+
+      const {
+        mean1, mean2, delta, sd, n, alpha, viewMode,
+        sem, seDiff, df, tCrit, zCrit, deltaCrit,
+        tStat, pValue, isSignificant, cohensD,
+        patientOVL, meansOVL, moe, ci1, ci2
+      } = metrics;
+
+      if (viewMode === 'null') {
+        const xSpan = Math.max(4.2 * seDiff, delta + 2.5 * seDiff);
+        const minX = -xSpan;
+        const maxX = xSpan;
+        const peakY = 1.0 / (seDiff * Math.sqrt(2 * Math.PI));
+        const maxY = peakY * 1.25;
+
+        const toX = (val) => b.x + ((val - minX) / (maxX - minX)) * b.width;
+        const toY = (val) => b.y + b.height - (val / maxY) * b.height;
+
+        ctx.strokeStyle = pal.grid;
+        ctx.lineWidth = 1;
+        const xSteps = 6;
+        for (let i = 0; i <= xSteps; i++) {
+          const xVal = minX + (i / xSteps) * (maxX - minX);
+          const xPix = toX(xVal);
+          ctx.beginPath();
+          ctx.moveTo(xPix, b.y);
+          ctx.lineTo(xPix, b.y + b.height);
+          ctx.stroke();
+
+          ctx.fillStyle = pal.textMuted;
+          ctx.font = `500 10px ${engine.options.fontFamily}`;
+          ctx.textAlign = 'center';
+          ctx.fillText(xVal.toFixed(2), xPix, b.y + b.height + 15);
+        }
+
+        const numPts = 250;
+        const pts = [];
+        for (let i = 0; i <= numPts; i++) {
+          const xVal = minX + (i / numPts) * (maxX - minX);
+          const z = xVal / seDiff;
+          const yVal = (1.0 / (seDiff * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * z * z);
+          pts.push({ x: xVal, y: yVal });
+        }
+
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
+        ctx.beginPath();
+        ctx.moveTo(toX(minX), toY(0));
+        for (const pt of pts) {
+          if (pt.x <= -deltaCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+        }
+        ctx.lineTo(toX(-deltaCrit), toY(0));
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(toX(deltaCrit), toY(0));
+        for (const pt of pts) {
+          if (pt.x >= deltaCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+        }
+        ctx.lineTo(toX(maxX), toY(0));
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+        ctx.beginPath();
+        ctx.moveTo(toX(-deltaCrit), toY(0));
+        for (const pt of pts) {
+          if (pt.x >= -deltaCrit && pt.x <= deltaCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+        }
+        ctx.lineTo(toX(deltaCrit), toY(0));
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        pts.forEach((pt, idx) => {
+          if (idx === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+          else ctx.lineTo(toX(pt.x), toY(pt.y));
+        });
+        ctx.stroke();
+
+        [-deltaCrit, deltaCrit].forEach((cVal, idx) => {
+          const xPix = toX(cVal);
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 1.8;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(xPix, toY(0));
+          ctx.lineTo(xPix, toY(peakY * 0.75));
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.fillStyle = '#ef4444';
+          ctx.font = `600 10px ${engine.options.fontFamily}`;
+          ctx.textAlign = idx === 0 ? 'right' : 'left';
+          ctx.fillText(idx === 0 ? `-Δcrit (${cVal.toFixed(2)})` : `+Δcrit (${cVal.toFixed(2)})`, xPix + (idx === 0 ? -5 : 5), toY(peakY * 0.75));
+        });
+
+        const obsXPix = toX(delta);
+        const obsColor = isSignificant ? '#10b981' : '#f59e0b';
+        ctx.strokeStyle = obsColor;
+        ctx.lineWidth = 2.8;
+        ctx.beginPath();
+        ctx.moveTo(obsXPix, toY(0));
+        ctx.lineTo(obsXPix, toY(peakY * 0.95));
+        ctx.stroke();
+
+        ctx.fillStyle = obsColor;
+        ctx.beginPath();
+        ctx.moveTo(obsXPix, toY(peakY * 0.98));
+        ctx.lineTo(obsXPix - 6, toY(peakY * 0.90));
+        ctx.lineTo(obsXPix + 6, toY(peakY * 0.90));
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = obsColor;
+        ctx.font = `700 11px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`Observed Δ = ${delta.toFixed(2)} (t = ${tStat.toFixed(2)})`, obsXPix, toY(peakY * 1.06));
+
+        const badgeText = isSignificant ? `✓ SIGNIFICANT (p = ${pValue.toFixed(4)} < α)` : `✗ NOT SIGNIFICANT (p = ${pValue.toFixed(4)} ≥ α)`;
+        ctx.fillStyle = isSignificant ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+        ctx.strokeStyle = isSignificant ? '#10b981' : '#ef4444';
+        ctx.lineWidth = 1;
+        const badgeWidth = ctx.measureText(badgeText).width + 24;
+        ctx.fillRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
+        ctx.strokeRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
+
+        ctx.fillStyle = isSignificant ? '#10b981' : '#ef4444';
+        ctx.font = `700 11px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'right';
+        ctx.fillText(badgeText, b.x + b.width - 22, b.y + 26);
+
+        ctx.textAlign = 'left';
+        ctx.font = `500 11px ${engine.options.fontFamily}`;
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText(`— Null Distribution H₀: Δ ~ N(0, SE²diff), SE = ${seDiff.toFixed(3)}`, b.x + 12, b.y + 20);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillText(`░ Rejection Region (α = ${alpha.toFixed(3)}, t_crit = ±${tCrit.toFixed(3)})`, b.x + 12, b.y + 36);
+        return;
+      }
+
+      const activeSigma = (viewMode === 'patients') ? sd : sem;
+      const minX = mean1 - Math.max(3.8 * sd, 4.0);
+      const maxX = Math.max(mean2 + Math.max(3.8 * sd, 4.0), mean1 + 7.5);
+      const xSpan = maxX - minX;
+
+      const maxDensity = 1.0 / (activeSigma * Math.sqrt(2 * Math.PI));
+      const maxY = maxDensity * 1.30;
+
+      const toX = (val) => b.x + ((val - minX) / xSpan) * b.width;
+      const toY = (val) => b.y + b.height - (val / maxY) * b.height;
+
+      ctx.strokeStyle = pal.grid;
+      ctx.lineWidth = 1;
+      const xSteps = 7;
+      for (let i = 0; i <= xSteps; i++) {
+        const xVal = minX + (i / xSteps) * xSpan;
+        const xPix = toX(xVal);
+        ctx.beginPath();
+        ctx.moveTo(xPix, b.y);
+        ctx.lineTo(xPix, b.y + b.height);
+        ctx.stroke();
+
+        ctx.fillStyle = pal.textMuted;
+        ctx.font = `500 10px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(xVal.toFixed(1), xPix, b.y + b.height + 15);
+      }
+
+      const numPts = 300;
+      const pts1 = [];
+      const pts2 = [];
+      const ptsOverlap = [];
+
+      const normPDF = (x, mu, s) => (1.0 / (s * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mu) / s, 2));
+
+      for (let i = 0; i <= numPts; i++) {
+        const x = minX + (i / numPts) * xSpan;
+        const y1 = normPDF(x, mean1, activeSigma);
+        const y2 = normPDF(x, mean2, activeSigma);
+        const yOverlap = Math.min(y1, y2);
+
+        pts1.push({ x, y: y1 });
+        pts2.push({ x, y: y2 });
+        ptsOverlap.push({ x, y: yOverlap });
+      }
+
+      ctx.fillStyle = isSignificant ? 'rgba(16, 185, 129, 0.22)' : 'rgba(239, 68, 68, 0.24)';
+      ctx.beginPath();
+      ctx.moveTo(toX(minX), toY(0));
+      ptsOverlap.forEach(pt => ctx.lineTo(toX(pt.x), toY(pt.y)));
+      ctx.lineTo(toX(maxX), toY(0));
+      ctx.closePath();
+      ctx.fill();
+
+      if (viewMode === 'dual') {
+        const patientMaxDensity = 1.0 / (sd * Math.sqrt(2 * Math.PI));
+        const dualScale = (maxDensity * 0.45) / patientMaxDensity;
+
+        [mean1, mean2].forEach((mu, gIdx) => {
+          ctx.strokeStyle = gIdx === 0 ? 'rgba(6, 182, 212, 0.45)' : 'rgba(168, 85, 247, 0.45)';
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          for (let i = 0; i <= numPts; i++) {
+            const x = minX + (i / numPts) * xSpan;
+            const y = normPDF(x, mu, sd) * dualScale;
+            if (i === 0) ctx.moveTo(toX(x), toY(y));
+            else ctx.lineTo(toX(x), toY(y));
+          }
+          ctx.stroke();
+          ctx.setLineDash([]);
+        });
+      }
+
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      pts1.forEach((pt, idx) => {
+        if (idx === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+        else ctx.lineTo(toX(pt.x), toY(pt.y));
+      });
+      ctx.stroke();
+
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      pts2.forEach((pt, idx) => {
+        if (idx === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+        else ctx.lineTo(toX(pt.x), toY(pt.y));
+      });
+      ctx.stroke();
+
+      [
+        { mu: mean1, color: '#06b6d4', label: `Group 1 (μ₁ = ${mean1.toFixed(1)})` },
+        { mu: mean2, color: '#a855f7', label: `Group 2 (μ₂ = ${mean2.toFixed(1)})` }
+      ].forEach((grp) => {
+        const xPix = toX(grp.mu);
+        ctx.strokeStyle = grp.color;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(xPix, toY(0));
+        ctx.lineTo(xPix, toY(maxDensity));
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = grp.color;
+        ctx.font = `600 10px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(grp.label, xPix, toY(maxDensity) - 8);
+      });
+
+      const critX = mean1 + deltaCrit;
+      if (critX <= maxX) {
+        const critXPix = toX(critX);
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2.0;
+        ctx.setLineDash([5, 3]);
+        ctx.beginPath();
+        ctx.moveTo(critXPix, toY(0));
+        ctx.lineTo(critXPix, toY(maxDensity * 0.85));
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = `600 10px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`Significance Boundary (Δcrit = ${deltaCrit.toFixed(2)})`, critXPix, toY(maxDensity * 0.85) - 6);
+      }
+
+      if (viewMode === 'means' || viewMode === 'dual') {
+        const barY1 = toY(maxDensity * 0.05);
+        const barY2 = toY(maxDensity * 0.12);
+
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        ctx.moveTo(toX(ci1[0]), barY1);
+        ctx.lineTo(toX(ci1[1]), barY1);
+        ctx.stroke();
+        [ci1[0], ci1[1]].forEach(cx => {
+          ctx.beginPath();
+          ctx.moveTo(toX(cx), barY1 - 4);
+          ctx.lineTo(toX(cx), barY1 + 4);
+          ctx.stroke();
+        });
+
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        ctx.moveTo(toX(ci2[0]), barY2);
+        ctx.lineTo(toX(ci2[1]), barY2);
+        ctx.stroke();
+        [ci2[0], ci2[1]].forEach(cx => {
+          ctx.beginPath();
+          ctx.moveTo(toX(cx), barY2 - 4);
+          ctx.lineTo(toX(cx), barY2 + 4);
+          ctx.stroke();
+        });
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = `500 9px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'left';
+        ctx.fillText(`(1-α)% CIs: ±t_crit·SEM`, b.x + 10, barY2 - 8);
+      }
+
+      const midXPix = toX((mean1 + mean2) / 2);
+      const activeOVL = viewMode === 'patients' ? patientOVL : meansOVL;
+      ctx.fillStyle = isSignificant ? '#10b981' : '#ef4444';
+      ctx.font = `700 11px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`Overlap: ${(activeOVL * 100).toFixed(1)}%`, midXPix, toY(maxDensity * 0.35));
+
+      const badgeText = isSignificant ? `✓ SIGNIFICANT (p = ${pValue.toFixed(4)} < α)` : `✗ NOT SIGNIFICANT (p = ${pValue.toFixed(4)} ≥ α)`;
+      ctx.fillStyle = isSignificant ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+      ctx.strokeStyle = isSignificant ? '#10b981' : '#ef4444';
+      ctx.lineWidth = 1;
+      const badgeWidth = ctx.measureText(badgeText).width + 24;
+      ctx.fillRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
+      ctx.strokeRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
+
+      ctx.fillStyle = isSignificant ? '#10b981' : '#ef4444';
+      ctx.font = `700 11px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'right';
+      ctx.fillText(badgeText, b.x + b.width - 22, b.y + 26);
+
+      ctx.textAlign = 'left';
+      ctx.font = `500 11px ${engine.options.fontFamily}`;
+
+      if (viewMode === 'patients') {
+        ctx.fillStyle = '#06b6d4';
+        ctx.fillText(`— Group 1 Patient Population N(μ₁, SD²), SD = ${sd.toFixed(2)}`, b.x + 12, b.y + 20);
+        ctx.fillStyle = '#a855f7';
+        ctx.fillText(`— Group 2 Patient Population N(μ₂, SD²), SD = ${sd.toFixed(2)}`, b.x + 12, b.y + 36);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(`░ Patient Overlap = ${(patientOVL * 100).toFixed(1)}% (Cohen's d = ${cohensD.toFixed(2)})`, b.x + 12, b.y + 52);
+      } else if (viewMode === 'dual') {
+        ctx.fillStyle = '#06b6d4';
+        ctx.fillText(`— Group 1 Means (Solid, SEM = ${sem.toFixed(3)}) & Patients (Dashed, SD = ${sd.toFixed(2)})`, b.x + 12, b.y + 20);
+        ctx.fillStyle = '#a855f7';
+        ctx.fillText(`— Group 2 Means (Solid, SEM = ${sem.toFixed(3)}) & Patients (Dashed, SD = ${sd.toFixed(2)})`, b.x + 12, b.y + 36);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(`░ Means Overlap = ${(meansOVL * 100).toFixed(1)}% vs Patient Overlap = ${(patientOVL * 100).toFixed(1)}%`, b.x + 12, b.y + 52);
+      } else {
+        ctx.fillStyle = '#06b6d4';
+        ctx.fillText(`— Group 1 Sampling Distribution of Mean (SEM = ${sem.toFixed(3)}, n = ${n})`, b.x + 12, b.y + 20);
+        ctx.fillStyle = '#a855f7';
+        ctx.fillText(`— Group 2 Sampling Distribution of Mean (SEM = ${sem.toFixed(3)}, n = ${n})`, b.x + 12, b.y + 36);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText(`┆ Boundary: Δcrit = ${deltaCrit.toFixed(2)} at α = ${alpha.toFixed(3)} (t_crit = ${tCrit.toFixed(3)})`, b.x + 12, b.y + 52);
+      }
     }
   };
 
@@ -4629,7 +5142,7 @@ const DocxReports = {
     }
 
     initEngines() {
-      ['descCanvas', 'descBoxCanvas', 'descViolinCanvas', 'hypoCanvas', 'anovaCanvas', 'corrCanvas', 'rocCanvas', 'teachingDistCanvas', 'teachingCltParentCanvas', 'teachingCltSamplingCanvas', 'teachingTCanvas'].forEach(id => {
+      ['descCanvas', 'descBoxCanvas', 'descViolinCanvas', 'hypoCanvas', 'anovaCanvas', 'corrCanvas', 'rocCanvas', 'teachingDistCanvas', 'teachingCltParentCanvas', 'teachingCltSamplingCanvas', 'teachingTCanvas', 'teachingOverlapCanvas'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
           this.engines[id] = new ChartEngine(el, { theme: this.theme });
@@ -4957,6 +5470,87 @@ const DocxReports = {
 
       document.getElementById('tConvShowTailArea')?.addEventListener('change', () => {
         this.runTConvergence();
+      });
+
+      // Section 4: Two-Sample Overlap, SD vs SEM & Alpha Boundary Events
+      ['overlapDeltaRange', 'overlapSDRange', 'overlapNRange', 'overlapAlphaRange'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', () => {
+          this.runTwoSampleOverlap();
+        });
+      });
+
+      document.querySelectorAll('.btn-overlap-alpha').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const alpha = parseFloat(e.currentTarget.dataset.alpha);
+          const range = document.getElementById('overlapAlphaRange');
+          if (range && !isNaN(alpha)) {
+            range.value = alpha;
+            document.querySelectorAll('.btn-overlap-alpha').forEach(b => {
+              b.style.borderColor = '';
+              b.style.color = '';
+              b.style.fontWeight = '';
+            });
+            e.currentTarget.style.borderColor = '#f59e0b';
+            e.currentTarget.style.color = '#f59e0b';
+            e.currentTarget.style.fontWeight = '600';
+            this.runTwoSampleOverlap();
+          }
+        });
+      });
+
+      document.querySelectorAll('.btn-overlap-mode').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const mode = e.currentTarget.dataset.mode;
+          this.currentOverlapMode = mode;
+          document.querySelectorAll('.btn-overlap-mode').forEach(b => {
+            b.classList.remove('btn-primary');
+            b.classList.add('btn-secondary');
+          });
+          e.currentTarget.classList.remove('btn-secondary');
+          e.currentTarget.classList.add('btn-primary');
+          this.runTwoSampleOverlap();
+        });
+      });
+
+      document.getElementById('overlapAnimateBtn')?.addEventListener('click', () => {
+        this.animateOverlapSeparation();
+      });
+
+      document.getElementById('overlapResetBtn')?.addEventListener('click', () => {
+        if (this.overlapAnimationTimer) {
+          clearInterval(this.overlapAnimationTimer);
+          this.overlapAnimationTimer = null;
+          const btn = document.getElementById('overlapAnimateBtn');
+          if (btn) btn.innerText = '▶ Animate Separation';
+        }
+        const dRange = document.getElementById('overlapDeltaRange');
+        const sdRange = document.getElementById('overlapSDRange');
+        const nRange = document.getElementById('overlapNRange');
+        const aRange = document.getElementById('overlapAlphaRange');
+        if (dRange) dRange.value = 2.0;
+        if (sdRange) sdRange.value = 2.5;
+        if (nRange) nRange.value = 16;
+        if (aRange) aRange.value = 0.050;
+        this.currentOverlapMode = 'means';
+        document.querySelectorAll('.btn-overlap-mode').forEach(b => {
+          b.classList.remove('btn-primary');
+          b.classList.add('btn-secondary');
+          if (b.dataset.mode === 'means') {
+            b.classList.remove('btn-secondary');
+            b.classList.add('btn-primary');
+          }
+        });
+        document.querySelectorAll('.btn-overlap-alpha').forEach(b => {
+          b.style.borderColor = '';
+          b.style.color = '';
+          b.style.fontWeight = '';
+          if (b.dataset.alpha === '0.05') {
+            b.style.borderColor = '#f59e0b';
+            b.style.color = '#f59e0b';
+            b.style.fontWeight = '600';
+          }
+        });
+        this.runTwoSampleOverlap();
       });
 
       // Disclaimer Modal Dismissal
@@ -5870,6 +6464,7 @@ const DocxReports = {
             isNormal: clt.normality?.isNormal
           },
           tConv: res.tConv || Teaching.tConvergence.getMetrics(4),
+          overlap: res.overlap || Teaching.significanceOverlap.getMetrics(),
           reportText: document.getElementById('teachingReportText')?.innerText
         };
       }
@@ -5884,6 +6479,7 @@ const DocxReports = {
       this.runTeachingDistribution();
       this.updateCltUI(Teaching.clt.getSummary());
       this.runTConvergence(4);
+      this.runTwoSampleOverlap();
     }
 
     renderTeachingParams() {
@@ -6414,6 +7010,136 @@ const DocxReports = {
         }
         this.runTConvergence(frames[currentIndex]);
       }, 450);
+    }
+
+    runTwoSampleOverlap(overrideParams = {}) {
+      const delta = overrideParams.delta !== undefined
+        ? overrideParams.delta
+        : (parseFloat(document.getElementById('overlapDeltaRange')?.value) || 2.0);
+      const sd = overrideParams.sd !== undefined
+        ? overrideParams.sd
+        : (parseFloat(document.getElementById('overlapSDRange')?.value) || 2.5);
+      const n = overrideParams.n !== undefined
+        ? overrideParams.n
+        : (parseInt(document.getElementById('overlapNRange')?.value) || 16);
+      const alpha = overrideParams.alpha !== undefined
+        ? overrideParams.alpha
+        : (parseFloat(document.getElementById('overlapAlphaRange')?.value) || 0.05);
+      const viewMode = this.currentOverlapMode || 'means';
+
+      const metrics = Teaching.significanceOverlap.getMetrics({
+        mean1: 10.0,
+        delta,
+        sd,
+        n,
+        alpha,
+        viewMode
+      });
+
+      const deltaValEl = document.getElementById('overlapDeltaVal');
+      if (deltaValEl) deltaValEl.innerText = metrics.delta.toFixed(2);
+
+      const sdValEl = document.getElementById('overlapSDVal');
+      if (sdValEl) sdValEl.innerText = metrics.sd.toFixed(2);
+
+      const nValEl = document.getElementById('overlapNVal');
+      if (nValEl) nValEl.innerText = `n = ${metrics.n} (SEM = ${metrics.sem.toFixed(3)})`;
+
+      const alphaValEl = document.getElementById('overlapAlphaVal');
+      if (alphaValEl) alphaValEl.innerText = `α = ${metrics.alpha.toFixed(3)} (z = ${metrics.zCrit.toFixed(3)})`;
+
+      const statusValEl = document.getElementById('overlapStatusValue');
+      const pValSubEl = document.getElementById('overlapPValueSub');
+      if (statusValEl) {
+        statusValEl.innerText = metrics.isSignificant ? 'SIGNIFICANT' : 'NOT SIGNIFICANT';
+        statusValEl.style.color = metrics.isSignificant ? '#10b981' : '#ef4444';
+      }
+      if (pValSubEl) {
+        pValSubEl.innerText = `p = ${metrics.pValue < 0.0001 ? '< 0.0001' : metrics.pValue.toFixed(4)} ${metrics.isSignificant ? '<' : '≥'} α = ${metrics.alpha.toFixed(3)}`;
+      }
+
+      const deltaDispEl = document.getElementById('overlapDeltaDisplay');
+      const deltaCritSubEl = document.getElementById('overlapDeltaCritSub');
+      if (deltaDispEl) deltaDispEl.innerText = `Δ = ${metrics.delta.toFixed(2)}`;
+      if (deltaCritSubEl) deltaCritSubEl.innerText = `Δcrit = ${metrics.deltaCrit.toFixed(2)} (Boundary)`;
+
+      const semValEl = document.getElementById('overlapSEMValue');
+      const seDiffSubEl = document.getElementById('overlapSEDiffSub');
+      if (semValEl) semValEl.innerText = metrics.sem.toFixed(3);
+      if (seDiffSubEl) seDiffSubEl.innerText = `SE_diff: ${metrics.seDiff.toFixed(3)} (n = ${metrics.n})`;
+
+      const sdValEl2 = document.getElementById('overlapSDValue');
+      const cohenSubEl = document.getElementById('overlapCohenDSub');
+      if (sdValEl2) sdValEl2.innerText = metrics.sd.toFixed(2);
+      if (cohenSubEl) cohenSubEl.innerText = `Cohen's d = ${metrics.cohensD.toFixed(2)}`;
+
+      const meansOVLEl = document.getElementById('overlapMeansOVLValue');
+      const patientOVLSubEl = document.getElementById('overlapPatientOVLSub');
+      if (meansOVLEl) {
+        meansOVLEl.innerText = `${(metrics.meansOVL * 100).toFixed(1)}%`;
+        meansOVLEl.style.color = metrics.isSignificant ? '#10b981' : '#ef4444';
+      }
+      if (patientOVLSubEl) patientOVLSubEl.innerText = `Patient Overlap: ${(metrics.patientOVL * 100).toFixed(1)}%`;
+
+      const critValEl = document.getElementById('overlapCritValue');
+      const alphaSubEl = document.getElementById('overlapAlphaSub');
+      if (critValEl) critValEl.innerText = `t = ${metrics.tCrit.toFixed(3)}`;
+      if (alphaSubEl) alphaSubEl.innerText = `α = ${metrics.alpha.toFixed(3)} (z = ${metrics.zCrit.toFixed(3)})`;
+
+      const pedaEl = document.getElementById('overlapPedagogyText');
+      if (pedaEl) pedaEl.innerText = metrics.explanation;
+
+      const titleEl = document.getElementById('overlapChartTitle');
+      if (titleEl) {
+        if (viewMode === 'patients') {
+          titleEl.innerText = `Individual Patient Populations (SD): Biological Overlap vs Mean Significance`;
+        } else if (viewMode === 'dual') {
+          titleEl.innerText = `Dual Overlay: Patient Biological Spread (SD) vs Inferential Mean Precision (SEM)`;
+        } else if (viewMode === 'null') {
+          titleEl.innerText = `Null Hypothesis Difference Test: H₀ (Δ=0) vs Observed Separation`;
+        } else {
+          titleEl.innerText = `Sampling Distributions of Means (SEM): Overlap & Significance Boundary`;
+        }
+      }
+
+      if (this.engines['teachingOverlapCanvas']) {
+        Plots.renderTwoSampleOverlap(this.engines['teachingOverlapCanvas'], metrics);
+      }
+
+      if (!this.results.teaching) this.results.teaching = {};
+      this.results.teaching.overlap = metrics;
+    }
+
+    animateOverlapSeparation() {
+      const btn = document.getElementById('overlapAnimateBtn');
+      if (this.overlapAnimationTimer) {
+        clearInterval(this.overlapAnimationTimer);
+        this.overlapAnimationTimer = null;
+        if (btn) btn.innerText = '▶ Animate Separation';
+        return;
+      }
+
+      const deltas = [0.0, 0.4, 0.8, 1.2, 1.5, 1.8, 2.0, 2.3, 2.7, 3.2, 3.8, 4.5];
+      let currentIndex = 0;
+      const currentDelta = parseFloat(document.getElementById('overlapDeltaRange')?.value) || 0;
+      const startIdx = deltas.findIndex(d => d >= currentDelta);
+      if (startIdx >= 0 && startIdx < deltas.length - 1) currentIndex = startIdx;
+
+      if (btn) btn.innerText = '⏸ Pause Animation';
+
+      this.overlapAnimationTimer = setInterval(() => {
+        currentIndex++;
+        if (currentIndex >= deltas.length) {
+          clearInterval(this.overlapAnimationTimer);
+          this.overlapAnimationTimer = null;
+          if (btn) btn.innerText = '▶ Replay Animation';
+          return;
+        }
+        const nextDelta = deltas[currentIndex];
+        const dRange = document.getElementById('overlapDeltaRange');
+        if (dRange) dRange.value = nextDelta;
+        this.runTwoSampleOverlap({ delta: nextDelta });
+      }, 500);
     }
   }
 

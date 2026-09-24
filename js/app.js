@@ -86,7 +86,8 @@ class StatisGravityApp {
       'teachingDistCanvas',
       'teachingCltParentCanvas',
       'teachingCltSamplingCanvas',
-      'teachingTCanvas'
+      'teachingTCanvas',
+      'teachingOverlapCanvas'
     ];
 
     canvasIds.forEach(id => {
@@ -415,6 +416,87 @@ class StatisGravityApp {
 
     document.getElementById('tConvShowTailArea')?.addEventListener('change', () => {
       this.runTConvergence();
+    });
+
+    // Section 4: Two-Sample Overlap, SD vs SEM & Alpha Boundary Events
+    ['overlapDeltaRange', 'overlapSDRange', 'overlapNRange', 'overlapAlphaRange'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', () => {
+        this.runTwoSampleOverlap();
+      });
+    });
+
+    document.querySelectorAll('.btn-overlap-alpha').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const alpha = parseFloat(e.currentTarget.dataset.alpha);
+        const range = document.getElementById('overlapAlphaRange');
+        if (range && !isNaN(alpha)) {
+          range.value = alpha;
+          document.querySelectorAll('.btn-overlap-alpha').forEach(b => {
+            b.style.borderColor = '';
+            b.style.color = '';
+            b.style.fontWeight = '';
+          });
+          e.currentTarget.style.borderColor = '#f59e0b';
+          e.currentTarget.style.color = '#f59e0b';
+          e.currentTarget.style.fontWeight = '600';
+          this.runTwoSampleOverlap();
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-overlap-mode').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const mode = e.currentTarget.dataset.mode;
+        this.currentOverlapMode = mode;
+        document.querySelectorAll('.btn-overlap-mode').forEach(b => {
+          b.classList.remove('btn-primary');
+          b.classList.add('btn-secondary');
+        });
+        e.currentTarget.classList.remove('btn-secondary');
+        e.currentTarget.classList.add('btn-primary');
+        this.runTwoSampleOverlap();
+      });
+    });
+
+    document.getElementById('overlapAnimateBtn')?.addEventListener('click', () => {
+      this.animateOverlapSeparation();
+    });
+
+    document.getElementById('overlapResetBtn')?.addEventListener('click', () => {
+      if (this.overlapAnimationTimer) {
+        clearInterval(this.overlapAnimationTimer);
+        this.overlapAnimationTimer = null;
+        const btn = document.getElementById('overlapAnimateBtn');
+        if (btn) btn.innerText = '▶ Animate Separation';
+      }
+      const dRange = document.getElementById('overlapDeltaRange');
+      const sdRange = document.getElementById('overlapSDRange');
+      const nRange = document.getElementById('overlapNRange');
+      const aRange = document.getElementById('overlapAlphaRange');
+      if (dRange) dRange.value = 2.0;
+      if (sdRange) sdRange.value = 2.5;
+      if (nRange) nRange.value = 16;
+      if (aRange) aRange.value = 0.050;
+      this.currentOverlapMode = 'means';
+      document.querySelectorAll('.btn-overlap-mode').forEach(b => {
+        b.classList.remove('btn-primary');
+        b.classList.add('btn-secondary');
+        if (b.dataset.mode === 'means') {
+          b.classList.remove('btn-secondary');
+          b.classList.add('btn-primary');
+        }
+      });
+      document.querySelectorAll('.btn-overlap-alpha').forEach(b => {
+        b.style.borderColor = '';
+        b.style.color = '';
+        b.style.fontWeight = '';
+        if (b.dataset.alpha === '0.05') {
+          b.style.borderColor = '#f59e0b';
+          b.style.color = '#f59e0b';
+          b.style.fontWeight = '600';
+        }
+      });
+      this.runTwoSampleOverlap();
     });
 
     // Disclaimer Modal Dismissal
@@ -1287,6 +1369,7 @@ window.addEventListener('DOMContentLoaded', () => {
           isNormal: clt.normality?.isNormal
         },
         tConv: res.tConv || Teaching.tConvergence.getMetrics(4),
+        overlap: res.overlap || Teaching.significanceOverlap.getMetrics(),
         reportText: document.getElementById('teachingReportText')?.innerText
       };
     }
@@ -1301,6 +1384,7 @@ window.addEventListener('DOMContentLoaded', () => {
     this.runTeachingDistribution();
     this.updateCltUI(Teaching.clt.getSummary());
     this.runTConvergence(4);
+    this.runTwoSampleOverlap();
   }
 
   renderTeachingParams() {
@@ -1832,4 +1916,141 @@ window.addEventListener('DOMContentLoaded', () => {
       this.runTConvergence(frames[currentIndex]);
     }, 450);
   }
+
+  runTwoSampleOverlap(overrideParams = {}) {
+    const delta = overrideParams.delta !== undefined
+      ? overrideParams.delta
+      : (parseFloat(document.getElementById('overlapDeltaRange')?.value) || 2.0);
+    const sd = overrideParams.sd !== undefined
+      ? overrideParams.sd
+      : (parseFloat(document.getElementById('overlapSDRange')?.value) || 2.5);
+    const n = overrideParams.n !== undefined
+      ? overrideParams.n
+      : (parseInt(document.getElementById('overlapNRange')?.value) || 16);
+    const alpha = overrideParams.alpha !== undefined
+      ? overrideParams.alpha
+      : (parseFloat(document.getElementById('overlapAlphaRange')?.value) || 0.05);
+    const viewMode = this.currentOverlapMode || 'means';
+
+    const metrics = Teaching.significanceOverlap.getMetrics({
+      mean1: 10.0,
+      delta,
+      sd,
+      n,
+      alpha,
+      viewMode
+    });
+
+    // Update Slider Displays
+    const deltaValEl = document.getElementById('overlapDeltaVal');
+    if (deltaValEl) deltaValEl.innerText = metrics.delta.toFixed(2);
+
+    const sdValEl = document.getElementById('overlapSDVal');
+    if (sdValEl) sdValEl.innerText = metrics.sd.toFixed(2);
+
+    const nValEl = document.getElementById('overlapNVal');
+    if (nValEl) nValEl.innerText = `n = ${metrics.n} (SEM = ${metrics.sem.toFixed(3)})`;
+
+    const alphaValEl = document.getElementById('overlapAlphaVal');
+    if (alphaValEl) alphaValEl.innerText = `α = ${metrics.alpha.toFixed(3)} (z = ${metrics.zCrit.toFixed(3)})`;
+
+    // Update Metric Cards
+    const statusValEl = document.getElementById('overlapStatusValue');
+    const pValSubEl = document.getElementById('overlapPValueSub');
+    if (statusValEl) {
+      statusValEl.innerText = metrics.isSignificant ? 'SIGNIFICANT' : 'NOT SIGNIFICANT';
+      statusValEl.style.color = metrics.isSignificant ? '#10b981' : '#ef4444';
+    }
+    if (pValSubEl) {
+      pValSubEl.innerText = `p = ${metrics.pValue < 0.0001 ? '< 0.0001' : metrics.pValue.toFixed(4)} ${metrics.isSignificant ? '<' : '≥'} α = ${metrics.alpha.toFixed(3)}`;
+    }
+
+    const deltaDispEl = document.getElementById('overlapDeltaDisplay');
+    const deltaCritSubEl = document.getElementById('overlapDeltaCritSub');
+    if (deltaDispEl) deltaDispEl.innerText = `Δ = ${metrics.delta.toFixed(2)}`;
+    if (deltaCritSubEl) deltaCritSubEl.innerText = `Δcrit = ${metrics.deltaCrit.toFixed(2)} (Boundary)`;
+
+    const semValEl = document.getElementById('overlapSEMValue');
+    const seDiffSubEl = document.getElementById('overlapSEDiffSub');
+    if (semValEl) semValEl.innerText = metrics.sem.toFixed(3);
+    if (seDiffSubEl) seDiffSubEl.innerText = `SE_diff: ${metrics.seDiff.toFixed(3)} (n = ${metrics.n})`;
+
+    const sdValEl2 = document.getElementById('overlapSDValue');
+    const cohenSubEl = document.getElementById('overlapCohenDSub');
+    if (sdValEl2) sdValEl2.innerText = metrics.sd.toFixed(2);
+    if (cohenSubEl) cohenSubEl.innerText = `Cohen's d = ${metrics.cohensD.toFixed(2)}`;
+
+    const meansOVLEl = document.getElementById('overlapMeansOVLValue');
+    const patientOVLSubEl = document.getElementById('overlapPatientOVLSub');
+    if (meansOVLEl) {
+      meansOVLEl.innerText = `${(metrics.meansOVL * 100).toFixed(1)}%`;
+      meansOVLEl.style.color = metrics.isSignificant ? '#10b981' : '#ef4444';
+    }
+    if (patientOVLSubEl) patientOVLSubEl.innerText = `Patient Overlap: ${(metrics.patientOVL * 100).toFixed(1)}%`;
+
+    const critValEl = document.getElementById('overlapCritValue');
+    const alphaSubEl = document.getElementById('overlapAlphaSub');
+    if (critValEl) critValEl.innerText = `t = ${metrics.tCrit.toFixed(3)}`;
+    if (alphaSubEl) alphaSubEl.innerText = `α = ${metrics.alpha.toFixed(3)} (z = ${metrics.zCrit.toFixed(3)})`;
+
+    // Update Pedagogical Text
+    const pedaEl = document.getElementById('overlapPedagogyText');
+    if (pedaEl) pedaEl.innerText = metrics.explanation;
+
+    // Update Chart Title
+    const titleEl = document.getElementById('overlapChartTitle');
+    if (titleEl) {
+      if (viewMode === 'patients') {
+        titleEl.innerText = `Individual Patient Populations (SD): Biological Overlap vs Mean Significance`;
+      } else if (viewMode === 'dual') {
+        titleEl.innerText = `Dual Overlay: Patient Biological Spread (SD) vs Inferential Mean Precision (SEM)`;
+      } else if (viewMode === 'null') {
+        titleEl.innerText = `Null Hypothesis Difference Test: H₀ (Δ=0) vs Observed Separation`;
+      } else {
+        titleEl.innerText = `Sampling Distributions of Means (SEM): Overlap & Significance Boundary`;
+      }
+    }
+
+    // Render Canvas
+    if (this.engines['teachingOverlapCanvas']) {
+      Plots.renderTwoSampleOverlap(this.engines['teachingOverlapCanvas'], metrics);
+    }
+
+    // Cache
+    if (!this.results.teaching) this.results.teaching = {};
+    this.results.teaching.overlap = metrics;
+  }
+
+  animateOverlapSeparation() {
+    const btn = document.getElementById('overlapAnimateBtn');
+    if (this.overlapAnimationTimer) {
+      clearInterval(this.overlapAnimationTimer);
+      this.overlapAnimationTimer = null;
+      if (btn) btn.innerText = '▶ Animate Separation';
+      return;
+    }
+
+    const deltas = [0.0, 0.4, 0.8, 1.2, 1.5, 1.8, 2.0, 2.3, 2.7, 3.2, 3.8, 4.5];
+    let currentIndex = 0;
+    const currentDelta = parseFloat(document.getElementById('overlapDeltaRange')?.value) || 0;
+    const startIdx = deltas.findIndex(d => d >= currentDelta);
+    if (startIdx >= 0 && startIdx < deltas.length - 1) currentIndex = startIdx;
+
+    if (btn) btn.innerText = '⏸ Pause Animation';
+
+    this.overlapAnimationTimer = setInterval(() => {
+      currentIndex++;
+      if (currentIndex >= deltas.length) {
+        clearInterval(this.overlapAnimationTimer);
+        this.overlapAnimationTimer = null;
+        if (btn) btn.innerText = '▶ Replay Animation';
+        return;
+      }
+      const nextDelta = deltas[currentIndex];
+      const dRange = document.getElementById('overlapDeltaRange');
+      if (dRange) dRange.value = nextDelta;
+      this.runTwoSampleOverlap({ delta: nextDelta });
+    }, 500);
+  }
+}
 
