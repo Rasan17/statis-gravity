@@ -6409,8 +6409,8 @@ const DocxReports = {
           ctx.fillText(`■ P(¬H|E): ${(posteriorNotH * 100).toFixed(1)}%`, barX + barW / 2, barY + 44);
 
           // 3Blue1Brown Equation Breakdown
-          const eqY = barY + 56;
-          const eqH = 76;
+          const eqY = barY + 54;
+          const eqH = 96;
           ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
           ctx.fillRect(barX, eqY, barW, eqH);
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
@@ -6418,18 +6418,35 @@ const DocxReports = {
 
           ctx.fillStyle = '#94a3b8';
           ctx.font = `600 10px ${font}`;
-          ctx.fillText('BAYES\' PROPORTION RULE (3BLUE1BROWN):', barX + 10, eqY + 18);
+          ctx.fillText('BAYES\' PROPORTION RULE (3BLUE1BROWN):', barX + 10, eqY + 16);
 
-          ctx.font = `700 12px monospace`;
+          ctx.font = `700 11.5px monospace`;
           ctx.fillStyle = '#00d2ff';
-          ctx.fillText('P(H|E) = Green Area / Total Shaded Area', barX + 10, eqY + 36);
+          ctx.fillText('P(H|E) = Green Area / Total Shaded Area', barX + 10, eqY + 33);
 
           ctx.fillStyle = '#f8fafc';
-          ctx.font = `600 11px monospace`;
-          ctx.fillText(`= ${(areaHAndE * 100).toFixed(2)}% / ${(pEvidence * 100).toFixed(2)}% = ${(posterior * 100).toFixed(1)}%`, barX + 10, eqY + 56);
+          ctx.font = `600 10.5px monospace`;
+          ctx.fillText(`• By Area %:   ${(areaHAndE * 100).toFixed(2)}% / ${(pEvidence * 100).toFixed(2)}% = ${(posterior * 100).toFixed(1)}%`, barX + 10, eqY + 52);
+
+          // Calculation by Number / Natural Counts
+          const rawCountHAndE = sampleSize * areaHAndE;
+          const rawCountNotHAndE = sampleSize * areaNotHAndE;
+          const rawCountTotalE = rawCountHAndE + rawCountNotHAndE;
+          const fmtCount = (v) => Math.abs(v - Math.round(v)) < 0.05 ? Math.round(v).toString() : v.toFixed(1);
+          const strH = fmtCount(rawCountHAndE);
+          const strNotH = fmtCount(rawCountNotHAndE);
+          const strTot = fmtCount(rawCountTotalE);
+
+          ctx.fillStyle = '#38bdf8';
+          ctx.font = `600 10.5px monospace`;
+          ctx.fillText(`• By Number:   ${strH} / (${strH} + ${strNotH}) = ${strH} / ${strTot} = ${(posterior * 100).toFixed(1)}%`, barX + 10, eqY + 70);
+
+          ctx.fillStyle = textMuted;
+          ctx.font = `400 9px ${font}`;
+          ctx.fillText(`(Representative cohort of N = ${sampleSize} individuals)`, barX + 10, eqY + 86);
 
           // Bottom takeaway callout
-          const shiftY = eqY + eqH + 22;
+          const shiftY = eqY + eqH + 18;
           ctx.fillStyle = beliefShift >= 0 ? '#10b981' : '#ef4444';
           ctx.font = `700 12px ${font}`;
           ctx.fillText(
