@@ -65,11 +65,17 @@ class StatisGravityApp {
           // Re-render all charts in newly visible tab
           const canvases = targetPane.querySelectorAll('canvas');
           canvases.forEach(canvas => {
-            if (canvas && this.engines[canvas.id]?.lastRenderFn) {
-              this.engines[canvas.id].initHiDPI();
-              this.engines[canvas.id].lastRenderFn();
+            const eng = this.engines[canvas.id];
+            if (canvas && eng) {
+              eng.initHiDPI();
+              if (typeof eng.lastRender === 'function') eng.lastRender();
+              else if (typeof eng.lastRenderFn === 'function') eng.lastRenderFn();
             }
           });
+          if (targetId === 'tab-teaching') {
+            if (typeof this.runTwoSampleOverlap === 'function') this.runTwoSampleOverlap();
+            if (typeof this.runPowerSimulation === 'function') this.runPowerSimulation();
+          }
         }
       });
     });

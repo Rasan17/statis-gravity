@@ -20,6 +20,7 @@ export class ChartEngine {
         grid: 'rgba(255, 255, 255, 0.08)',
         axis: 'rgba(255, 255, 255, 0.25)',
         text: '#94a3b8',
+        textMuted: '#64748b',
         textBold: '#f8fafc',
         primary: '#00d2ff',
         primaryGlow: 'rgba(0, 210, 255, 0.25)',
@@ -33,6 +34,7 @@ export class ChartEngine {
         grid: 'rgba(0, 0, 0, 0.06)',
         axis: 'rgba(0, 0, 0, 0.2)',
         text: '#64748b',
+        textMuted: '#94a3b8',
         textBold: '#0f172a',
         primary: '#0284c7',
         primaryGlow: 'rgba(2, 132, 199, 0.2)',
@@ -67,8 +69,12 @@ export class ChartEngine {
   setupResizeObserver() {
     if (typeof ResizeObserver === 'function' && this.canvas) {
       this.resizeObserver = new ResizeObserver(() => {
-        this.initHiDPI();
-        if (this.lastRenderFn) this.lastRenderFn();
+        const rect = this.canvas.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          this.initHiDPI();
+          if (typeof this.lastRender === 'function') this.lastRender();
+          else if (typeof this.lastRenderFn === 'function') this.lastRenderFn();
+        }
       });
       this.resizeObserver.observe(this.canvas);
     }

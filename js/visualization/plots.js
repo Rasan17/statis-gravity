@@ -2182,11 +2182,20 @@ export const Plots = {
    * @param {object} options
    */
   renderPowerSimulation(engine, metrics, options = {}) {
-    engine.lastRenderFn = () => this.renderPowerSimulation(engine, metrics, options);
+    engine.lastRender = () => this.renderPowerSimulation(engine, metrics, options);
+    engine.lastRenderFn = engine.lastRender;
+    if (engine.canvas && typeof engine.initHiDPI === 'function') {
+      const rect = engine.canvas.getBoundingClientRect();
+      if (rect.width > 50 && (engine.width <= 100 || Math.abs(engine.width - rect.width) > 30)) {
+        engine.initHiDPI();
+      }
+    }
     engine.clear();
     const b = engine.getPlotBounds ? engine.getPlotBounds() : engine.getBounds();
     const ctx = engine.ctx;
-    const pal = engine.palette;
+    const pal = engine.palette || {};
+    const font = engine.options?.fontFamily || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const textMuted = pal.textMuted || pal.text || '#94a3b8';
 
     const {
       sd = 4.0,
@@ -2224,7 +2233,7 @@ export const Plots = {
       };
 
       // Draw Grid & Axes
-      ctx.strokeStyle = pal.grid;
+      ctx.strokeStyle = pal.grid || 'rgba(255, 255, 255, 0.08)';
       ctx.lineWidth = 1;
 
       // X grid
@@ -2236,8 +2245,8 @@ export const Plots = {
         ctx.lineTo(xPix, b.y + b.height);
         ctx.stroke();
 
-        ctx.fillStyle = pal.textMuted;
-        ctx.font = `500 10px ${engine.options.fontFamily}`;
+        ctx.fillStyle = textMuted;
+        ctx.font = `500 10px ${font}`;
         ctx.textAlign = 'center';
         ctx.fillText(`n=${nVal}`, xPix, b.y + b.height + 15);
       });
@@ -2251,8 +2260,8 @@ export const Plots = {
         ctx.lineTo(b.x + b.width, yPix);
         ctx.stroke();
 
-        ctx.fillStyle = pal.textMuted;
-        ctx.font = `500 10px ${engine.options.fontFamily}`;
+        ctx.fillStyle = textMuted;
+        ctx.font = `500 10px ${font}`;
         ctx.textAlign = 'right';
         ctx.fillText(`${(pVal * 100).toFixed(0)}%`, b.x - 8, yPix + 4);
       });
@@ -2268,7 +2277,7 @@ export const Plots = {
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = '#10b981';
-      ctx.font = `600 10px ${engine.options.fontFamily}`;
+      ctx.font = `600 10px ${font}`;
       ctx.textAlign = 'right';
       ctx.fillText('80% Regulatory Standard', b.x + b.width - 10, y80 - 6);
 
@@ -2337,7 +2346,7 @@ export const Plots = {
 
       // Tooltip Callout Box
       const calloutText = `n = ${n} | Power = ${(power * 100).toFixed(1)}% (β = ${(beta * 100).toFixed(1)}%)`;
-      ctx.font = `700 11px ${engine.options.fontFamily}`;
+      ctx.font = `700 11px ${font}`;
       const textWidth = ctx.measureText(calloutText).width;
       const boxW = textWidth + 18;
       const boxH = 26;
@@ -2348,7 +2357,11 @@ export const Plots = {
       ctx.strokeStyle = '#a855f7';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.roundRect ? ctx.roundRect(boxX, boxY, boxW, boxH, 6) : ctx.rect(boxX, boxY, boxW, boxH);
+      if (ctx.roundRect) {
+        ctx.roundRect(boxX, boxY, boxW, boxH, [6]);
+      } else {
+        ctx.rect(boxX, boxY, boxW, boxH);
+      }
       ctx.fill();
       ctx.stroke();
 
@@ -2358,7 +2371,7 @@ export const Plots = {
 
       // Legend
       ctx.textAlign = 'left';
-      ctx.font = `500 11px ${engine.options.fontFamily}`;
+      ctx.font = `500 11px ${font}`;
       ctx.fillStyle = '#10b981';
       ctx.fillText(`— Statistical Power Curve: P(n) at Δ = ${delta.toFixed(2)}, SD = ${sd.toFixed(2)}, α = ${alpha.toFixed(3)}`, b.x + 12, b.y + 20);
       ctx.fillStyle = '#a855f7';
@@ -2429,24 +2442,28 @@ export const Plots = {
         ctx.strokeStyle = c.border;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(cx, cy, cardW, cardH, 8) : ctx.rect(cx, cy, cardW, cardH);
+        if (ctx.roundRect) {
+          ctx.roundRect(cx, cy, cardW, cardH, [8]);
+        } else {
+          ctx.rect(cx, cy, cardW, cardH);
+        }
         ctx.fill();
         ctx.stroke();
 
         // Card Title
         ctx.fillStyle = c.color;
-        ctx.font = `700 11px ${engine.options.fontFamily}`;
+        ctx.font = `700 11px ${font}`;
         ctx.textAlign = 'left';
         ctx.fillText(c.title, cx + 12, cy + 20);
 
         // Subtitle
-        ctx.fillStyle = pal.textMuted;
-        ctx.font = `500 9px ${engine.options.fontFamily}`;
+        ctx.fillStyle = textMuted;
+        ctx.font = `500 9px ${font}`;
         ctx.fillText(c.sub, cx + 12, cy + 34);
 
         // Large Percentage Value
         ctx.fillStyle = c.color;
-        ctx.font = `800 24px ${engine.options.fontFamily}`;
+        ctx.font = `800 24px ${font}`;
         ctx.fillText(c.val, cx + 12, cy + 64);
 
         // Progress bar indicator
@@ -2461,7 +2478,7 @@ export const Plots = {
 
         // Description text wrapped
         ctx.fillStyle = '#cbd5e1';
-        ctx.font = `400 9.5px ${engine.options.fontFamily}`;
+        ctx.font = `400 9.5px ${font}`;
         const words = c.desc.split(' ');
         let line = '';
         let lineY = cy + 93;
@@ -2503,7 +2520,7 @@ export const Plots = {
     };
 
     // Grid lines & X-axis
-    ctx.strokeStyle = pal.grid;
+    ctx.strokeStyle = pal.grid || 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 1;
     const xSteps = 7;
     for (let i = 0; i <= xSteps; i++) {
@@ -2514,8 +2531,8 @@ export const Plots = {
       ctx.lineTo(xPix, b.y + b.height);
       ctx.stroke();
 
-      ctx.fillStyle = pal.textMuted;
-      ctx.font = `500 10px ${engine.options.fontFamily}`;
+      ctx.fillStyle = textMuted;
+      ctx.font = `500 10px ${font}`;
       ctx.textAlign = 'center';
       ctx.fillText(xVal.toFixed(2), xPix, b.y + b.height + 15);
     }
@@ -2532,34 +2549,39 @@ export const Plots = {
       ptsH1.push({ x, y: normPDF(x, safeDelta, safeSEDiff) });
     }
 
-    // 1. Shading: Statistical Power (1 - beta) under H1 (where x >= xCrit, Emerald Green)
+    const safeXCrit = Number.isFinite(xCrit) ? xCrit : (zCrit * safeSEDiff);
+
+    // 1. Shading: Statistical Power (1 - beta) under H1 (where x >= safeXCrit, Emerald Green)
     ctx.fillStyle = 'rgba(16, 185, 129, 0.38)';
     ctx.beginPath();
-    ctx.moveTo(toX(xCrit), toY(0));
+    ctx.moveTo(toX(safeXCrit), toY(0));
+    ctx.lineTo(toX(safeXCrit), toY(normPDF(safeXCrit, safeDelta, safeSEDiff)));
     for (const pt of ptsH1) {
-      if (pt.x >= xCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+      if (pt.x >= safeXCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
     }
     ctx.lineTo(toX(maxX), toY(0));
     ctx.closePath();
     ctx.fill();
 
-    // 2. Shading: Type II Error (beta) under H1 (where x < xCrit, Amber)
+    // 2. Shading: Type II Error (beta) under H1 (where x < safeXCrit, Amber)
     ctx.fillStyle = 'rgba(245, 158, 11, 0.35)';
     ctx.beginPath();
     ctx.moveTo(toX(minX), toY(0));
     for (const pt of ptsH1) {
-      if (pt.x <= xCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+      if (pt.x <= safeXCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
     }
-    ctx.lineTo(toX(xCrit), toY(0));
+    ctx.lineTo(toX(safeXCrit), toY(normPDF(safeXCrit, safeDelta, safeSEDiff)));
+    ctx.lineTo(toX(safeXCrit), toY(0));
     ctx.closePath();
     ctx.fill();
 
-    // 3. Shading: Type I Error (alpha/2) under H0 (where x >= xCrit, Red rejection tail)
+    // 3. Shading: Type I Error (alpha/2) under H0 (where x >= safeXCrit, Red rejection tail)
     ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
     ctx.beginPath();
-    ctx.moveTo(toX(xCrit), toY(0));
+    ctx.moveTo(toX(safeXCrit), toY(0));
+    ctx.lineTo(toX(safeXCrit), toY(normPDF(safeXCrit, 0, safeSEDiff)));
     for (const pt of ptsH0) {
-      if (pt.x >= xCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+      if (pt.x >= safeXCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
     }
     ctx.lineTo(toX(maxX), toY(0));
     ctx.closePath();
@@ -2570,9 +2592,10 @@ export const Plots = {
     ctx.beginPath();
     ctx.moveTo(toX(minX), toY(0));
     for (const pt of ptsH0) {
-      if (pt.x <= xCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+      if (pt.x <= safeXCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
     }
-    ctx.lineTo(toX(xCrit), toY(0));
+    ctx.lineTo(toX(safeXCrit), toY(normPDF(safeXCrit, 0, safeSEDiff)));
+    ctx.lineTo(toX(safeXCrit), toY(0));
     ctx.closePath();
     ctx.fill();
 
@@ -2612,7 +2635,7 @@ export const Plots = {
       ctx.setLineDash([]);
 
       ctx.fillStyle = grp.color;
-      ctx.font = `600 10px ${engine.options.fontFamily}`;
+      ctx.font = `600 10px ${font}`;
       ctx.textAlign = 'center';
       ctx.fillText(grp.label, xPix, toY(peakY) - 8);
     });
@@ -2633,13 +2656,13 @@ export const Plots = {
       ctx.stroke();
     });
     ctx.fillStyle = '#a855f7';
-    ctx.font = `700 10px ${engine.options.fontFamily}`;
+    ctx.font = `700 10px ${font}`;
     ctx.textAlign = 'center';
     ctx.fillText(`True Effect Δ = ${safeDelta.toFixed(2)} (d = ${cohensD.toFixed(2)})`, toX(safeDelta / 2), yBracket - 6);
 
     // 9. Critical Threshold Line xcrit (Red dashed)
-    if (Number.isFinite(xCrit) && xCrit >= minX && xCrit <= maxX) {
-      const critXPix = toX(xCrit);
+    if (Number.isFinite(safeXCrit) && safeXCrit >= minX && safeXCrit <= maxX) {
+      const critXPix = toX(safeXCrit);
       ctx.strokeStyle = '#ef4444';
       ctx.lineWidth = 2.2;
       ctx.setLineDash([5, 3]);
@@ -2650,26 +2673,26 @@ export const Plots = {
       ctx.setLineDash([]);
 
       ctx.fillStyle = '#ef4444';
-      ctx.font = `700 10px ${engine.options.fontFamily}`;
+      ctx.font = `700 10px ${font}`;
       ctx.textAlign = 'center';
-      ctx.fillText(`Significance Cutoff xcrit = ${xCrit.toFixed(2)}`, critXPix, toY(peakY * 1.05) - 6);
+      ctx.fillText(`Significance Cutoff xcrit = ${safeXCrit.toFixed(2)}`, critXPix, toY(peakY * 1.05) - 6);
     }
 
     // 10. Shading Zone Labels
     // Power label in green area
-    const pwrX = toX(Math.max(xCrit + 0.3 * safeSEDiff, safeDelta));
+    const pwrX = toX(Math.max(safeXCrit + 0.3 * safeSEDiff, safeDelta));
     if (pwrX < b.x + b.width - 60) {
       ctx.fillStyle = '#10b981';
-      ctx.font = `700 11px ${engine.options.fontFamily}`;
+      ctx.font = `700 11px ${font}`;
       ctx.textAlign = 'center';
       ctx.fillText(`Power (1 − β): ${(power * 100).toFixed(1)}%`, pwrX, toY(peakY * 0.28));
     }
 
     // Beta label in amber area
-    const betaX = toX(Math.min(xCrit - 0.2 * safeSEDiff, safeDelta - 0.3 * safeSEDiff));
+    const betaX = toX(Math.min(safeXCrit - 0.2 * safeSEDiff, safeDelta - 0.3 * safeSEDiff));
     if (betaX > b.x + 50) {
       ctx.fillStyle = '#f59e0b';
-      ctx.font = `700 11px ${engine.options.fontFamily}`;
+      ctx.font = `700 11px ${font}`;
       ctx.textAlign = 'center';
       ctx.fillText(`Beta (β): ${(beta * 100).toFixed(1)}%`, betaX, toY(peakY * 0.16));
     }
@@ -2682,7 +2705,7 @@ export const Plots = {
     ctx.fillStyle = isAdequate ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
     ctx.strokeStyle = isAdequate ? '#10b981' : '#ef4444';
     ctx.lineWidth = 1;
-    ctx.font = `700 11px ${engine.options.fontFamily}`;
+    ctx.font = `700 11px ${font}`;
     const badgeWidth = ctx.measureText(badgeText).width + 24;
     ctx.fillRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
     ctx.strokeRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
@@ -2693,7 +2716,7 @@ export const Plots = {
 
     // 12. Dynamic Legend
     ctx.textAlign = 'left';
-    ctx.font = `500 11px ${engine.options.fontFamily}`;
+    ctx.font = `500 11px ${font}`;
     ctx.fillStyle = '#06b6d4';
     ctx.fillText(`— Null Distribution H₀: Δ ~ N(0, SE²diff), SE = ${safeSEDiff.toFixed(3)} (SEM = ${sem.toFixed(3)})`, b.x + 12, b.y + 20);
     ctx.fillStyle = '#a855f7';
