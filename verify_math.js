@@ -186,5 +186,34 @@ console.log('--- Testing Power Analysis ---');
 const pwr = PowerAnalysis.sampleSizeMeans(10, 15, 10, 0.05, 0.80);
 assert(pwr.nPerGroup >= 60 && pwr.nPerGroup <= 70, `Sample size per group is ~64, got ${pwr.nPerGroup}`);
 
+console.log('--- Testing Hypothesis Error Bar / Dispersion Modes ---');
+const sampleHypo = [20, 22, 24, 25, 26, 28, 30, 31, 34];
+const dHypo = Descriptive.calculate(sampleHypo);
+
+// 1. 95% CI Mode
+const ciLower = dHypo.ci95[0];
+const ciUpper = dHypo.ci95[1];
+assert(ciLower < dHypo.mean && ciUpper > dHypo.mean, `95% CI straddles sample mean (${ciLower.toFixed(2)} < ${dHypo.mean.toFixed(2)} < ${ciUpper.toFixed(2)})`);
+const ciMargin = (ciUpper - ciLower) / 2;
+assert(approx(ciMargin, 3.033, 0.05), `95% CI margin of error is ~3.03, got ${ciMargin.toFixed(2)}`);
+
+// 2. SEM Mode
+const semLower = dHypo.mean - dHypo.sem;
+const semUpper = dHypo.mean + dHypo.sem;
+assert(approx(dHypo.sem, 1.500, 1e-2), `SEM is s / sqrt(n) = 1.500, got ${dHypo.sem.toFixed(3)}`);
+assert(approx(semUpper - semLower, 2 * dHypo.sem, 1e-3), `SEM error bar span is exactly 2 * SEM (${(semUpper - semLower).toFixed(3)})`);
+
+// 3. Standard Deviation (SD) Mode
+const sdLower = dHypo.mean - dHypo.sd;
+const sdUpper = dHypo.mean + dHypo.sd;
+assert(approx(dHypo.sd, 4.500, 1e-2), `SD is sample std dev = 4.500, got ${dHypo.sd.toFixed(3)}`);
+assert(approx(sdUpper - sdLower, 2 * dHypo.sd, 1e-3), `SD error bar span is exactly 2 * SD (${(sdUpper - sdLower).toFixed(3)})`);
+assert(sdUpper - sdLower > semUpper - semLower, 'SD span is strictly wider than SEM span');
+
+// 4. Interquartile Range (IQR) Mode
+assert(dHypo.q1 === 24 && dHypo.q3 === 30, `Quartiles Q1=24 and Q3=30 match expectation (got Q1=${dHypo.q1}, Q3=${dHypo.q3})`);
+assert(dHypo.iqr === 6, `IQR is Q3 - Q1 = 6 (got ${dHypo.iqr})`);
+assert(dHypo.lowerFence === 24 - 1.5 * 6 && dHypo.upperFence === 30 + 1.5 * 6, `Tukey fences correctly bounded at [${dHypo.lowerFence}, ${dHypo.upperFence}]`);
+
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);

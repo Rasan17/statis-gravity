@@ -118,6 +118,9 @@ class StatisGravityApp {
       document.getElementById('hypoGroupB').value = DataParser.samples.icpDynamics.groupB.data.join(', ');
       this.runHypothesis();
     });
+    document.getElementById('hypoErrorBarMode')?.addEventListener('change', () => {
+      this.runHypothesis();
+    });
 
     // 3. ANOVA Events
     document.getElementById('anovaComputeBtn')?.addEventListener('click', () => this.runAnova());
@@ -405,12 +408,27 @@ class StatisGravityApp {
     const reportText = Exporter.formatTTestReport(res);
     document.getElementById('hypoReportText').innerText = reportText;
 
-    // Render Box Plot
+    // Render Dispersion Plot (95% CI, SEM, SD, or IQR Box & Whiskers)
+    const errorBarMode = document.getElementById('hypoErrorBarMode')?.value || 'ci95';
+    const modeDescriptions = {
+      ci95: 'Error Bars: 95% Confidence Interval (Mean ± 95% CI)',
+      sem: 'Error Bars: Standard Error of Mean (Mean ± 1 SEM)',
+      sd: 'Error Bars: Standard Deviation (Mean ± 1 SD)',
+      iqr: 'Distribution: Box & Whiskers (Median, Q1-Q3 IQR, Tukey Fences)'
+    };
+    const subElem = document.getElementById('hypoChartSub');
+    if (subElem) {
+      subElem.innerText = modeDescriptions[errorBarMode] || modeDescriptions.ci95;
+    }
+
     if (this.engines.hypoCanvas) {
-      Plots.renderBoxPlot(this.engines.hypoCanvas, [
+      Plots.renderErrorBarPlot(this.engines.hypoCanvas, [
         { name: nameA, stats: res.groupA },
         { name: nameB, stats: res.groupB }
-      ], `${nameA} vs ${nameB} Distribution`);
+      ], {
+        mode: errorBarMode,
+        title: `${nameA} vs ${nameB}`
+      });
     }
   }
 

@@ -194,6 +194,308 @@ export const Plots = {
   },
 
   /**
+   * Renders Comparative Cohort Error Bar / Dispersion Plot
+   * Supports:
+   *  - 'ci95': 95% Confidence Interval (Mean ± t* x SEM)
+   *  - 'sem': Standard Error of Mean (Mean ± 1 SEM)
+   *  - 'sd': Standard Deviation (Mean ± 1 SD)
+   *  - 'iqr': Interquartile Range (Box & Whiskers / Median ± IQR via renderBoxPlot)
+   * @param {ChartEngine} engine
+   * @param {Array<{name: string, stats: object, color?: string}>} groupStats
+   * @param {object|string} [options={}] - Options object { mode: 'ci95'|'sem'|'sd'|'iqr', title?: string } or title string
+   */
+  renderErrorBarPlot(engine, groupStats, options = {}) {
+    const opts = typeof options === 'string' ? { title: options } : (options || {});
+    const mode = (opts.mode || 'ci95').toLowerCase();
+    const title = opts.title || 'Comparative Cohort Distribution';
+
+    // If IQR is requested, delegate directly to the Box-and-Whisker plot
+    if (mode === 'iqr') {
+      return this.renderBoxPlot(engine, groupStats, title);
+    }
+
+    engine.lastRenderFn = () => this.renderErrorBarPlot(engine, groupStats, options);
+    engine.lastRender = engine.lastRenderFn;
+    engine.clear();
+
+    const b = engine.getPlotBounds ? engine.getPlotBounds() : engine.getBounds();
+    const ctx = engine.ctx;
+    const pal = engine.palette;
+
+    let groups = [];
+    if (Array.isArray(groupStats)) {
+      groups = groupStats.map(g => g.stats ? g : { name: g.name || 'Sample Data', stats: g, color: g.color });
+    } else if (groupStats && typeof groupStats === 'object') {
+      groups = [{ name: groupStats.name || 'Sample Data', stats: groupStats, color: pal.primary }];
+    }
+
+    if (groups.length === 0) return;
+
+    // Determine error bounds for each group based on chosen mode
+    const processedGroups = groups.map((g, idx) => {
+      const s = g.stats || {};
+      const mean = typeof s.mean === 'number' && isFinite(s.mean) ? s.mean : 0;
+      const sem = typeof s.sem === 'number' && isFinite(s.sem) ? s.sem : (s.sd && s.n ? s.sd / Math.sqrt(s.n) : 0);
+      const sd = typeof s.sd === 'number' && isFinite(s.sd) ? s.sd : 0;
+
+      let lower = mean;
+      let upper = mean;
+      let label = '95% CI';
+      let subLabel = '';
+
+      if (mode === 'sem') {
+        lower = mean - sem;
+        upper = mean + sem;
+        label = '±1 SEM';
+        subLabel = `SEM: ±${sem.toFixed(2)}`;
+      } else if (mode === 'sd') {
+        lower = mean - sd;
+        upper = mean + sd;
+        label = '±1 SD';
+        subLabel = `SD: ±${sd.toFixed(2)}`;
+      } else {
+        // 'ci95' default
+        if (Array.isArray(s.ci95) && s.ci95.length === 2 && isFinite(s.ci95[0]) && isFinite(s.ci95[1])) {
+          lower = s.ci95[0];
+          upper = s.ci95[1];
+        } else {
+          const margin = sem * 1.96;
+          lower = mean - margin;
+          upper = mean + margin;
+        }
+        label = '95% CI';
+        subLabel = `[${lower.toFixed(2)}, ${upper.toFixed(2)}]`;
+      }
+
+      return {
+        ...g,
+        mean,
+        sem,
+        sd,
+        lower,
+        upper,
+        label,
+        subLabel
+      };
+    });
+
+    // Find global min and max across all groups, including raw points and error bounds
+    let globalMin = Infinity;
+    let globalMax = -Infinity;
+    for (const g of processedGroups) {
+      const s = g.stats;
+      if (!s || s.n === 0) continue;
+      if (g.lower < globalMin) globalMin = g.lower;
+      if (g.upper > globalMax) globalMax = g.upper;
+      if (typeof s.min === 'number' && isFinite(s.min) && s.min < globalMin) globalMin = s.min;
+      if (typeof s.max === 'number' && isFinite(s.max) && s.max > globalMax) globalMax = s.max;
+    }
+
+    if (!isFinite(globalMin) || !isFinite(globalMax)) return;
+
+    // Extra margin so error bar caps and callouts have breathing room
+    const span = globalMax - globalMin || 1;
+    const yMin = globalMin - 0.15 * span;
+    const yMax = globalMax + 0.18 * span;
+    const yRange = yMax - yMin;
+
+    const yToPixel = (val) => b.y + b.height - ((val - yMin) / yRange) * b.height;
+
+    // Build Y ticks
+    const yTicks = [];
+    const stepCount = 5;
+    for (let i = 0; i <= stepCount; i++) {
+      const v = yMin + (i / stepCount) * yRange;
+      yTicks.push({ norm: (v - yMin) / yRange, label: v.toFixed(1) });
+    }
+
+    // Build X ticks
+    const k = processedGroups.length;
+    const xTicks = processedGroups.map((g, idx) => ({
+      norm: (idx + 0.5) / k,
+      label: g.name
+    }));
+
+    const modeHeaders = {
+      ci95: '95% Confidence Interval (Mean ± 95% CI)',
+      sem: 'Standard Error of Mean (Mean ± 1 SEM)',
+      sd: 'Standard Deviation (Mean ± 1 SD)',
+      iqr: 'Interquartile Range'
+    };
+    const modeTitle = modeHeaders[mode] || '95% Confidence Interval';
+
+    engine.drawAxes({
+      yTicks,
+      xTicks,
+      title: `${title}`,
+      yLabel: 'Observed Value'
+    });
+
+    const slotWidth = b.width / k;
+    const capWidth = Math.min(38, Math.max(22, slotWidth * 0.28));
+    const colors = [pal.primary, pal.secondary, pal.accent, '#f59e0b'];
+
+    // Draw connecting delta bridge between 2 groups if k === 2
+    if (k === 2 && processedGroups[0].stats && processedGroups[1].stats) {
+      const gA = processedGroups[0];
+      const gB = processedGroups[1];
+      const xA = b.x + 0.5 * slotWidth;
+      const xB = b.x + 1.5 * slotWidth;
+      const yA = yToPixel(gA.mean);
+      const yB = yToPixel(gB.mean);
+
+      ctx.save();
+      ctx.strokeStyle = `${pal.axis}`;
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(xA, yA);
+      ctx.lineTo(xB, yB);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Delta label pill in middle of bridge
+      const midX = (xA + xB) / 2;
+      const midY = (yA + yB) / 2;
+      const deltaM = gA.mean - gB.mean;
+      const deltaText = `ΔM = ${deltaM >= 0 ? '+' : ''}${deltaM.toFixed(2)}`;
+
+      ctx.font = `600 10px ${engine.options.fontFamily || 'sans-serif'}`;
+      const textW = ctx.measureText ? (ctx.measureText(deltaText)?.width || 50) : 50;
+      ctx.fillStyle = pal.bgSurfaceElevated || pal.bgCard || '#1e293b';
+      ctx.strokeStyle = pal.border || '#334155';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect?.(midX - textW / 2 - 6, midY - 10, textW + 12, 18, 4) ||
+        ctx.rect(midX - textW / 2 - 6, midY - 10, textW + 12, 18);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = pal.textBold;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(deltaText, midX, midY);
+      ctx.restore();
+    }
+
+    // Render each group
+    processedGroups.forEach((g, idx) => {
+      const s = g.stats;
+      if (!s || s.n === 0) return;
+
+      const groupColor = g.color || colors[idx % colors.length];
+      const centerX = b.x + (idx + 0.5) * slotWidth;
+
+      const meanY = yToPixel(g.mean);
+      const lowerY = yToPixel(g.lower);
+      const upperY = yToPixel(g.upper);
+
+      // 1. Raw points jittered in background
+      if (s.values && s.values.length > 0) {
+        ctx.save();
+        ctx.fillStyle = `${groupColor}44`;
+        for (let i = 0; i < s.values.length; i++) {
+          const v = s.values[i];
+          const ptY = yToPixel(v);
+          const jitter = (Math.sin(i * 12.9898 + v) * 0.35) * (slotWidth * 0.3);
+          ctx.beginPath();
+          ctx.arc(centerX + jitter, ptY, 3.2, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // 2. Translucent pillar / shaded dispersion band
+      const pillarWidth = Math.min(52, slotWidth * 0.35);
+      const pillarTop = Math.min(lowerY, upperY);
+      const pillarHeight = Math.abs(lowerY - upperY) || 2;
+      ctx.save();
+      ctx.fillStyle = `${groupColor}14`;
+      ctx.beginPath();
+      ctx.roundRect?.(centerX - pillarWidth / 2, pillarTop, pillarWidth, pillarHeight, 6) ||
+        ctx.rect(centerX - pillarWidth / 2, pillarTop, pillarWidth, pillarHeight);
+      ctx.fill();
+      ctx.restore();
+
+      // 3. Error bar vertical stem
+      ctx.save();
+      ctx.strokeStyle = groupColor;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(centerX, lowerY);
+      ctx.lineTo(centerX, upperY);
+      ctx.stroke();
+
+      // 4. Horizontal serif end-caps
+      ctx.beginPath();
+      // Upper cap
+      ctx.moveTo(centerX - capWidth / 2, upperY);
+      ctx.lineTo(centerX + capWidth / 2, upperY);
+      // Lower cap
+      ctx.moveTo(centerX - capWidth / 2, lowerY);
+      ctx.lineTo(centerX + capWidth / 2, lowerY);
+      ctx.stroke();
+      ctx.restore();
+
+      // 5. Mean Point Marker (Prominent circle with halo)
+      ctx.save();
+      ctx.fillStyle = groupColor;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(centerX, meanY, 6.5, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.stroke();
+
+      // Inner center dot
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(centerX, meanY, 2, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.restore();
+
+      // 6. Text callout annotations
+      ctx.save();
+      ctx.font = `600 11px ${engine.options.fontFamily || 'sans-serif'}`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+
+      // Mean callout
+      ctx.fillStyle = pal.textBold;
+      ctx.fillText(`M = ${g.mean.toFixed(2)}`, centerX + capWidth / 2 + 8, meanY);
+
+      // Sub-label for dispersion / error metric
+      ctx.font = `500 10px ${engine.options.fontFamily || 'sans-serif'}`;
+      ctx.fillStyle = pal.textMuted || pal.text;
+      ctx.fillText(g.subLabel, centerX + capWidth / 2 + 8, meanY + 14);
+
+      // Sample size n
+      ctx.fillStyle = pal.textDim || pal.textMuted || pal.text;
+      ctx.fillText(`n = ${s.n}`, centerX + capWidth / 2 + 8, meanY + 27);
+
+      // Top cap value
+      ctx.textAlign = 'right';
+      ctx.font = `500 9px ${engine.options.fontFamily || 'sans-serif'}`;
+      ctx.fillStyle = pal.textDim || pal.textMuted || pal.text;
+      ctx.fillText(g.upper.toFixed(2), centerX - capWidth / 2 - 6, upperY);
+
+      // Bottom cap value
+      ctx.fillText(g.lower.toFixed(2), centerX - capWidth / 2 - 6, lowerY);
+
+      ctx.restore();
+    });
+
+    // 7. Header note in top-right corner
+    ctx.save();
+    ctx.font = `italic 10px ${engine.options.fontFamily || 'sans-serif'}`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = pal.textMuted || pal.text;
+    ctx.fillText(`Mode: ${modeTitle}`, b.x + b.width, b.y - 18);
+    ctx.restore();
+  },
+
+  /**
    * Renders Violin Density Plot combining Kernel Density Estimation (KDE) with internal Box/Quartile markers
    * @param {ChartEngine} engine
    * @param {object|Array} data - Stats object or array of group stats

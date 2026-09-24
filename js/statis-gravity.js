@@ -1578,6 +1578,270 @@
       });
     },
 
+    renderErrorBarPlot(engine, groupStats, options = {}) {
+      const opts = typeof options === 'string' ? { title: options } : (options || {});
+      const mode = (opts.mode || 'ci95').toLowerCase();
+      const title = opts.title || 'Comparative Cohort Distribution';
+
+      if (mode === 'iqr') {
+        return this.renderBoxPlot(engine, groupStats, title);
+      }
+
+      engine.lastRender = () => this.renderErrorBarPlot(engine, groupStats, options);
+      engine.lastRenderFn = engine.lastRender;
+      engine.clear();
+
+      const b = engine.getPlotBounds ? engine.getPlotBounds() : engine.getBounds();
+      const ctx = engine.ctx;
+      const pal = engine.palette;
+
+      let groups = [];
+      if (Array.isArray(groupStats)) {
+        groups = groupStats.map(g => g.stats ? g : { name: g.name || 'Sample Data', stats: g, color: g.color });
+      } else if (groupStats && typeof groupStats === 'object') {
+        groups = [{ name: groupStats.name || 'Sample Data', stats: groupStats, color: pal.primary }];
+      }
+
+      if (groups.length === 0) return;
+
+      const processedGroups = groups.map((g, idx) => {
+        const s = g.stats || {};
+        const mean = typeof s.mean === 'number' && isFinite(s.mean) ? s.mean : 0;
+        const sem = typeof s.sem === 'number' && isFinite(s.sem) ? s.sem : (s.sd && s.n ? s.sd / Math.sqrt(s.n) : 0);
+        const sd = typeof s.sd === 'number' && isFinite(s.sd) ? s.sd : 0;
+
+        let lower = mean;
+        let upper = mean;
+        let label = '95% CI';
+        let subLabel = '';
+
+        if (mode === 'sem') {
+          lower = mean - sem;
+          upper = mean + sem;
+          label = '±1 SEM';
+          subLabel = `SEM: ±${sem.toFixed(2)}`;
+        } else if (mode === 'sd') {
+          lower = mean - sd;
+          upper = mean + sd;
+          label = '±1 SD';
+          subLabel = `SD: ±${sd.toFixed(2)}`;
+        } else {
+          if (Array.isArray(s.ci95) && s.ci95.length === 2 && isFinite(s.ci95[0]) && isFinite(s.ci95[1])) {
+            lower = s.ci95[0];
+            upper = s.ci95[1];
+          } else {
+            const margin = sem * 1.96;
+            lower = mean - margin;
+            upper = mean + margin;
+          }
+          label = '95% CI';
+          subLabel = `[${lower.toFixed(2)}, ${upper.toFixed(2)}]`;
+        }
+
+        return {
+          ...g,
+          mean,
+          sem,
+          sd,
+          lower,
+          upper,
+          label,
+          subLabel
+        };
+      });
+
+      let globalMin = Infinity;
+      let globalMax = -Infinity;
+      for (const g of processedGroups) {
+        const s = g.stats;
+        if (!s || s.n === 0) continue;
+        if (g.lower < globalMin) globalMin = g.lower;
+        if (g.upper > globalMax) globalMax = g.upper;
+        if (typeof s.min === 'number' && isFinite(s.min) && s.min < globalMin) globalMin = s.min;
+        if (typeof s.max === 'number' && isFinite(s.max) && s.max > globalMax) globalMax = s.max;
+      }
+
+      if (!isFinite(globalMin) || !isFinite(globalMax)) return;
+
+      const span = globalMax - globalMin || 1;
+      const yMin = globalMin - 0.15 * span;
+      const yMax = globalMax + 0.18 * span;
+      const yRange = yMax - yMin;
+
+      const yToPixel = (val) => b.y + b.height - ((val - yMin) / yRange) * b.height;
+
+      const yTicks = [];
+      const stepCount = 5;
+      for (let i = 0; i <= stepCount; i++) {
+        const v = yMin + (i / stepCount) * yRange;
+        yTicks.push({ norm: (v - yMin) / yRange, label: v.toFixed(1) });
+      }
+
+      const k = processedGroups.length;
+      const xTicks = processedGroups.map((g, idx) => ({
+        norm: (idx + 0.5) / k,
+        label: g.name
+      }));
+
+      const modeHeaders = {
+        ci95: '95% Confidence Interval (Mean ± 95% CI)',
+        sem: 'Standard Error of Mean (Mean ± 1 SEM)',
+        sd: 'Standard Deviation (Mean ± 1 SD)',
+        iqr: 'Interquartile Range'
+      };
+      const modeTitle = modeHeaders[mode] || '95% Confidence Interval';
+
+      engine.drawAxes({
+        yTicks,
+        xTicks,
+        title: `${title}`,
+        yLabel: 'Observed Value'
+      });
+
+      const slotWidth = b.width / k;
+      const capWidth = Math.min(38, Math.max(22, slotWidth * 0.28));
+      const colors = [pal.primary, pal.secondary, pal.accent, '#f59e0b'];
+
+      if (k === 2 && processedGroups[0].stats && processedGroups[1].stats) {
+        const gA = processedGroups[0];
+        const gB = processedGroups[1];
+        const xA = b.x + 0.5 * slotWidth;
+        const xB = b.x + 1.5 * slotWidth;
+        const yA = yToPixel(gA.mean);
+        const yB = yToPixel(gB.mean);
+
+        ctx.save();
+        ctx.strokeStyle = `${pal.axis}`;
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(xA, yA);
+        ctx.lineTo(xB, yB);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const midX = (xA + xB) / 2;
+        const midY = (yA + yB) / 2;
+        const deltaM = gA.mean - gB.mean;
+        const deltaText = `ΔM = ${deltaM >= 0 ? '+' : ''}${deltaM.toFixed(2)}`;
+
+        ctx.font = `600 10px ${engine.options.fontFamily || '-apple-system, sans-serif'}`;
+        const textW = ctx.measureText ? (ctx.measureText(deltaText)?.width || 50) : 50;
+        ctx.fillStyle = pal.bgSurfaceElevated || pal.bgCard || '#1e293b';
+        ctx.strokeStyle = pal.border || '#334155';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect?.(midX - textW / 2 - 6, midY - 10, textW + 12, 18, 4) ||
+          ctx.rect(midX - textW / 2 - 6, midY - 10, textW + 12, 18);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = pal.textBold;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(deltaText, midX, midY);
+        ctx.restore();
+      }
+
+      processedGroups.forEach((g, idx) => {
+        const s = g.stats;
+        if (!s || s.n === 0) return;
+
+        const groupColor = g.color || colors[idx % colors.length];
+        const centerX = b.x + (idx + 0.5) * slotWidth;
+
+        const meanY = yToPixel(g.mean);
+        const lowerY = yToPixel(g.lower);
+        const upperY = yToPixel(g.upper);
+
+        if (s.values && s.values.length > 0) {
+          ctx.save();
+          ctx.fillStyle = `${groupColor}44`;
+          for (let i = 0; i < s.values.length; i++) {
+            const v = s.values[i];
+            const ptY = yToPixel(v);
+            const jitter = (Math.sin(i * 12.9898 + v) * 0.35) * (slotWidth * 0.3);
+            ctx.beginPath();
+            ctx.arc(centerX + jitter, ptY, 3.2, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        const pillarWidth = Math.min(52, slotWidth * 0.35);
+        const pillarTop = Math.min(lowerY, upperY);
+        const pillarHeight = Math.abs(lowerY - upperY) || 2;
+        ctx.save();
+        ctx.fillStyle = `${groupColor}14`;
+        ctx.beginPath();
+        ctx.roundRect?.(centerX - pillarWidth / 2, pillarTop, pillarWidth, pillarHeight, 6) ||
+          ctx.rect(centerX - pillarWidth / 2, pillarTop, pillarWidth, pillarHeight);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.strokeStyle = groupColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(centerX, lowerY);
+        ctx.lineTo(centerX, upperY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(centerX - capWidth / 2, upperY);
+        ctx.lineTo(centerX + capWidth / 2, upperY);
+        ctx.moveTo(centerX - capWidth / 2, lowerY);
+        ctx.lineTo(centerX + capWidth / 2, lowerY);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.fillStyle = groupColor;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(centerX, meanY, 6.5, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(centerX, meanY, 2, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.font = `600 11px ${engine.options.fontFamily || '-apple-system, sans-serif'}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+
+        ctx.fillStyle = pal.textBold;
+        ctx.fillText(`M = ${g.mean.toFixed(2)}`, centerX + capWidth / 2 + 8, meanY);
+
+        ctx.font = `500 10px ${engine.options.fontFamily || '-apple-system, sans-serif'}`;
+        ctx.fillStyle = pal.textMuted || pal.text;
+        ctx.fillText(g.subLabel, centerX + capWidth / 2 + 8, meanY + 14);
+
+        ctx.fillStyle = pal.textDim || pal.textMuted || pal.text;
+        ctx.fillText(`n = ${s.n}`, centerX + capWidth / 2 + 8, meanY + 27);
+
+        ctx.textAlign = 'right';
+        ctx.font = `500 9px ${engine.options.fontFamily || '-apple-system, sans-serif'}`;
+        ctx.fillStyle = pal.textDim || pal.textMuted || pal.text;
+        ctx.fillText(g.upper.toFixed(2), centerX - capWidth / 2 - 6, upperY);
+        ctx.fillText(g.lower.toFixed(2), centerX - capWidth / 2 - 6, lowerY);
+        ctx.restore();
+      });
+
+      ctx.save();
+      ctx.font = `italic 10px ${engine.options.fontFamily || '-apple-system, sans-serif'}`;
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = pal.textMuted || pal.text;
+      ctx.fillText(`Mode: ${modeTitle}`, b.x + b.width, b.y - 18);
+      ctx.restore();
+    },
+
     renderViolinPlot(engine, data, title = 'Violin Density Plot (KDE & Quartiles)') {
       engine.lastRender = () => this.renderViolinPlot(engine, data, title);
       engine.clear();
@@ -2086,6 +2350,9 @@
         document.getElementById('hypoGroupB').value = DataParser.samples.icpDynamics.groupB.join(', ');
         this.runHypo();
       });
+      document.getElementById('hypoErrorBarMode')?.addEventListener('change', () => {
+        this.runHypo();
+      });
 
       // 3. ANOVA
       document.getElementById('anovaComputeBtn')?.addEventListener('click', () => this.runAnova());
@@ -2366,11 +2633,26 @@
       const report = `A ${res.testName} demonstrated a ${res.isSignificant ? 'statistically significant' : 'non-significant'} difference between ${nameA} (M = ${res.groupA.mean.toFixed(2)}, SD = ${res.groupA.sd.toFixed(2)}) and ${nameB} (M = ${res.groupB.mean.toFixed(2)}, SD = ${res.groupB.sd.toFixed(2)}), ${Exporter.formatP(res.pValue)}, Cohen's d = ${(res.cohensD || 0).toFixed(2)}.`;
       document.getElementById('hypoReportText').innerText = report;
 
+      const errorBarMode = document.getElementById('hypoErrorBarMode')?.value || 'ci95';
+      const modeDescriptions = {
+        ci95: 'Error Bars: 95% Confidence Interval (Mean ± 95% CI)',
+        sem: 'Error Bars: Standard Error of Mean (Mean ± 1 SEM)',
+        sd: 'Error Bars: Standard Deviation (Mean ± 1 SD)',
+        iqr: 'Distribution: Box & Whiskers (Median, Q1-Q3 IQR, Tukey Fences)'
+      };
+      const subElem = document.getElementById('hypoChartSub');
+      if (subElem) {
+        subElem.innerText = modeDescriptions[errorBarMode] || modeDescriptions.ci95;
+      }
+
       if (this.engines.hypoCanvas) {
-        Plots.renderBoxPlot(this.engines.hypoCanvas, [
+        Plots.renderErrorBarPlot(this.engines.hypoCanvas, [
           { name: nameA, stats: res.groupA },
           { name: nameB, stats: res.groupB }
-        ], `${nameA} vs ${nameB}`);
+        ], {
+          mode: errorBarMode,
+          title: `${nameA} vs ${nameB}`
+        });
       }
     }
 

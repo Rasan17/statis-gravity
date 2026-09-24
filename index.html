@@ -259,9 +259,21 @@
             </div>
 
             <div class="chart-container">
-              <div class="chart-header">
-                <span class="card-title">Comparative Box-and-Whisker &amp; Jitter Plot</span>
-                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="hypoCanvas">Save PNG</button>
+              <div class="chart-header" style="flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                  <span id="hypoChartTitle" class="card-title">Comparative Cohort Distribution</span>
+                  <span id="hypoChartSub" style="font-size: 0.72rem; color: var(--text-dim); display: block;">Error Bars: 95% Confidence Interval (Mean ± 95% CI)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                  <label for="hypoErrorBarMode" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Error Bars / Dispersion:</label>
+                  <select id="hypoErrorBarMode" class="form-control" style="width: auto; padding: 0.25rem 0.65rem; font-size: 0.75rem; height: 32px; background: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 6px;">
+                    <option value="ci95" selected>95% Confidence Interval (Mean ± 95% CI)</option>
+                    <option value="sem">Standard Error of Mean (Mean ± 1 SEM)</option>
+                    <option value="sd">Standard Deviation (Mean ± 1 SD)</option>
+                    <option value="iqr">Interquartile Range (Box &amp; Whiskers / Median ± IQR)</option>
+                  </select>
+                  <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="hypoCanvas">Save PNG</button>
+                </div>
               </div>
               <canvas id="hypoCanvas" class="chart-canvas"></canvas>
             </div>
