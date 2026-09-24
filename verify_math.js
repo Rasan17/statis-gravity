@@ -181,6 +181,21 @@ const rocData = [
 const roc = Diagnostic.computeROC(rocData);
 assert(roc.auc > 0.85, `ROC AUC is high (>0.85): ${roc.auc.toFixed(3)}`);
 
+console.log('--- Testing Diagnostic 2x2 Performance (Index Test vs Gold Standard) ---');
+const d2x2 = Diagnostic.evaluate2x2(92, 8, 12, 188);
+assert(d2x2.total === 300, `Total sample size is 300 (got ${d2x2.total})`);
+assert(approx(d2x2.sensitivity, 0.8846, 1e-3), `Sensitivity (TPR) is ~88.5%, got ${(d2x2.sensitivity * 100).toFixed(2)}%`);
+assert(d2x2.sensitivityCI95[0] < d2x2.sensitivity && d2x2.sensitivityCI95[1] > d2x2.sensitivity, 'Sensitivity Wilson 95% CI bounds point estimate');
+assert(approx(d2x2.specificity, 0.9592, 1e-3), `Specificity (TNR) is ~95.9%, got ${(d2x2.specificity * 100).toFixed(2)}%`);
+assert(d2x2.specificityCI95[0] < d2x2.specificity && d2x2.specificityCI95[1] > d2x2.specificity, 'Specificity Wilson 95% CI bounds point estimate');
+assert(approx(d2x2.ppv, 0.9200, 1e-3), `PPV is exactly 92.0%, got ${(d2x2.ppv * 100).toFixed(2)}%`);
+assert(approx(d2x2.npv, 0.9400, 1e-3), `NPV is exactly 94.0%, got ${(d2x2.npv * 100).toFixed(2)}%`);
+assert(approx(d2x2.accuracy, 0.9333, 1e-3), `Overall Accuracy is ~93.3%, got ${(d2x2.accuracy * 100).toFixed(2)}%`);
+assert(d2x2.accuracyCI95[0] > 0.89 && d2x2.accuracyCI95[1] < 0.97, `Accuracy 95% CI is within expected range [${d2x2.accuracyCI95.map(v => (v*100).toFixed(1)).join('%, ')}%]`);
+assert(approx(d2x2.plr, 21.673, 0.05), `Positive Likelihood Ratio (LR+) is ~21.67 (got ${d2x2.plr.toFixed(2)})`);
+assert(approx(d2x2.nlr, 0.120, 0.01), `Negative Likelihood Ratio (LR-) is ~0.12 (got ${d2x2.nlr.toFixed(2)})`);
+assert(approx(d2x2.youdenJ, 0.8438, 1e-3), `Youden's J statistic is ~0.844 (got ${d2x2.youdenJ.toFixed(3)})`);
+
 console.log('--- Testing Power Analysis ---');
 // d = 0.5, alpha = 0.05, power = 0.80 -> N per group is ~64
 const pwr = PowerAnalysis.sampleSizeMeans(10, 15, 10, 0.05, 0.80);

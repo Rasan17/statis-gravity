@@ -118,6 +118,17 @@ export const DataParser = {
       b: 36, // Fixed + Occlusion
       c: 186, // Programmable + Patency maintained
       d: 164 // Fixed + Patency maintained
+    },
+
+    shunt2x2: { a: 14, b: 36, c: 186, d: 164 },
+
+    diagnostic2x2: {
+      name: 'Rapid Point-of-Care Biomarker vs Gold Standard Reference',
+      description: 'Prospective diagnostic cohort evaluating novel serum biomarker test against reference pathology.',
+      a: 92, // True Positive (TP)
+      b: 8,  // False Positive (FP)
+      c: 12, // False Negative (FN)
+      d: 188 // True Negative (TN)
     }
   }
 };

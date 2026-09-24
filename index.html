@@ -392,55 +392,108 @@
       </section>
 
       <!-- 4. Categorical & 2x2 Tab -->
+      <!-- 4. Categorical & 2x2 Tab -->
       <section id="tab-categorical" class="tab-pane">
         <div class="analysis-grid">
           <div class="card">
-            <div class="card-header">
+            <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
               <div>
-                <h2 class="card-title">2x2 Contingency Table</h2>
-                <p class="card-subtitle">Chi-Square, Fisher's Exact &amp; Risk Metrics</p>
+                <h2 id="catCardTitle" class="card-title">2x2 Contingency &amp; Diagnostic Matrix</h2>
+                <p id="catCardSub" class="card-subtitle">Choose between Diagnostic Accuracy vs Clinical Study</p>
               </div>
-              <button id="catSampleBtn" class="btn btn-secondary btn-sm">Sample 2x2</button>
+              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button id="catSampleBtn" class="btn btn-secondary btn-sm">Sample Data</button>
+              </div>
+            </div>
+
+            <!-- Choice of Analysis Mode -->
+            <div class="form-group" style="margin-bottom: 1.1rem;">
+              <label for="catAnalysisMode" class="form-label" style="font-weight: 600; color: var(--text-main);">Analysis Objective / Framework:</label>
+              <select id="catAnalysisMode" class="form-control" onchange="if(window.sgApp?.runCat)window.sgApp.runCat();else if(window.app?.runCategorical)window.app.runCategorical();" style="font-weight: 600; cursor: pointer; background: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.4rem 0.75rem;">
+                <option value="diagnostic" selected>Diagnostic Test vs Gold Standard (Sensitivity, Specificity, PPV, NPV, Accuracy)</option>
+                <option value="study">Clinical Study / Trial (Intervention vs Control: Chi-Square, Fisher's Exact, NNT)</option>
+              </select>
             </div>
 
             <div class="matrix-2x2">
-              <div></div>
-              <div class="matrix-header">Intervention</div>
-              <div class="matrix-header">Control</div>
+              <div id="catCornerHeader" style="font-size: 0.7rem; color: var(--text-dim); text-align: center; display: flex; align-items: center; justify-content: center; font-weight: 600;">Test \ Ref</div>
+              <div id="catCol1Header" class="matrix-header">Gold Standard (+)</div>
+              <div id="catCol2Header" class="matrix-header">Gold Standard (-)</div>
 
-              <div class="matrix-header">Event (+)</div>
+              <div id="catRow1Header" class="matrix-header">New Test (+)</div>
               <div class="matrix-cell">
-                <input id="catA" type="number" class="matrix-input" value="14">
+                <input id="catA" type="number" class="matrix-input" value="92" min="0">
+                <span id="catLabelA" style="font-size: 0.65rem; color: var(--text-dim); display: block; margin-top: 3px; font-weight: 600;">True Positive (TP)</span>
               </div>
               <div class="matrix-cell">
-                <input id="catB" type="number" class="matrix-input" value="36">
+                <input id="catB" type="number" class="matrix-input" value="8" min="0">
+                <span id="catLabelB" style="font-size: 0.65rem; color: var(--text-dim); display: block; margin-top: 3px; font-weight: 600;">False Positive (FP)</span>
               </div>
 
-              <div class="matrix-header">No Event (-)</div>
+              <div id="catRow2Header" class="matrix-header">New Test (-)</div>
               <div class="matrix-cell">
-                <input id="catC" type="number" class="matrix-input" value="186">
+                <input id="catC" type="number" class="matrix-input" value="12" min="0">
+                <span id="catLabelC" style="font-size: 0.65rem; color: var(--text-dim); display: block; margin-top: 3px; font-weight: 600;">False Negative (FN)</span>
               </div>
               <div class="matrix-cell">
-                <input id="catD" type="number" class="matrix-input" value="164">
+                <input id="catD" type="number" class="matrix-input" value="188" min="0">
+                <span id="catLabelD" style="font-size: 0.65rem; color: var(--text-dim); display: block; margin-top: 3px; font-weight: 600;">True Negative (TN)</span>
               </div>
             </div>
 
             <div style="margin-top: 1.25rem;">
-              <p class="card-subtitle" style="line-height: 1.5;">
-                Instant computation of Odds Ratio (Woolf 95% CI), Relative Risk, Absolute Risk Reduction, Number Needed to Treat (NNT), and Fisher's exact test.
+              <p id="catExplanation" class="card-subtitle" style="line-height: 1.5;">
+                Evaluates index test accuracy against the reference standard: Sensitivity, Specificity, PPV, NPV, Overall Accuracy (Wilson Score 95% CIs), and Likelihood Ratios.
               </p>
             </div>
           </div>
 
           <div>
-            <div class="metrics-grid">
+            <!-- Diagnostic Metrics View -->
+            <div id="catDiagnosticMetrics" class="metrics-grid">
+              <div class="metric-card">
+                <div class="metric-label">Sensitivity (TPR)</div>
+                <div id="diagSens" class="metric-value" style="color: var(--cyan-primary);">--</div>
+                <div id="diagSensCI" class="metric-sub">95% CI: [--]</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Specificity (TNR)</div>
+                <div id="diagSpec" class="metric-value" style="color: var(--emerald-primary);">--</div>
+                <div id="diagSpecCI" class="metric-sub">95% CI: [--]</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Positive Predictive Value (PPV)</div>
+                <div id="diagPPV" class="metric-value">--</div>
+                <div id="diagPPVCI" class="metric-sub">95% CI: [--]</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Negative Predictive Value (NPV)</div>
+                <div id="diagNPV" class="metric-value">--</div>
+                <div id="diagNPVCI" class="metric-sub">95% CI: [--]</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Overall Diagnostic Accuracy</div>
+                <div id="diagAcc" class="metric-value" style="color: var(--accent);">--</div>
+                <div id="diagAccCI" class="metric-sub">95% CI: [--]</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Likelihood Ratios (LR+ / LR-)</div>
+                <div id="diagLR" class="metric-value" style="font-size: 0.95rem;">--</div>
+                <div id="diagYouden" class="metric-sub">Youden's J: --</div>
+              </div>
+            </div>
+
+            <!-- Clinical Study Metrics View -->
+            <div id="catStudyMetrics" class="metrics-grid" style="display: none;">
               <div class="metric-card">
                 <div class="metric-label">Odds Ratio (OR) [95% CI]</div>
                 <div id="catOR" class="metric-value" style="font-size: 0.95rem;">--</div>
+                <div id="catORSub" class="metric-sub">Woolf 95% CI</div>
               </div>
               <div class="metric-card">
                 <div class="metric-label">Relative Risk (RR) [95% CI]</div>
                 <div id="catRR" class="metric-value" style="font-size: 0.95rem;">--</div>
+                <div id="catRRSub" class="metric-sub">Risk Ratio</div>
               </div>
               <div class="metric-card">
                 <div class="metric-label">Pearson χ² (p-value)</div>
@@ -448,18 +501,25 @@
                 <div id="catPVal" class="metric-sub">p = --</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">Fisher's Exact (p-value)</div>
+                <div class="metric-label">Fisher's Exact Test</div>
                 <div id="catFisher" class="metric-value">--</div>
+                <div class="metric-sub">Exact 2-tailed</div>
               </div>
               <div class="metric-card">
                 <div class="metric-label">Number Needed to Treat (NNT)</div>
                 <div id="catNNT" class="metric-value">--</div>
+                <div id="catARRSub" class="metric-sub">ARR: --</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Relative Risk Reduction (RRR)</div>
+                <div id="catRRR" class="metric-value">--</div>
+                <div class="metric-sub">1 - Relative Risk</div>
               </div>
             </div>
 
-            <div class="report-box">
+            <div class="report-box" style="margin-top: 1rem;">
               <div class="report-title">
-                <span>Epidemiological &amp; Clinical Risk Report</span>
+                <span id="catReportHeaderTitle">Clinical Diagnostic / Epidemiological Summary</span>
                 <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="catReportText">Copy</button>
               </div>
               <p id="catReportText" class="report-text">--</p>

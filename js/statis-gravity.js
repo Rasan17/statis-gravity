@@ -1100,13 +1100,35 @@
       const specificity = nonDiseased > 0 ? tn / nonDiseased : 0;
       const ppv = testPositive > 0 ? tp / testPositive : 0;
       const npv = testNegative > 0 ? tn / testNegative : 0;
+      const accuracy = total > 0 ? (tp + tn) / total : 0;
+      const prevalence = total > 0 ? diseased / total : 0;
       const plr = (1 - specificity) > 0 ? sensitivity / (1 - specificity) : Infinity;
       const nlr = specificity > 0 ? (1 - sensitivity) / specificity : Infinity;
       const youdenJ = sensitivity + specificity - 1;
 
+      const wilsonCI = (p, n) => {
+        if (n === 0) return [0, 0];
+        const z = Distributions.invNormalCDF(0.975);
+        const denom = 1 + (z * z) / n;
+        const center = (p + (z * z) / (2 * n)) / denom;
+        const margin = (z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n))) / denom;
+        return [Math.max(0, center - margin), Math.min(1, center + margin)];
+      };
+
       return {
-        tp, fp, fn, tn, total,
-        sensitivity, specificity, ppv, npv, plr, nlr, youdenJ
+        tp, fp, fn, tn, total, diseased, nonDiseased, testPositive, testNegative,
+        sensitivity,
+        sensitivityCI95: wilsonCI(sensitivity, diseased),
+        specificity,
+        specificityCI95: wilsonCI(specificity, nonDiseased),
+        ppv,
+        ppvCI95: wilsonCI(ppv, testPositive),
+        npv,
+        npvCI95: wilsonCI(npv, testNegative),
+        accuracy,
+        accuracyCI95: wilsonCI(accuracy, total),
+        prevalence,
+        plr, nlr, youdenJ
       };
     },
 
@@ -1221,7 +1243,8 @@
         { score: 860, status: 0 },  { score: 810, status: 0 },  { score: 750, status: 0 },
         { score: 690, status: 0 },  { score: 620, status: 0 }
       ],
-      shunt2x2: { a: 14, b: 36, c: 186, d: 164 }
+      shunt2x2: { a: 14, b: 36, c: 186, d: 164 },
+      diagnostic2x2: { a: 92, b: 8, c: 12, d: 188 }
     }
   };
 
@@ -2368,16 +2391,48 @@
         this.runAnova();
       });
 
-      // 4. Categorical
+      // 4. Categorical / 2x2 Risk & Contingency
       ['catA', 'catB', 'catC', 'catD'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', () => this.runCat());
       });
+      document.getElementById('catAnalysisMode')?.addEventListener('change', (e) => {
+        const mode = e.target.value;
+        const curA = parseFloat(document.getElementById('catA')?.value) || 0;
+        const curB = parseFloat(document.getElementById('catB')?.value) || 0;
+        const curC = parseFloat(document.getElementById('catC')?.value) || 0;
+        const curD = parseFloat(document.getElementById('catD')?.value) || 0;
+
+        // Auto-swap default sample when user switches frameworks on unmodified sample data
+        if (mode === 'diagnostic' && curA === 14 && curB === 36 && curC === 186 && curD === 164) {
+          const s = DataParser.samples.diagnostic2x2;
+          document.getElementById('catA').value = s.a;
+          document.getElementById('catB').value = s.b;
+          document.getElementById('catC').value = s.c;
+          document.getElementById('catD').value = s.d;
+        } else if (mode === 'study' && curA === 92 && curB === 8 && curC === 12 && curD === 188) {
+          const s = DataParser.samples.shunt2x2;
+          document.getElementById('catA').value = s.a;
+          document.getElementById('catB').value = s.b;
+          document.getElementById('catC').value = s.c;
+          document.getElementById('catD').value = s.d;
+        }
+        this.runCat();
+      });
       document.getElementById('catSampleBtn')?.addEventListener('click', () => {
-        const s = DataParser.samples.shunt2x2;
-        document.getElementById('catA').value = s.a;
-        document.getElementById('catB').value = s.b;
-        document.getElementById('catC').value = s.c;
-        document.getElementById('catD').value = s.d;
+        const mode = document.getElementById('catAnalysisMode')?.value || 'diagnostic';
+        if (mode === 'diagnostic') {
+          const s = DataParser.samples.diagnostic2x2;
+          document.getElementById('catA').value = s.a;
+          document.getElementById('catB').value = s.b;
+          document.getElementById('catC').value = s.c;
+          document.getElementById('catD').value = s.d;
+        } else {
+          const s = DataParser.samples.shunt2x2;
+          document.getElementById('catA').value = s.a;
+          document.getElementById('catB').value = s.b;
+          document.getElementById('catC').value = s.c;
+          document.getElementById('catD').value = s.d;
+        }
         this.runCat();
       });
 
@@ -2729,24 +2784,128 @@
     }
 
     runCat() {
+      const mode = document.getElementById('catAnalysisMode')?.value || 'diagnostic';
       const a = parseFloat(document.getElementById('catA')?.value) || 0;
       const b = parseFloat(document.getElementById('catB')?.value) || 0;
       const c = parseFloat(document.getElementById('catC')?.value) || 0;
       const d = parseFloat(document.getElementById('catD')?.value) || 0;
 
-      const res = Categorical.twoByTwo(a, b, c, d);
-      if (res.error) return;
+      const cornerHeader = document.getElementById('catCornerHeader');
+      const col1Header = document.getElementById('catCol1Header');
+      const col2Header = document.getElementById('catCol2Header');
+      const row1Header = document.getElementById('catRow1Header');
+      const row2Header = document.getElementById('catRow2Header');
+      const labelA = document.getElementById('catLabelA');
+      const labelB = document.getElementById('catLabelB');
+      const labelC = document.getElementById('catLabelC');
+      const labelD = document.getElementById('catLabelD');
+      const explanation = document.getElementById('catExplanation');
+      const diagGrid = document.getElementById('catDiagnosticMetrics');
+      const studyGrid = document.getElementById('catStudyMetrics');
+      const reportTitle = document.getElementById('catReportHeaderTitle');
 
-      const r = res.riskMetrics;
-      document.getElementById('catOR').innerText = `${r.oddsRatio.toFixed(2)} [${r.orCI95[0].toFixed(2)}, ${r.orCI95[1].toFixed(2)}]`;
-      document.getElementById('catRR').innerText = `${r.relativeRisk.toFixed(2)} [${r.rrCI95[0].toFixed(2)}, ${r.rrCI95[1].toFixed(2)}]`;
-      document.getElementById('catChiSq').innerText = res.chiSquare.standard.toFixed(2);
-      document.getElementById('catPVal').innerText = `p = ${res.chiSquare.pValueStandard < 0.001 ? '< .001' : res.chiSquare.pValueStandard.toFixed(3)}`;
-      document.getElementById('catFisher').innerText = Exporter.formatP(res.fishersExact.pValue);
-      document.getElementById('catNNT').innerText = isFinite(r.nnt) ? r.nnt.toFixed(1) : '∞';
+      if (mode === 'diagnostic') {
+        if (cornerHeader) cornerHeader.innerText = 'Test \\ Ref';
+        if (col1Header) col1Header.innerText = 'Gold Standard (+)';
+        if (col2Header) col2Header.innerText = 'Gold Standard (-)';
+        if (row1Header) row1Header.innerText = 'New Test (+)';
+        if (row2Header) row2Header.innerText = 'New Test (-)';
+        if (labelA) labelA.innerText = 'True Positive (TP)';
+        if (labelB) labelB.innerText = 'False Positive (FP)';
+        if (labelC) labelC.innerText = 'False Negative (FN)';
+        if (labelD) labelD.innerText = 'True Negative (TN)';
+        if (explanation) explanation.innerText = 'Evaluates index test accuracy against the reference standard: Sensitivity, Specificity, PPV, NPV, Overall Accuracy (Wilson Score 95% CIs), and Likelihood Ratios.';
+        if (diagGrid) diagGrid.style.display = 'grid';
+        if (studyGrid) studyGrid.style.display = 'none';
+        if (reportTitle) reportTitle.innerText = 'Diagnostic Performance & Accuracy Report (STARD compliant)';
 
-      const report = `2x2 contingency analysis (N = ${res.table.n}): Pearson χ²(1) = ${res.chiSquare.standard.toFixed(2)}, ${Exporter.formatP(res.chiSquare.pValueStandard)} (Fisher's exact ${Exporter.formatP(res.fishersExact.pValue)}). Odds Ratio = ${r.oddsRatio.toFixed(2)} (95% CI [${r.orCI95[0].toFixed(2)}, ${r.orCI95[1].toFixed(2)}]), Relative Risk = ${r.relativeRisk.toFixed(2)}, NNT = ${isFinite(r.nnt) ? r.nnt.toFixed(1) : 'N/A'}.`;
-      document.getElementById('catReportText').innerText = report;
+        const res = Diagnostic.evaluate2x2(a, b, c, d);
+        if (res.error) {
+          document.getElementById('catReportText').innerText = res.error;
+          return;
+        }
+
+        const formatPct = (val) => `${(val * 100).toFixed(1)}%`;
+        const formatCI = (ci) => `95% CI: [${(ci[0] * 100).toFixed(1)}%, ${(ci[1] * 100).toFixed(1)}%]`;
+
+        const sensEl = document.getElementById('diagSens');
+        if (sensEl) sensEl.innerText = formatPct(res.sensitivity);
+        const sensCIEl = document.getElementById('diagSensCI');
+        if (sensCIEl) sensCIEl.innerText = formatCI(res.sensitivityCI95);
+
+        const specEl = document.getElementById('diagSpec');
+        if (specEl) specEl.innerText = formatPct(res.specificity);
+        const specCIEl = document.getElementById('diagSpecCI');
+        if (specCIEl) specCIEl.innerText = formatCI(res.specificityCI95);
+
+        const ppvEl = document.getElementById('diagPPV');
+        if (ppvEl) ppvEl.innerText = formatPct(res.ppv);
+        const ppvCIEl = document.getElementById('diagPPVCI');
+        if (ppvCIEl) ppvCIEl.innerText = formatCI(res.ppvCI95);
+
+        const npvEl = document.getElementById('diagNPV');
+        if (npvEl) npvEl.innerText = formatPct(res.npv);
+        const npvCIEl = document.getElementById('diagNPVCI');
+        if (npvCIEl) npvCIEl.innerText = formatCI(res.npvCI95);
+
+        const accEl = document.getElementById('diagAcc');
+        if (accEl) accEl.innerText = formatPct(res.accuracy);
+        const accCIEl = document.getElementById('diagAccCI');
+        if (accCIEl) accCIEl.innerText = formatCI(res.accuracyCI95);
+
+        const lrEl = document.getElementById('diagLR');
+        if (lrEl) lrEl.innerText = `LR+ ${isFinite(res.plr) ? res.plr.toFixed(2) : '∞'} | LR- ${isFinite(res.nlr) ? res.nlr.toFixed(2) : '0'}`;
+
+        const youdenEl = document.getElementById('diagYouden');
+        if (youdenEl) youdenEl.innerText = `Youden's J: ${res.youdenJ.toFixed(3)} | Prev: ${formatPct(res.prevalence)}`;
+
+        const report = `Diagnostic test evaluation against gold standard reference (Total N = ${res.total}): Overall Accuracy = ${formatPct(res.accuracy)} (${formatCI(res.accuracyCI95)}). ` +
+          `Sensitivity (TPR) = ${formatPct(res.sensitivity)} (${formatCI(res.sensitivityCI95)}), ` +
+          `Specificity (TNR) = ${formatPct(res.specificity)} (${formatCI(res.specificityCI95)}). ` +
+          `Positive Predictive Value (PPV) = ${formatPct(res.ppv)} (${formatCI(res.ppvCI95)}), ` +
+          `Negative Predictive Value (NPV) = ${formatPct(res.npv)} (${formatCI(res.npvCI95)}). ` +
+          `Positive Likelihood Ratio (LR+) = ${isFinite(res.plr) ? res.plr.toFixed(2) : 'N/A'}, ` +
+          `Negative Likelihood Ratio (LR-) = ${isFinite(res.nlr) ? res.nlr.toFixed(2) : 'N/A'}, ` +
+          `Youden's J index = ${res.youdenJ.toFixed(3)}, Sample Disease Prevalence = ${formatPct(res.prevalence)}.`;
+
+        document.getElementById('catReportText').innerText = report;
+      } else {
+        if (cornerHeader) cornerHeader.innerText = 'Cohort \\ Event';
+        if (col1Header) col1Header.innerText = 'Intervention';
+        if (col2Header) col2Header.innerText = 'Control';
+        if (row1Header) row1Header.innerText = 'Event (+)';
+        if (row2Header) row2Header.innerText = 'No Event (-)';
+        if (labelA) labelA.innerText = 'Treated Event';
+        if (labelB) labelB.innerText = 'Control Event';
+        if (labelC) labelC.innerText = 'Treated No Event';
+        if (labelD) labelD.innerText = 'Control No Event';
+        if (explanation) explanation.innerText = 'Instant computation of Odds Ratio (Woolf 95% CI), Relative Risk, Absolute Risk Reduction, Number Needed to Treat (NNT), Pearson Chi-Square, and Fisher\'s exact test.';
+        if (diagGrid) diagGrid.style.display = 'none';
+        if (studyGrid) studyGrid.style.display = 'grid';
+        if (reportTitle) reportTitle.innerText = 'Epidemiological & Clinical Risk Report';
+
+        const res = Categorical.twoByTwo(a, b, c, d);
+        if (res.error) {
+          document.getElementById('catReportText').innerText = res.error;
+          return;
+        }
+
+        const r = res.riskMetrics;
+        document.getElementById('catOR').innerText = `${r.oddsRatio.toFixed(2)} [${r.orCI95[0].toFixed(2)}, ${r.orCI95[1].toFixed(2)}]`;
+        document.getElementById('catRR').innerText = `${r.relativeRisk.toFixed(2)} [${r.rrCI95[0].toFixed(2)}, ${r.rrCI95[1].toFixed(2)}]`;
+        document.getElementById('catChiSq').innerText = res.chiSquare.standard.toFixed(2);
+        document.getElementById('catPVal').innerText = `p = ${res.chiSquare.pValueStandard < 0.001 ? '< .001' : res.chiSquare.pValueStandard.toFixed(3)}`;
+        document.getElementById('catFisher').innerText = Exporter.formatP(res.fishersExact.pValue);
+        document.getElementById('catNNT').innerText = isFinite(r.nnt) ? r.nnt.toFixed(1) : '∞';
+
+        const arrSubEl = document.getElementById('catARRSub');
+        if (arrSubEl) arrSubEl.innerText = `ARR: ${(r.arr * 100).toFixed(1)}%`;
+        const rrrEl = document.getElementById('catRRR');
+        if (rrrEl) rrrEl.innerText = isFinite(r.rrr) ? `${(r.rrr * 100).toFixed(1)}%` : 'N/A';
+
+        const report = `2x2 contingency analysis (N = ${res.table.n}): Pearson χ²(1) = ${res.chiSquare.standard.toFixed(2)}, ${Exporter.formatP(res.chiSquare.pValueStandard)} (Fisher's exact ${Exporter.formatP(res.fishersExact.pValue)}). Odds Ratio = ${r.oddsRatio.toFixed(2)} (95% CI [${r.orCI95[0].toFixed(2)}, ${r.orCI95[1].toFixed(2)}]), Relative Risk = ${r.relativeRisk.toFixed(2)} (95% CI [${r.rrCI95[0].toFixed(2)}, ${r.rrCI95[1].toFixed(2)}]), Absolute Risk Reduction (ARR) = ${(r.arr * 100).toFixed(1)}%, Number Needed to Treat (NNT) = ${isFinite(r.nnt) ? r.nnt.toFixed(1) : 'N/A'}.`;
+        document.getElementById('catReportText').innerText = report;
+      }
     }
 
     runCorr() {
