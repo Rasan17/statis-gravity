@@ -657,7 +657,120 @@ edgeCases.forEach(ec => {
   assert(ok, `Plots.renderTwoSampleOverlap renders without error for "${ec.name}"`);
 });
 
+console.log('--- Testing Simulation 5: Statistical Power, Type II Error, SD & SEM ---');
+
+// 1. Default Power Simulation Metrics Test
+const defPwr = Teaching.powerSimulation.getMetrics();
+assert(defPwr.sd === 4.0, `Default SD is 4.0 (got ${defPwr.sd})`);
+assert(defPwr.delta === 2.0, `Default delta is 2.0 (got ${defPwr.delta})`);
+assert(approx(defPwr.cohensD, 0.50, 1e-2), `Cohen's d is 0.50 (got ${defPwr.cohensD.toFixed(2)})`);
+assert(approx(defPwr.power, 0.80, 0.02), `Default Power is ~80% (got ${(defPwr.power * 100).toFixed(1)}%)`);
+assert(approx(defPwr.beta, 0.20, 0.02), `Default Beta is ~20% (got ${(defPwr.beta * 100).toFixed(1)}%)`);
+assert(approx(defPwr.power + defPwr.beta, 1.0, 1e-5), 'Power + Beta identically equals 1.0');
+assert(defPwr.n >= 60 && defPwr.n <= 68, `Required sample size per group for 80% power at d=0.50 is ~64 (got ${defPwr.n})`);
+assert(approx(defPwr.sem, defPwr.sd / Math.sqrt(defPwr.n), 1e-4), 'SEM mathematically equals SD / sqrt(n)');
+assert(approx(defPwr.seDiff, Math.SQRT2 * defPwr.sem, 1e-4), 'SE_diff mathematically equals sqrt(2) * SEM');
+assert(defPwr.powerRating.includes('ADEQUATE'), `Power rating at 80% contains ADEQUATE (got ${defPwr.powerRating})`);
+
+// 2. Bidirectional Coupling: Power -> Sample Size
+const pwr90 = Teaching.powerSimulation.getMetrics({ power: 0.90, lastChanged: 'power' });
+assert(pwr90.n > defPwr.n, `Increasing Power to 90% increases required n: from ${defPwr.n} to ${pwr90.n}`);
+assert(approx(pwr90.beta, 0.10, 0.02), `Beta at 90% power is ~10% (got ${(pwr90.beta * 100).toFixed(1)}%)`);
+
+// 3. Bidirectional Coupling: Beta -> Power & Sample Size
+const pwrBeta05 = Teaching.powerSimulation.getMetrics({ beta: 0.05, lastChanged: 'beta' });
+assert(approx(pwrBeta05.power, 0.95, 0.01), `Setting Beta=0.05 sets Power to ~95% (got ${(pwrBeta05.power * 100).toFixed(1)}%)`);
+assert(pwrBeta05.n > pwr90.n, `95% power requires larger sample size than 90% power (${pwrBeta05.n} vs ${pwr90.n})`);
+
+// 4. Bidirectional Coupling: SEM -> Sample Size & Power
+const pwrSemSmall = Teaching.powerSimulation.getMetrics({ sd: 4.0, sem: 0.25, lastChanged: 'sem' });
+assert(pwrSemSmall.n === 256, `Setting SEM=0.25 with SD=4.0 yields n=(4/0.25)^2=256 (got ${pwrSemSmall.n})`);
+assert(pwrSemSmall.power > 0.99, `Large n=256 drives power above 99% (got ${(pwrSemSmall.power * 100).toFixed(2)}%)`);
+
+// 5. Bidirectional Coupling: Sample Size n -> SEM & Power
+const pwrN16 = Teaching.powerSimulation.getMetrics({ sd: 4.0, n: 16, delta: 2.0, lastChanged: 'n' });
+assert(approx(pwrN16.sem, 1.0, 1e-4), `Sample size n=16 with SD=4.0 gives SEM=1.0 (got ${pwrN16.sem})`);
+assert(pwrN16.power < 0.40, `Underpowered sample n=16 yields low power (got ${(pwrN16.power * 100).toFixed(1)}%)`);
+assert(pwrN16.powerRating.includes('UNDERPOWERED'), `n=16 correctly rated as UNDERPOWERED (got ${pwrN16.powerRating})`);
+
+// 6. Alpha Impact on Power
+const pwrStrictAlpha = Teaching.powerSimulation.getMetrics({ n: 64, sd: 4.0, delta: 2.0, alpha: 0.01, lastChanged: 'alpha' });
+assert(pwrStrictAlpha.xCrit > defPwr.xCrit, `Strict alpha 0.01 increases critical cutoff xcrit: ${pwrStrictAlpha.xCrit.toFixed(3)} vs ${defPwr.xCrit.toFixed(3)}`);
+assert(pwrStrictAlpha.power < defPwr.power, `Strict alpha 0.01 lowers power for identical sample size: ${(pwrStrictAlpha.power * 100).toFixed(1)}% vs ${(defPwr.power * 100).toFixed(1)}%`);
+
+// 7. Curve Points Monotonicity
+assert(Array.isArray(defPwr.curvePoints) && defPwr.curvePoints.length === 18, `Curve points contains 18 calculated points (got ${defPwr.curvePoints.length})`);
+let isMonotonic = true;
+for (let i = 1; i < defPwr.curvePoints.length; i++) {
+  if (defPwr.curvePoints[i].power < defPwr.curvePoints[i - 1].power - 1e-5) {
+    isMonotonic = false;
+    break;
+  }
+}
+assert(isMonotonic, 'Power vs Sample Size curve points are monotonically non-decreasing');
+
+// 8. Decision Error Matrix Validations
+const mat = defPwr.matrix;
+assert(approx(mat.trueNegative + mat.falsePositive, 1.0, 1e-5), 'Decision Matrix Row 1 (H0 True) sums to 1.0 (Specificity + Type I Error)');
+assert(approx(mat.falseNegative + mat.truePositive, 1.0, 1e-5), 'Decision Matrix Row 2 (H1 True) sums to 1.0 (Beta + Power)');
+assert(mat.falsePositive === defPwr.alpha, `Type I Error in matrix matches alpha (${mat.falsePositive})`);
+assert(approx(mat.truePositive, defPwr.power, 1e-4), `Power in matrix matches calculated power (${mat.truePositive})`);
+
+// 9. Canvas Rendering Test across all 3 view modes
+['distributions', 'curve', 'matrix'].forEach(mode => {
+  let ok = false;
+  try {
+    Plots.renderPowerSimulation(mockEngine, { ...defPwr, viewMode: mode });
+    ok = true;
+  } catch (err) {
+    console.error(`Render error in ${mode}:`, err);
+    ok = false;
+  }
+  assert(ok, `Plots.renderPowerSimulation renders cleanly in "${mode}" mode`);
+});
+
+// 10. Robustness against extreme parameters
+const pwrEdgeCases = [
+  { name: 'Minimal Sample n=4', params: { n: 4, sd: 5.0, delta: 0.5, lastChanged: 'n' } },
+  { name: 'Maximum Sample n=1000', params: { n: 1000, sd: 2.0, delta: 3.0, lastChanged: 'n' } },
+  { name: 'Tiny SD=0.2', params: { sd: 0.2, delta: 1.0, n: 10, lastChanged: 'sd' } },
+  { name: 'Extreme Power=0.999', params: { power: 0.999, lastChanged: 'power' } },
+  { name: 'Low Power=0.50', params: { power: 0.50, lastChanged: 'power' } }
+];
+
+pwrEdgeCases.forEach(ec => {
+  const m = Teaching.powerSimulation.getMetrics(ec.params);
+  let ok = true;
+  ['distributions', 'curve', 'matrix'].forEach(mode => {
+    try {
+      Plots.renderPowerSimulation(mockEngine, { ...m, viewMode: mode });
+    } catch {
+      ok = false;
+    }
+  });
+  assert(ok, `Plots.renderPowerSimulation handles "${ec.name}" without exceptions`);
+});
+
+// 11. DOCX Report Generator with Power Simulation Data
+let docxPass = false;
+try {
+  const docx = DocxReports.createTeachingDocx({
+    dist: { name: 'Normal Distribution', n: 100, mean: 12, sd: 3, normality: { isNormal: true } },
+    clt: { sampleSize: 30, samplesDrawn: 500, population: { name: 'Uniform' } },
+    tConv: Teaching.tConvergence.getMetrics(16),
+    overlap: Teaching.significanceOverlap.getMetrics(),
+    power: defPwr
+  });
+  const blob = docx.generateBlob();
+  docxPass = blob && blob.size > 1000;
+} catch (err) {
+  console.error('Docx generation error:', err);
+  docxPass = false;
+}
+assert(docxPass, 'DocxReports.createTeachingDocx successfully bundles Section 5 Power Simulation data into valid DOCX package');
+
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);
+
 
 

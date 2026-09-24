@@ -709,6 +709,140 @@ export const Teaching = {
         explanation
       };
     }
+  },
+
+  /**
+   * Statistical Power (1 - beta), Type II Error (beta), SD & SEM Simulator
+   * Explains how sample size, biological variation (SD), and precision (SEM = SD / sqrt(n))
+   * govern statistical power (1 - beta) and Type II error rate (beta).
+   */
+  powerSimulation: {
+    getMetrics({
+      sd = 4.0,
+      sem = null,
+      n = null,
+      beta = null,
+      power = null,
+      delta = 2.0,
+      alpha = 0.05,
+      viewMode = 'distributions',
+      lastChanged = 'power'
+    } = {}) {
+      const sigAlpha = Math.min(0.20, Math.max(0.001, parseFloat(alpha) || 0.05));
+      const zCrit = Distributions.invNormalCDF(1 - sigAlpha / 2);
+      const dMu = Math.max(0.1, parseFloat(delta) !== undefined && !isNaN(parseFloat(delta)) ? parseFloat(delta) : 2.0);
+      const sigma = Math.max(0.2, parseFloat(sd) !== undefined && !isNaN(parseFloat(sd)) ? parseFloat(sd) : 4.0);
+
+      let sampleN, sError, pwr, bta;
+
+      if (lastChanged === 'power' && power !== null && power !== undefined) {
+        pwr = Math.min(0.999, Math.max(0.50, parseFloat(power)));
+        bta = 1.0 - pwr;
+        const zBeta = Distributions.invNormalCDF(pwr);
+        sampleN = Math.max(4, Math.min(1000, Math.round(2 * Math.pow(zCrit + zBeta, 2) * Math.pow(sigma, 2) / Math.pow(dMu, 2))));
+        sError = sigma / Math.sqrt(sampleN);
+      } else if (lastChanged === 'beta' && beta !== null && beta !== undefined) {
+        bta = Math.min(0.50, Math.max(0.001, parseFloat(beta)));
+        pwr = 1.0 - bta;
+        const zBeta = Distributions.invNormalCDF(pwr);
+        sampleN = Math.max(4, Math.min(1000, Math.round(2 * Math.pow(zCrit + zBeta, 2) * Math.pow(sigma, 2) / Math.pow(dMu, 2))));
+        sError = sigma / Math.sqrt(sampleN);
+      } else if (lastChanged === 'sem' && sem !== null && sem !== undefined) {
+        sError = Math.max(0.01, parseFloat(sem));
+        sampleN = Math.max(4, Math.min(1000, Math.round(Math.pow(sigma / sError, 2))));
+        sError = sigma / Math.sqrt(sampleN);
+        const seDiff = sigma * Math.sqrt(2 / sampleN);
+        const lambda = dMu / seDiff;
+        pwr = Math.max(0.001, Math.min(0.999, Distributions.normalCDF(lambda - zCrit)));
+        bta = 1.0 - pwr;
+      } else {
+        sampleN = Math.max(4, Math.min(1000, Math.round(n !== null && n !== undefined ? n : 64)));
+        sError = sigma / Math.sqrt(sampleN);
+        const seDiff = sigma * Math.sqrt(2 / sampleN);
+        const lambda = dMu / seDiff;
+        pwr = Math.max(0.001, Math.min(0.999, Distributions.normalCDF(lambda - zCrit)));
+        bta = 1.0 - pwr;
+      }
+
+      // Exact SE difference between two group means: SE_diff = sigma * sqrt(2/n) = sqrt(2) * SEM
+      const seDiff = sigma * Math.sqrt(2 / sampleN);
+      const lambda = seDiff > 0 ? dMu / seDiff : 0;
+      const calculatedPower = Math.max(0.001, Math.min(0.999, Distributions.normalCDF(lambda - zCrit)));
+      const calculatedBeta = 1.0 - calculatedPower;
+
+      // Critical cutoff in raw metric difference units
+      const xCrit = zCrit * seDiff;
+
+      // Effect size: Cohen's d
+      const cohensD = sigma > 0 ? dMu / sigma : 0;
+
+      // Decision Matrix cells (for 2x2 Error Matrix view)
+      const matrix = {
+        trueNegative: 1 - sigAlpha,     // Specificity
+        falsePositive: sigAlpha,         // Type I error (alpha)
+        falseNegative: calculatedBeta,   // Type II error (beta)
+        truePositive: calculatedPower    // Sensitivity / Power (1 - beta)
+      };
+
+      // Power Curve Data across range of n (from 4 to 250)
+      const curvePoints = [];
+      const nSteps = [4, 6, 8, 10, 14, 18, 24, 30, 38, 48, 60, 75, 90, 110, 135, 165, 200, 250];
+      for (const curN of nSteps) {
+        const curSEDiff = sigma * Math.sqrt(2 / curN);
+        const curLam = curSEDiff > 0 ? dMu / curSEDiff : 0;
+        const curPwr = Math.max(0, Math.min(1.0, Distributions.normalCDF(curLam - zCrit)));
+        curvePoints.push({ n: curN, power: curPwr });
+      }
+
+      // Pedagogical explanation narrative
+      let powerRating = '';
+      if (calculatedPower >= 0.90) {
+        powerRating = 'EXCELLENT (≥ 90%)';
+      } else if (calculatedPower >= 0.80) {
+        powerRating = 'ADEQUATE / REGULATORY STANDARD (80% - 90%)';
+      } else if (calculatedPower >= 0.60) {
+        powerRating = 'BORDERLINE / SUBOPTIMAL (60% - 80%)';
+      } else {
+        powerRating = 'SEVERELY UNDERPOWERED (< 60%)';
+      }
+
+      let explanation = '';
+      if (calculatedPower >= 0.80) {
+        explanation = `The study is well-powered (${(calculatedPower * 100).toFixed(1)}% Power at α = ${sigAlpha.toFixed(3)}). ` +
+          `With a sample size of n = ${sampleN} per group (N = ${sampleN * 2} total), the standard error of the mean contracts to SEM = ${sError.toFixed(3)} ` +
+          `(SE_diff = ${seDiff.toFixed(3)}), ensuring that the sampling distribution of a true difference Δ = ${dMu.toFixed(2)} (Cohen's d = ${cohensD.toFixed(2)}) ` +
+          `is shifted far to the right of the significance boundary (xcrit = ${xCrit.toFixed(2)}). ` +
+          `The Type II error risk is contained to β = ${(calculatedBeta * 100).toFixed(1)}%, meaning there is only a 1-in-${Math.round(1 / Math.max(0.001, calculatedBeta))} risk of a false-negative trial outcome.`;
+      } else {
+        explanation = `The study is UNDERPOWERED (${(calculatedPower * 100).toFixed(1)}% Power at α = ${sigAlpha.toFixed(3)}). ` +
+          `Because sample size (n = ${sampleN} per group) is insufficient for the biological noise level (SD = ${sigma.toFixed(2)}), the SEM is wide (SEM = ${sError.toFixed(3)}), ` +
+          `causing the H₁ distribution to heavily overlap the null acceptance region. ` +
+          `The Type II error rate is β = ${(calculatedBeta * 100).toFixed(1)}% — meaning you have a ${(calculatedBeta * 100).toFixed(0)}% chance of failing to detect a truly effective medical intervention! ` +
+          `To reach the clinical gold standard (80% power), you must either recruit more patients (reduce SEM to ${(sigma / Math.sqrt(2 * Math.pow(zCrit + 0.842, 2) * Math.pow(sigma, 2) / Math.pow(dMu, 2))).toFixed(3)}) or reduce measurement error.`;
+      }
+
+      return {
+        sd: sigma,
+        sem: sError,
+        n: sampleN,
+        totalN: sampleN * 2,
+        power: calculatedPower,
+        beta: calculatedBeta,
+        delta: dMu,
+        alpha: sigAlpha,
+        zCrit,
+        seDiff,
+        lambda,
+        xCrit,
+        cohensD,
+        viewMode,
+        matrix,
+        curvePoints,
+        powerRating,
+        explanation
+      };
+    }
   }
 };
+
 

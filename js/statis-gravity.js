@@ -2088,6 +2088,127 @@
           explanation
         };
       }
+    },
+
+    powerSimulation: {
+      getMetrics({
+        sd = 4.0,
+        sem = null,
+        n = null,
+        beta = null,
+        power = null,
+        delta = 2.0,
+        alpha = 0.05,
+        viewMode = 'distributions',
+        lastChanged = 'power'
+      } = {}) {
+        const sigAlpha = Math.min(0.20, Math.max(0.001, parseFloat(alpha) || 0.05));
+        const zCrit = Distributions.invNormalCDF(1 - sigAlpha / 2);
+        const dMu = Math.max(0.1, parseFloat(delta) !== undefined && !isNaN(parseFloat(delta)) ? parseFloat(delta) : 2.0);
+        const sigma = Math.max(0.2, parseFloat(sd) !== undefined && !isNaN(parseFloat(sd)) ? parseFloat(sd) : 4.0);
+
+        let sampleN, sError, pwr, bta;
+
+        if (lastChanged === 'power' && power !== null && power !== undefined) {
+          pwr = Math.min(0.999, Math.max(0.50, parseFloat(power)));
+          bta = 1.0 - pwr;
+          const zBeta = Distributions.invNormalCDF(pwr);
+          sampleN = Math.max(4, Math.min(1000, Math.round(2 * Math.pow(zCrit + zBeta, 2) * Math.pow(sigma, 2) / Math.pow(dMu, 2))));
+          sError = sigma / Math.sqrt(sampleN);
+        } else if (lastChanged === 'beta' && beta !== null && beta !== undefined) {
+          bta = Math.min(0.50, Math.max(0.001, parseFloat(beta)));
+          pwr = 1.0 - bta;
+          const zBeta = Distributions.invNormalCDF(pwr);
+          sampleN = Math.max(4, Math.min(1000, Math.round(2 * Math.pow(zCrit + zBeta, 2) * Math.pow(sigma, 2) / Math.pow(dMu, 2))));
+          sError = sigma / Math.sqrt(sampleN);
+        } else if (lastChanged === 'sem' && sem !== null && sem !== undefined) {
+          sError = Math.max(0.01, parseFloat(sem));
+          sampleN = Math.max(4, Math.min(1000, Math.round(Math.pow(sigma / sError, 2))));
+          sError = sigma / Math.sqrt(sampleN);
+          const seDiff = sigma * Math.sqrt(2 / sampleN);
+          const lambda = dMu / seDiff;
+          pwr = Math.max(0.001, Math.min(0.999, Distributions.normalCDF(lambda - zCrit)));
+          bta = 1.0 - pwr;
+        } else {
+          sampleN = Math.max(4, Math.min(1000, Math.round(n !== null && n !== undefined ? n : 64)));
+          sError = sigma / Math.sqrt(sampleN);
+          const seDiff = sigma * Math.sqrt(2 / sampleN);
+          const lambda = dMu / seDiff;
+          pwr = Math.max(0.001, Math.min(0.999, Distributions.normalCDF(lambda - zCrit)));
+          bta = 1.0 - pwr;
+        }
+
+        const seDiff = sigma * Math.sqrt(2 / sampleN);
+        const lambda = seDiff > 0 ? dMu / seDiff : 0;
+        const calculatedPower = Math.max(0.001, Math.min(0.999, Distributions.normalCDF(lambda - zCrit)));
+        const calculatedBeta = 1.0 - calculatedPower;
+
+        const xCrit = zCrit * seDiff;
+        const cohensD = sigma > 0 ? dMu / sigma : 0;
+
+        const matrix = {
+          trueNegative: 1 - sigAlpha,
+          falsePositive: sigAlpha,
+          falseNegative: calculatedBeta,
+          truePositive: calculatedPower
+        };
+
+        const curvePoints = [];
+        const nSteps = [4, 6, 8, 10, 14, 18, 24, 30, 38, 48, 60, 75, 90, 110, 135, 165, 200, 250];
+        for (const curN of nSteps) {
+          const curSEDiff = sigma * Math.sqrt(2 / curN);
+          const curLam = curSEDiff > 0 ? dMu / curSEDiff : 0;
+          const curPwr = Math.max(0, Math.min(1.0, Distributions.normalCDF(curLam - zCrit)));
+          curvePoints.push({ n: curN, power: curPwr });
+        }
+
+        let powerRating = '';
+        if (calculatedPower >= 0.90) {
+          powerRating = 'EXCELLENT (≥ 90%)';
+        } else if (calculatedPower >= 0.80) {
+          powerRating = 'ADEQUATE / REGULATORY STANDARD (80% - 90%)';
+        } else if (calculatedPower >= 0.60) {
+          powerRating = 'BORDERLINE / SUBOPTIMAL (60% - 80%)';
+        } else {
+          powerRating = 'SEVERELY UNDERPOWERED (< 60%)';
+        }
+
+        let explanation = '';
+        if (calculatedPower >= 0.80) {
+          explanation = `The study is well-powered (${(calculatedPower * 100).toFixed(1)}% Power at α = ${sigAlpha.toFixed(3)}). ` +
+            `With a sample size of n = ${sampleN} per group (N = ${sampleN * 2} total), the standard error of the mean contracts to SEM = ${sError.toFixed(3)} ` +
+            `(SE_diff = ${seDiff.toFixed(3)}), ensuring that the sampling distribution of a true difference Δ = ${dMu.toFixed(2)} (Cohen's d = ${cohensD.toFixed(2)}) ` +
+            `is shifted far to the right of the significance boundary (xcrit = ${xCrit.toFixed(2)}). ` +
+            `The Type II error risk is contained to β = ${(calculatedBeta * 100).toFixed(1)}%, meaning there is only a 1-in-${Math.round(1 / Math.max(0.001, calculatedBeta))} risk of a false-negative trial outcome.`;
+        } else {
+          explanation = `The study is UNDERPOWERED (${(calculatedPower * 100).toFixed(1)}% Power at α = ${sigAlpha.toFixed(3)}). ` +
+            `Because sample size (n = ${sampleN} per group) is insufficient for the biological noise level (SD = ${sigma.toFixed(2)}), the SEM is wide (SEM = ${sError.toFixed(3)}), ` +
+            `causing the H₁ distribution to heavily overlap the null acceptance region. ` +
+            `The Type II error rate is β = ${(calculatedBeta * 100).toFixed(1)}% — meaning you have a ${(calculatedBeta * 100).toFixed(0)}% chance of failing to detect a truly effective medical intervention! ` +
+            `To reach the clinical gold standard (80% power), you must either recruit more patients (reduce SEM to ${(sigma / Math.sqrt(2 * Math.pow(zCrit + 0.842, 2) * Math.pow(sigma, 2) / Math.pow(dMu, 2))).toFixed(3)}) or reduce measurement error.`;
+        }
+
+        return {
+          sd: sigma,
+          sem: sError,
+          n: sampleN,
+          totalN: sampleN * 2,
+          power: calculatedPower,
+          beta: calculatedBeta,
+          delta: dMu,
+          alpha: sigAlpha,
+          zCrit,
+          seDiff,
+          lambda,
+          xCrit,
+          cohensD,
+          viewMode,
+          matrix,
+          curvePoints,
+          powerRating,
+          explanation
+        };
+      }
     }
   };
 
@@ -3037,10 +3158,29 @@ const DocxReports = {
       );
     }
 
+    if (data.power) {
+      d.addHeading2('Statistical Power (1 − β), Type II Error (β), SD & SEM Simulation Results');
+      d.addTable(
+        ['Power & Precision Parameter', 'Simulated Value', 'Clinical & Regulatory Significance'],
+        [
+          ['Statistical Power (1 − β)', `${(data.power.power * 100).toFixed(1)}%`, `Sensitivity / True positive detection rate (${data.power.powerRating})`],
+          ['Type II Error Rate (Beta, β)', `${(data.power.beta * 100).toFixed(1)}%`, 'Probability of failing to detect a true treatment difference (false negative risk)'],
+          ['Required Sample Size per Group (n)', `n = ${data.power.n} patients`, `Total trial recruitment: N = ${data.power.totalN} patients across 2 treatment arms`],
+          ['Target Mean Difference (Δ)', `Δ = ${data.power.delta.toFixed(2)}`, 'Minimum clinically important difference (MCID) between treatment means'],
+          ['Patient Standard Deviation (SD, σ)', `SD = ${data.power.sd.toFixed(2)}`, 'Biological variability among patients; higher SD inflates required sample size'],
+          ['Standard Error of the Mean (SEM)', `SEM = ${data.power.sem.toFixed(3)}`, 'Precision of mean estimate: SEM = SD / √n; shrinking SEM separates curves and drives Power'],
+          ['Standard Error of Difference (SE_diff)', `SE_diff = ${data.power.seDiff.toFixed(3)}`, 'Combined estimation error: σ · √(2/n) = √2 · SEM'],
+          ['Standardized Effect Size (Cohen\'s d)', `d = ${data.power.cohensD.toFixed(2)}`, `${data.power.cohensD >= 0.8 ? 'Large effect' : (data.power.cohensD >= 0.5 ? 'Medium effect' : 'Small effect')} (d = Δ / SD)`],
+          ['Critical Significance Cutoff (xcrit)', `xcrit = ${data.power.xCrit.toFixed(3)}`, `Boundary beyond which H₀ is rejected: xcrit = z_crit · SE_diff at α = ${data.power.alpha.toFixed(3)}`],
+          ['Non-Centrality Parameter (λ)', `λ = ${data.power.lambda.toFixed(3)}`, 'Signal-to-noise ratio shifting the H₁ distribution: λ = Δ / SE_diff']
+        ]
+      );
+    }
+
     d.addHeading1('3. Clinical & Statistical Interpretation');
     d.addCalloutBox(
       'Pedagogical Synthesis & Clinical Trial Relevance',
-      data.reportText || 'The Central Limit Theorem, Student\'s t convergence, and Two-Sample Overlap simulations demonstrate the mathematical foundations of parametric testing and the definition of alpha in clinical trials.',
+      data.reportText || 'The Central Limit Theorem, Student\'s t convergence, Two-Sample Overlap, and Statistical Power simulations demonstrate the mathematical foundations of parametric testing, the definition of alpha, and sample size determination in clinical trials.',
       'F0FDF4',
       '16A34A'
     );
@@ -3052,6 +3192,8 @@ const DocxReports = {
     d.addBullet('Why α = 0.05 Defines the Point of Significance: In 1925, Ronald A. Fisher proposed the 5% significance level (p < 0.05) as a pragmatic convention for scientific research—representing a 1 in 20 chance of observing an effect as extreme under the null hypothesis of no difference. On a standard Gaussian distribution, exactly 5% of probability mass lies in the tails beyond ±1.960 standard errors (2.5% in each tail). Hence, the critical separation distance between sample means is Δcrit = 1.960 · SE_diff. When the observed difference Δ exceeds Δcrit, the p-value falls below 0.05.');
     d.addBullet('The Fundamental Distinction Between SD and SEM: Standard Deviation (SD) reflects real inter-individual biological diversity among patients and does not contract when sample size increases. In contrast, the Standard Error of the Mean (SEM = SD/√n) quantifies our uncertainty in the population mean estimate and contracts steadily as 1/√n. Consequently, two treatment groups can exhibit 70% biological overlap in individual patient scores, yet their treatment difference can be verified as statistically significant (p < 0.001) once sufficient patients are enrolled to shrink the SEM.');
     d.addBullet('Consequences of Modifying Alpha (α): Relaxing α to 0.10 moves the critical cutoff inward to z = 1.645, lowering the required separation Δcrit and declaring significance on smaller differences or smaller sample sizes, at the expense of doubling the false-positive risk to 10%. Tightening α to 0.01 (z = 2.576) or 0.001 (z = 3.291), as required in confirmatory registration trials or genome-wide studies, shifts the cutoff outward into the extreme tails, demanding either much larger effect sizes or substantially expanded sample sizes before significance can be claimed.');
+    d.addBullet('Statistical Power (1 − β) as the Scientific Safeguard Against False Negatives: While alpha (α = 0.05) strictly caps the risk of a false positive, statistical power (1 − β) measures the study\'s ability to identify a genuine therapeutic effect. An underpowered trial (e.g. 50% power) is ethically and scientifically problematic because patients undergo experimental risk when the study has only a coin-toss probability of reaching definitive conclusions.');
+    d.addBullet('The Interplay of SD, SEM, Beta, and Power: The non-centrality parameter λ = Δ / (SD · √(2/n)) controls the separation between null and alternative distributions. Because SEM = SD / √n, doubling the sample size shrinks SEM by 1.414, drawing the distributions apart and collapsing the Type II error region β.');
 
     d.addHeading1('5. Background Statistical Knowledge & Medical Research Context');
     d.addParagraph('Mathematical Formulations:');
@@ -3060,7 +3202,12 @@ const DocxReports = {
     d.addBullet('Standard Error of the Mean: SEM = σ / √n. Quadrupling patient enrollment cuts the estimation uncertainty in half.');
     d.addBullet('Weitzman\'s Distribution Overlap Coefficient (OVL): For two equal-variance Gaussian curves separated by difference Δ: OVL = 2 · Φ(-|Δ| / (2 · s)), where s = SD for patient-level overlap and s = SEM for sampling-mean-level overlap.');
     d.addBullet('Critical Significance Boundary: Δcrit = t_crit(α, df) · SD · √(2/n).');
+    d.addBullet('Two-Sample Power Formulation: 1 - β = Φ(Δ / (σ · √(2/n)) - z_{1 - α/2}).');
+    d.addBullet('Required Sample Size Equation: n = 2 · (z_{1 - α/2} + z_{1 - β})² · σ² / Δ².');
     d.addParagraph('Key Academic References:');
+    d.addBullet('Cohen J (1988). Statistical Power Analysis for the Behavioral Sciences. 2nd ed. Hillsdale, NJ: Lawrence Erlbaum Associates.');
+    d.addBullet('Moher D, Hopewell S, Schulz KF, et al. (2010). CONSORT 2010 explanation and elaboration: updated guidelines for reporting parallel group randomised trials. BMJ, 340: c869.');
+    d.addBullet('Altman DG, Bland JM (1995). Absence of evidence is not evidence of absence. BMJ, 311(7003): 485.');
     d.addBullet('Fisher RA (1925). Statistical Methods for Research Workers. Edinburgh: Oliver and Boyd.');
     d.addBullet('Cumming G, Finch S (2005). Inference by eye: confidence intervals and how to read pictures of data. Am Psychol, 60(2): 170–180.');
     d.addBullet('Student [Gosset WS] (1908). The probable error of a mean. Biometrika, 6(1): 1–25.');
@@ -5200,6 +5347,527 @@ const DocxReports = {
         ctx.fillStyle = '#f59e0b';
         ctx.fillText(`┆ Boundary: Δcrit = ${deltaCrit.toFixed(2)} at α = ${alpha.toFixed(3)} (Welch df = ${df.toFixed(1)})`, b.x + 12, b.y + 52);
       }
+    },
+
+    renderPowerSimulation(engine, metrics, options = {}) {
+      engine.lastRenderFn = () => this.renderPowerSimulation(engine, metrics, options);
+      engine.clear();
+      const b = engine.getPlotBounds ? engine.getPlotBounds() : engine.getBounds();
+      const ctx = engine.ctx;
+      const pal = engine.palette;
+
+      const {
+        sd = 4.0,
+        sem = 0.50,
+        n = 64,
+        totalN = 128,
+        power = 0.80,
+        beta = 0.20,
+        delta = 2.0,
+        alpha = 0.05,
+        zCrit = 1.96,
+        seDiff = 0.707,
+        lambda = 2.83,
+        xCrit = 1.386,
+        cohensD = 0.50,
+        viewMode = 'distributions',
+        matrix = {},
+        curvePoints = [],
+        powerRating = 'ADEQUATE'
+      } = metrics || {};
+
+      // -------------------------------------------------------------
+      // VIEW MODE 1: POWER VS SAMPLE SIZE CURVE
+      // -------------------------------------------------------------
+      if (viewMode === 'curve') {
+        const minN = 4;
+        const maxN = 250;
+        const toX = (val) => {
+          const clamped = Math.max(minN, Math.min(maxN, Number.isFinite(val) ? val : minN));
+          return b.x + ((clamped - minN) / (maxN - minN)) * b.width;
+        };
+        const toY = (val) => {
+          const clamped = Math.max(0, Math.min(1.0, Number.isFinite(val) ? val : 0));
+          return b.y + b.height - clamped * b.height;
+        };
+
+        // Draw Grid & Axes
+        ctx.strokeStyle = pal.grid;
+        ctx.lineWidth = 1;
+
+        // X grid
+        const nTicks = [4, 25, 50, 75, 100, 150, 200, 250];
+        nTicks.forEach(nVal => {
+          const xPix = toX(nVal);
+          ctx.beginPath();
+          ctx.moveTo(xPix, b.y);
+          ctx.lineTo(xPix, b.y + b.height);
+          ctx.stroke();
+
+          ctx.fillStyle = pal.textMuted;
+          ctx.font = `500 10px ${engine.options.fontFamily}`;
+          ctx.textAlign = 'center';
+          ctx.fillText(`n=${nVal}`, xPix, b.y + b.height + 15);
+        });
+
+        // Y grid
+        const pTicks = [0.2, 0.4, 0.6, 0.8, 0.9, 1.0];
+        pTicks.forEach(pVal => {
+          const yPix = toY(pVal);
+          ctx.beginPath();
+          ctx.moveTo(b.x, yPix);
+          ctx.lineTo(b.x + b.width, yPix);
+          ctx.stroke();
+
+          ctx.fillStyle = pal.textMuted;
+          ctx.font = `500 10px ${engine.options.fontFamily}`;
+          ctx.textAlign = 'right';
+          ctx.fillText(`${(pVal * 100).toFixed(0)}%`, b.x - 8, yPix + 4);
+        });
+
+        // 80% Benchmark Line (Amber/Green dashed)
+        const y80 = toY(0.80);
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(b.x, y80);
+        ctx.lineTo(b.x + b.width, y80);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#10b981';
+        ctx.font = `600 10px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'right';
+        ctx.fillText('80% Regulatory Standard', b.x + b.width - 10, y80 - 6);
+
+        // 90% Benchmark Line (Cyan dashed)
+        const y90 = toY(0.90);
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(b.x, y90);
+        ctx.lineTo(b.x + b.width, y90);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#06b6d4';
+        ctx.fillText('90% High Rigor', b.x + b.width - 10, y90 - 6);
+
+        // Shaded area under curve
+        if (curvePoints && curvePoints.length > 1) {
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.12)';
+          ctx.beginPath();
+          ctx.moveTo(toX(curvePoints[0].n), toY(0));
+          curvePoints.forEach(pt => ctx.lineTo(toX(pt.n), toY(pt.power)));
+          ctx.lineTo(toX(curvePoints[curvePoints.length - 1].n), toY(0));
+          ctx.closePath();
+          ctx.fill();
+
+          // Draw Power Curve line
+          ctx.strokeStyle = '#10b981';
+          ctx.lineWidth = 3.0;
+          ctx.beginPath();
+          curvePoints.forEach((pt, idx) => {
+            if (idx === 0) ctx.moveTo(toX(pt.n), toY(pt.power));
+            else ctx.lineTo(toX(pt.n), toY(pt.power));
+          });
+          ctx.stroke();
+        }
+
+        // Current Point Marker
+        const curXPix = toX(n);
+        const curYPix = toY(power);
+
+        // Drop lines to axes
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(curXPix, b.y + b.height);
+        ctx.lineTo(curXPix, curYPix);
+        ctx.lineTo(b.x, curYPix);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Glowing dot
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.35)';
+        ctx.beginPath();
+        ctx.arc(curXPix, curYPix, 9, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#a855f7';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        ctx.arc(curXPix, curYPix, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Tooltip Callout Box
+        const calloutText = `n = ${n} | Power = ${(power * 100).toFixed(1)}% (β = ${(beta * 100).toFixed(1)}%)`;
+        ctx.font = `700 11px ${engine.options.fontFamily}`;
+        const textWidth = ctx.measureText(calloutText).width;
+        const boxW = textWidth + 18;
+        const boxH = 26;
+        const boxX = Math.min(b.x + b.width - boxW - 8, Math.max(b.x + 8, curXPix - boxW / 2));
+        const boxY = Math.max(b.y + 8, curYPix - 38);
+
+        ctx.fillStyle = '#1e293b';
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(boxX, boxY, boxW, boxH, 6) : ctx.rect(boxX, boxY, boxW, boxH);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.textAlign = 'center';
+        ctx.fillText(calloutText, boxX + boxW / 2, boxY + 17);
+
+        // Legend
+        ctx.textAlign = 'left';
+        ctx.font = `500 11px ${engine.options.fontFamily}`;
+        ctx.fillStyle = '#10b981';
+        ctx.fillText(`— Statistical Power Curve: P(n) at Δ = ${delta.toFixed(2)}, SD = ${sd.toFixed(2)}, α = ${alpha.toFixed(3)}`, b.x + 12, b.y + 20);
+        ctx.fillStyle = '#a855f7';
+        ctx.fillText(`● Current Operating Point (n = ${n} per group, N = ${totalN}, SEM = ${sem.toFixed(3)})`, b.x + 12, b.y + 36);
+        return;
+      }
+
+      // -------------------------------------------------------------
+      // VIEW MODE 2: 2x2 DECISION ERROR MATRIX
+      // -------------------------------------------------------------
+      if (viewMode === 'matrix') {
+        const pad = 12;
+        const cardW = (b.width - pad * 3) / 2;
+        const cardH = (b.height - pad * 3) / 2;
+
+        const cells = [
+          {
+            col: 0, row: 0,
+            title: 'SPECIFICITY (1 − α)',
+            val: `${((1 - alpha) * 100).toFixed(1)}%`,
+            sub: 'True Negative Rate',
+            desc: 'H₀ is TRUE (no effect), decision is RETAIN H₀. Correct clinical conclusion: drug is correctly recognized as having no effect.',
+            color: '#38bdf8',
+            bg: 'rgba(56, 189, 248, 0.08)',
+            border: 'rgba(56, 189, 248, 0.35)',
+            pct: 1 - alpha
+          },
+          {
+            col: 1, row: 0,
+            title: 'TYPE I ERROR (α)',
+            val: `${(alpha * 100).toFixed(1)}%`,
+            sub: 'False Positive Rate (Significance Level)',
+            desc: 'H₀ is TRUE (no effect), but decision is REJECT H₀. False alarm: ineffective drug erroneously declared effective.',
+            color: '#ef4444',
+            bg: 'rgba(239, 68, 68, 0.08)',
+            border: 'rgba(239, 68, 68, 0.35)',
+            pct: alpha
+          },
+          {
+            col: 0, row: 1,
+            title: 'TYPE II ERROR (β)',
+            val: `${(beta * 100).toFixed(1)}%`,
+            sub: 'False Negative Rate',
+            desc: 'H₁ is TRUE (real effect Δ), but decision is RETAIN H₀. Missed discovery: effective therapy discarded due to lack of power!',
+            color: '#f59e0b',
+            bg: 'rgba(245, 158, 11, 0.08)',
+            border: 'rgba(245, 158, 11, 0.35)',
+            pct: beta
+          },
+          {
+            col: 1, row: 1,
+            title: 'STATISTICAL POWER (1 − β)',
+            val: `${(power * 100).toFixed(1)}%`,
+            sub: 'True Positive Rate (Sensitivity)',
+            desc: 'H₁ is TRUE (real effect Δ), and decision is REJECT H₀. Successful trial: effective therapy correctly discovered and verified!',
+            color: '#10b981',
+            bg: 'rgba(16, 185, 129, 0.08)',
+            border: 'rgba(16, 185, 129, 0.35)',
+            pct: power
+          }
+        ];
+
+        cells.forEach(c => {
+          const cx = b.x + pad + c.col * (cardW + pad);
+          const cy = b.y + pad + c.row * (cardH + pad);
+
+          ctx.fillStyle = c.bg;
+          ctx.strokeStyle = c.border;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect ? ctx.roundRect(cx, cy, cardW, cardH, 8) : ctx.rect(cx, cy, cardW, cardH);
+          ctx.fill();
+          ctx.stroke();
+
+          // Card Title
+          ctx.fillStyle = c.color;
+          ctx.font = `700 11px ${engine.options.fontFamily}`;
+          ctx.textAlign = 'left';
+          ctx.fillText(c.title, cx + 12, cy + 20);
+
+          // Subtitle
+          ctx.fillStyle = pal.textMuted;
+          ctx.font = `500 9px ${engine.options.fontFamily}`;
+          ctx.fillText(c.sub, cx + 12, cy + 34);
+
+          // Large Percentage Value
+          ctx.fillStyle = c.color;
+          ctx.font = `800 24px ${engine.options.fontFamily}`;
+          ctx.fillText(c.val, cx + 12, cy + 64);
+
+          // Progress bar indicator
+          const barX = cx + 12;
+          const barY = cy + 72;
+          const barW = cardW - 24;
+          const barH = 6;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+          ctx.fillRect(barX, barY, barW, barH);
+          ctx.fillStyle = c.color;
+          ctx.fillRect(barX, barY, barW * Math.max(0, Math.min(1.0, c.pct)), barH);
+
+          // Description text wrapped
+          ctx.fillStyle = '#cbd5e1';
+          ctx.font = `400 9.5px ${engine.options.fontFamily}`;
+          const words = c.desc.split(' ');
+          let line = '';
+          let lineY = cy + 93;
+          for (let w = 0; w < words.length; w++) {
+            const testLine = line + words[w] + ' ';
+            if (ctx.measureText(testLine).width > cardW - 24 && w > 0) {
+              ctx.fillText(line, cx + 12, lineY);
+              line = words[w] + ' ';
+              lineY += 12;
+            } else {
+              line = testLine;
+            }
+          }
+          ctx.fillText(line, cx + 12, lineY);
+        });
+        return;
+      }
+
+      // -------------------------------------------------------------
+      // VIEW MODE 3: DUAL DISTRIBUTION (H0 VS H1) WITH SHADED REGIONS
+      // -------------------------------------------------------------
+      const safeSEDiff = Math.max(0.001, Number.isFinite(seDiff) ? seDiff : 0.707);
+      const safeDelta = Number.isFinite(delta) ? delta : 2.0;
+
+      const minX = -3.5 * safeSEDiff;
+      const maxX = safeDelta + 3.8 * safeSEDiff;
+      const xSpan = Math.max(0.1, maxX - minX);
+
+      const peakY = 1.0 / (safeSEDiff * Math.sqrt(2 * Math.PI));
+      const maxY = peakY * 1.32;
+
+      const toX = (val) => {
+        const v = Number.isFinite(val) ? val : minX;
+        return b.x + ((v - minX) / xSpan) * b.width;
+      };
+      const toY = (val) => {
+        const v = Number.isFinite(val) ? val : 0;
+        return b.y + b.height - (v / maxY) * b.height;
+      };
+
+      // Grid lines & X-axis
+      ctx.strokeStyle = pal.grid;
+      ctx.lineWidth = 1;
+      const xSteps = 7;
+      for (let i = 0; i <= xSteps; i++) {
+        const xVal = minX + (i / xSteps) * xSpan;
+        const xPix = toX(xVal);
+        ctx.beginPath();
+        ctx.moveTo(xPix, b.y);
+        ctx.lineTo(xPix, b.y + b.height);
+        ctx.stroke();
+
+        ctx.fillStyle = pal.textMuted;
+        ctx.font = `500 10px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(xVal.toFixed(2), xPix, b.y + b.height + 15);
+      }
+
+      // Generate Points for H0: N(0, seDiff^2) and H1: N(delta, seDiff^2)
+      const numPts = 320;
+      const ptsH0 = [];
+      const ptsH1 = [];
+      const normPDF = (x, mu, s) => (1.0 / (s * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mu) / s, 2));
+
+      for (let i = 0; i <= numPts; i++) {
+        const x = minX + (i / numPts) * xSpan;
+        ptsH0.push({ x, y: normPDF(x, 0, safeSEDiff) });
+        ptsH1.push({ x, y: normPDF(x, safeDelta, safeSEDiff) });
+      }
+
+      // 1. Shading: Statistical Power (1 - beta) under H1 (where x >= xCrit, Emerald Green)
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.38)';
+      ctx.beginPath();
+      ctx.moveTo(toX(xCrit), toY(0));
+      for (const pt of ptsH1) {
+        if (pt.x >= xCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+      }
+      ctx.lineTo(toX(maxX), toY(0));
+      ctx.closePath();
+      ctx.fill();
+
+      // 2. Shading: Type II Error (beta) under H1 (where x < xCrit, Amber)
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.35)';
+      ctx.beginPath();
+      ctx.moveTo(toX(minX), toY(0));
+      for (const pt of ptsH1) {
+        if (pt.x <= xCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+      }
+      ctx.lineTo(toX(xCrit), toY(0));
+      ctx.closePath();
+      ctx.fill();
+
+      // 3. Shading: Type I Error (alpha/2) under H0 (where x >= xCrit, Red rejection tail)
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
+      ctx.beginPath();
+      ctx.moveTo(toX(xCrit), toY(0));
+      for (const pt of ptsH0) {
+        if (pt.x >= xCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+      }
+      ctx.lineTo(toX(maxX), toY(0));
+      ctx.closePath();
+      ctx.fill();
+
+      // 4. Shading: Retention Zone (1 - alpha/2) under H0 (Soft blue tint)
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+      ctx.beginPath();
+      ctx.moveTo(toX(minX), toY(0));
+      for (const pt of ptsH0) {
+        if (pt.x <= xCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+      }
+      ctx.lineTo(toX(xCrit), toY(0));
+      ctx.closePath();
+      ctx.fill();
+
+      // 5. Draw H0 Curve (Cyan)
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ptsH0.forEach((pt, idx) => {
+        if (idx === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+        else ctx.lineTo(toX(pt.x), toY(pt.y));
+      });
+      ctx.stroke();
+
+      // 6. Draw H1 Curve (Violet/Purple)
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ptsH1.forEach((pt, idx) => {
+        if (idx === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+        else ctx.lineTo(toX(pt.x), toY(pt.y));
+      });
+      ctx.stroke();
+
+      // 7. Center Means Vertical Drop Lines (mu=0 and mu=delta)
+      [
+        { mu: 0, color: '#06b6d4', label: 'Null H₀: Δ = 0' },
+        { mu: safeDelta, color: '#a855f7', label: `Alternative H₁: Δ = ${safeDelta.toFixed(2)}` }
+      ].forEach(grp => {
+        const xPix = toX(grp.mu);
+        ctx.strokeStyle = grp.color;
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(xPix, toY(0));
+        ctx.lineTo(xPix, toY(peakY));
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = grp.color;
+        ctx.font = `600 10px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(grp.label, xPix, toY(peakY) - 8);
+      });
+
+      // 8. Effect Size Bracket Δ between mu0 and mu1
+      const yBracket = toY(peakY * 0.45);
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(toX(0), yBracket);
+      ctx.lineTo(toX(safeDelta), yBracket);
+      ctx.stroke();
+      // Bracket tick ends
+      [0, safeDelta].forEach(muVal => {
+        ctx.beginPath();
+        ctx.moveTo(toX(muVal), yBracket - 4);
+        ctx.lineTo(toX(muVal), yBracket + 4);
+        ctx.stroke();
+      });
+      ctx.fillStyle = '#a855f7';
+      ctx.font = `700 10px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`True Effect Δ = ${safeDelta.toFixed(2)} (d = ${cohensD.toFixed(2)})`, toX(safeDelta / 2), yBracket - 6);
+
+      // 9. Critical Threshold Line xcrit (Red dashed)
+      if (Number.isFinite(xCrit) && xCrit >= minX && xCrit <= maxX) {
+        const critXPix = toX(xCrit);
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2.2;
+        ctx.setLineDash([5, 3]);
+        ctx.beginPath();
+        ctx.moveTo(critXPix, toY(0));
+        ctx.lineTo(critXPix, toY(peakY * 1.05));
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#ef4444';
+        ctx.font = `700 10px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`Significance Cutoff xcrit = ${xCrit.toFixed(2)}`, critXPix, toY(peakY * 1.05) - 6);
+      }
+
+      // 10. Shading Zone Labels
+      // Power label in green area
+      const pwrX = toX(Math.max(xCrit + 0.3 * safeSEDiff, safeDelta));
+      if (pwrX < b.x + b.width - 60) {
+        ctx.fillStyle = '#10b981';
+        ctx.font = `700 11px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`Power (1 − β): ${(power * 100).toFixed(1)}%`, pwrX, toY(peakY * 0.28));
+      }
+
+      // Beta label in amber area
+      const betaX = toX(Math.min(xCrit - 0.2 * safeSEDiff, safeDelta - 0.3 * safeSEDiff));
+      if (betaX > b.x + 50) {
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = `700 11px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`Beta (β): ${(beta * 100).toFixed(1)}%`, betaX, toY(peakY * 0.16));
+      }
+
+      // 11. Status Badge at Top-Right
+      const isAdequate = power >= 0.80;
+      const badgeText = isAdequate
+        ? `✓ ADEQUATE POWER: ${(power * 100).toFixed(1)}% (β = ${(beta * 100).toFixed(1)}%)`
+        : `⚠ UNDERPOWERED: ${(power * 100).toFixed(1)}% (β = ${(beta * 100).toFixed(1)}%)`;
+      ctx.fillStyle = isAdequate ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+      ctx.strokeStyle = isAdequate ? '#10b981' : '#ef4444';
+      ctx.lineWidth = 1;
+      ctx.font = `700 11px ${engine.options.fontFamily}`;
+      const badgeWidth = ctx.measureText(badgeText).width + 24;
+      ctx.fillRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
+      ctx.strokeRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
+
+      ctx.fillStyle = isAdequate ? '#10b981' : '#ef4444';
+      ctx.textAlign = 'right';
+      ctx.fillText(badgeText, b.x + b.width - 22, b.y + 26);
+
+      // 12. Dynamic Legend
+      ctx.textAlign = 'left';
+      ctx.font = `500 11px ${engine.options.fontFamily}`;
+      ctx.fillStyle = '#06b6d4';
+      ctx.fillText(`— Null Distribution H₀: Δ ~ N(0, SE²diff), SE = ${safeSEDiff.toFixed(3)} (SEM = ${sem.toFixed(3)})`, b.x + 12, b.y + 20);
+      ctx.fillStyle = '#a855f7';
+      ctx.fillText(`— Alternative Distribution H₁: Δ ~ N(${safeDelta.toFixed(2)}, SE²diff), n = ${n} per group (N = ${totalN})`, b.x + 12, b.y + 36);
+      ctx.fillStyle = '#10b981';
+      ctx.fillText(`░ Green Shaded Area: Power (1 − β) = ${(power * 100).toFixed(1)}% | ░ Amber Area: β = ${(beta * 100).toFixed(1)}%`, b.x + 12, b.y + 52);
     }
   };
 
@@ -5263,7 +5931,7 @@ const DocxReports = {
     }
 
     initEngines() {
-      ['descCanvas', 'descBoxCanvas', 'descViolinCanvas', 'hypoCanvas', 'anovaCanvas', 'corrCanvas', 'rocCanvas', 'teachingDistCanvas', 'teachingCltParentCanvas', 'teachingCltSamplingCanvas', 'teachingTCanvas', 'teachingOverlapCanvas'].forEach(id => {
+      ['descCanvas', 'descBoxCanvas', 'descViolinCanvas', 'hypoCanvas', 'anovaCanvas', 'corrCanvas', 'rocCanvas', 'teachingDistCanvas', 'teachingCltParentCanvas', 'teachingCltSamplingCanvas', 'teachingTCanvas', 'teachingOverlapCanvas', 'teachingPowerCanvas'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
           this.engines[id] = new ChartEngine(el, { theme: this.theme });
@@ -5781,6 +6449,111 @@ const DocxReports = {
           }
         });
         this.runTwoSampleOverlap();
+      });
+
+      // Teaching Simulation 5: Power Simulation Listeners
+      document.getElementById('powerSDRange')?.addEventListener('input', (e) => {
+        this.runPowerSimulation({ sd: parseFloat(e.target.value) }, 'sd');
+      });
+
+      document.getElementById('powerSEMRange')?.addEventListener('input', (e) => {
+        this.runPowerSimulation({ sem: parseFloat(e.target.value) }, 'sem');
+      });
+
+      document.getElementById('powerNRange')?.addEventListener('input', (e) => {
+        this.runPowerSimulation({ n: parseInt(e.target.value) }, 'n');
+      });
+
+      document.getElementById('powerPowerRange')?.addEventListener('input', (e) => {
+        this.runPowerSimulation({ power: parseFloat(e.target.value) }, 'power');
+      });
+
+      document.getElementById('powerBetaRange')?.addEventListener('input', (e) => {
+        this.runPowerSimulation({ beta: parseFloat(e.target.value) }, 'beta');
+      });
+
+      document.getElementById('powerDeltaRange')?.addEventListener('input', (e) => {
+        this.runPowerSimulation({ delta: parseFloat(e.target.value) }, 'delta');
+      });
+
+      document.getElementById('powerAlphaRange')?.addEventListener('input', (e) => {
+        this.runPowerSimulation({ alpha: parseFloat(e.target.value) }, 'alpha');
+      });
+
+      document.querySelectorAll('.btn-power-preset').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.btn-power-preset').forEach(b => b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          const pwr = parseFloat(e.currentTarget.dataset.power);
+          this.runPowerSimulation({ power: pwr }, 'power');
+        });
+      });
+
+      document.querySelectorAll('.btn-power-effect-preset').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.btn-power-effect-preset').forEach(b => b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          const d = parseFloat(e.currentTarget.dataset.d);
+          const sd = parseFloat(document.getElementById('powerSDRange')?.value) || 4.0;
+          const delta = d * sd;
+          this.runPowerSimulation({ delta }, 'delta');
+        });
+      });
+
+      document.querySelectorAll('.btn-power-mode').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.btn-power-mode').forEach(b => {
+            b.classList.remove('btn-primary', 'active');
+            b.classList.add('btn-secondary');
+          });
+          e.currentTarget.classList.remove('btn-secondary');
+          e.currentTarget.classList.add('btn-primary', 'active');
+          this.currentPowerMode = e.currentTarget.dataset.mode;
+          this.runPowerSimulation();
+        });
+      });
+
+      document.getElementById('powerAnimateBtn')?.addEventListener('click', () => {
+        this.animatePowerGain();
+      });
+
+      document.getElementById('powerResetBtn')?.addEventListener('click', () => {
+        if (this.powerAnimationTimer) {
+          clearInterval(this.powerAnimationTimer);
+          this.powerAnimationTimer = null;
+          const btn = document.getElementById('powerAnimateBtn');
+          if (btn) btn.innerText = '▶ Animate Power Gain';
+        }
+        const sdRange = document.getElementById('powerSDRange');
+        const semRange = document.getElementById('powerSEMRange');
+        const nRange = document.getElementById('powerNRange');
+        const pRange = document.getElementById('powerPowerRange');
+        const bRange = document.getElementById('powerBetaRange');
+        const dRange = document.getElementById('powerDeltaRange');
+        const aRange = document.getElementById('powerAlphaRange');
+        if (sdRange) sdRange.value = 4.0;
+        if (semRange) semRange.value = 0.500;
+        if (nRange) nRange.value = 64;
+        if (pRange) pRange.value = 0.80;
+        if (bRange) bRange.value = 0.20;
+        if (dRange) dRange.value = 2.0;
+        if (aRange) aRange.value = 0.050;
+        this.currentPowerMode = 'distributions';
+        document.querySelectorAll('.btn-power-mode').forEach(b => {
+          b.classList.remove('btn-primary', 'active');
+          b.classList.add('btn-secondary');
+          if (b.dataset.mode === 'distributions') {
+            b.classList.remove('btn-secondary');
+            b.classList.add('btn-primary', 'active');
+          }
+        });
+        document.querySelectorAll('.btn-power-preset').forEach(b => {
+          b.classList.toggle('active', b.dataset.power === '0.80');
+        });
+        document.querySelectorAll('.btn-power-effect-preset').forEach(b => {
+          b.classList.toggle('active', b.dataset.d === '0.50');
+        });
+        this.runPowerSimulation({ power: 0.80, sd: 4.0, delta: 2.0, alpha: 0.05 }, 'power');
       });
 
       // Disclaimer Modal Dismissal
@@ -6695,6 +7468,7 @@ const DocxReports = {
           },
           tConv: res.tConv || Teaching.tConvergence.getMetrics(4),
           overlap: res.overlap || Teaching.significanceOverlap.getMetrics(),
+          power: res.power || Teaching.powerSimulation.getMetrics(),
           reportText: document.getElementById('teachingReportText')?.innerText
         };
       }
@@ -6710,6 +7484,7 @@ const DocxReports = {
       this.updateCltUI(Teaching.clt.getSummary());
       this.runTConvergence(4);
       this.runTwoSampleOverlap();
+      this.runPowerSimulation();
     }
 
     renderTeachingParams() {
@@ -7415,6 +8190,191 @@ const DocxReports = {
         if (dRange) dRange.value = nextDelta;
         this.runTwoSampleOverlap({ delta: nextDelta });
       }, 500);
+    }
+
+    runPowerSimulation(overrideParams = {}, lastChanged = 'power') {
+      const sd = overrideParams.sd !== undefined
+        ? overrideParams.sd
+        : (parseFloat(document.getElementById('powerSDRange')?.value) || 4.0);
+      const sem = overrideParams.sem !== undefined
+        ? overrideParams.sem
+        : (parseFloat(document.getElementById('powerSEMRange')?.value) || 0.50);
+      const n = overrideParams.n !== undefined
+        ? overrideParams.n
+        : (parseInt(document.getElementById('powerNRange')?.value) || 64);
+      const power = overrideParams.power !== undefined
+        ? overrideParams.power
+        : (parseFloat(document.getElementById('powerPowerRange')?.value) || 0.80);
+      const beta = overrideParams.beta !== undefined
+        ? overrideParams.beta
+        : (parseFloat(document.getElementById('powerBetaRange')?.value) || 0.20);
+      const delta = overrideParams.delta !== undefined
+        ? overrideParams.delta
+        : (parseFloat(document.getElementById('powerDeltaRange')?.value) || 2.0);
+      const alpha = overrideParams.alpha !== undefined
+        ? overrideParams.alpha
+        : (parseFloat(document.getElementById('powerAlphaRange')?.value) || 0.05);
+
+      const viewMode = this.currentPowerMode || 'distributions';
+
+      const metrics = Teaching.powerSimulation.getMetrics({
+        sd,
+        sem,
+        n,
+        power,
+        beta,
+        delta,
+        alpha,
+        viewMode,
+        lastChanged
+      });
+
+      // Synchronize UI Slider Values without trigger loop
+      const sdInput = document.getElementById('powerSDRange');
+      const semInput = document.getElementById('powerSEMRange');
+      const nInput = document.getElementById('powerNRange');
+      const powerInput = document.getElementById('powerPowerRange');
+      const betaInput = document.getElementById('powerBetaRange');
+      const deltaInput = document.getElementById('powerDeltaRange');
+      const alphaInput = document.getElementById('powerAlphaRange');
+
+      if (sdInput && lastChanged !== 'sd') sdInput.value = metrics.sd.toFixed(1);
+      if (semInput && lastChanged !== 'sem') semInput.value = metrics.sem.toFixed(3);
+      if (nInput && lastChanged !== 'n') nInput.value = metrics.n;
+      if (powerInput && lastChanged !== 'power') powerInput.value = metrics.power.toFixed(2);
+      if (betaInput && lastChanged !== 'beta') betaInput.value = metrics.beta.toFixed(2);
+      if (deltaInput && lastChanged !== 'delta') deltaInput.value = metrics.delta.toFixed(1);
+      if (alphaInput && lastChanged !== 'alpha') alphaInput.value = metrics.alpha.toFixed(3);
+
+      // Update Slider Display Labels
+      const sdValEl = document.getElementById('powerSDVal');
+      const semValEl = document.getElementById('powerSEMVal');
+      const nValEl = document.getElementById('powerNVal');
+      const powerValEl = document.getElementById('powerPowerVal');
+      const betaValEl = document.getElementById('powerBetaVal');
+      const deltaValEl = document.getElementById('powerDeltaVal');
+      const alphaValEl = document.getElementById('powerAlphaVal');
+
+      if (sdValEl) sdValEl.innerText = metrics.sd.toFixed(2);
+      if (semValEl) semValEl.innerText = metrics.sem.toFixed(3);
+      if (nValEl) nValEl.innerText = `n = ${metrics.n} (N = ${metrics.totalN})`;
+      if (powerValEl) {
+        powerValEl.innerText = `${(metrics.power * 100).toFixed(1)}%`;
+        powerValEl.style.color = metrics.power >= 0.80 ? '#10b981' : (metrics.power >= 0.60 ? '#f59e0b' : '#ef4444');
+      }
+      if (betaValEl) {
+        betaValEl.innerText = `${(metrics.beta * 100).toFixed(1)}%`;
+        betaValEl.style.color = metrics.beta <= 0.20 ? '#10b981' : (metrics.beta <= 0.40 ? '#f59e0b' : '#ef4444');
+      }
+      if (deltaValEl) deltaValEl.innerText = metrics.delta.toFixed(2);
+      if (alphaValEl) alphaValEl.innerText = metrics.alpha.toFixed(3);
+
+      const dSub = document.getElementById('powerCohensDSub');
+      if (dSub) dSub.innerText = `Cohen's d = ${metrics.cohensD.toFixed(2)}`;
+      const zSub = document.getElementById('powerZCritSub');
+      if (zSub) zSub.innerText = `z_crit = ${metrics.zCrit.toFixed(3)}`;
+
+      const g1Summary = document.getElementById('powerG1Summary');
+      if (g1Summary) g1Summary.innerText = `SD = ${metrics.sd.toFixed(2)} | SEM = ${metrics.sem.toFixed(3)}`;
+      const g2Summary = document.getElementById('powerG2Summary');
+      if (g2Summary) g2Summary.innerText = `Power = ${(metrics.power * 100).toFixed(1)}% | β = ${(metrics.beta * 100).toFixed(1)}%`;
+
+      // Update 6 Status Metric Cards
+      const statusPwrVal = document.getElementById('powerStatusPowerVal');
+      const statusPwrSub = document.getElementById('powerStatusPowerSub');
+      if (statusPwrVal) {
+        statusPwrVal.innerText = `${(metrics.power * 100).toFixed(1)}%`;
+        statusPwrVal.style.color = metrics.power >= 0.80 ? '#10b981' : (metrics.power >= 0.60 ? '#f59e0b' : '#ef4444');
+      }
+      if (statusPwrSub) {
+        statusPwrSub.innerText = `Target: ≥ 80% (${metrics.powerRating})`;
+      }
+
+      const statusBetaVal = document.getElementById('powerStatusBetaVal');
+      if (statusBetaVal) {
+        statusBetaVal.innerText = `${(metrics.beta * 100).toFixed(1)}%`;
+        statusBetaVal.style.color = metrics.beta <= 0.20 ? '#10b981' : (metrics.beta <= 0.40 ? '#f59e0b' : '#ef4444');
+      }
+
+      const statusNVal = document.getElementById('powerStatusNVal');
+      const statusNSub = document.getElementById('powerStatusNSub');
+      if (statusNVal) statusNVal.innerText = `n = ${metrics.n}`;
+      if (statusNSub) statusNSub.innerText = `Total N = ${metrics.totalN} subjects`;
+
+      const statusDeltaVal = document.getElementById('powerStatusDeltaVal');
+      const statusDeltaSub = document.getElementById('powerStatusDeltaSub');
+      if (statusDeltaVal) statusDeltaVal.innerText = `Δ = ${metrics.delta.toFixed(2)}`;
+      if (statusDeltaSub) {
+        const dLabel = metrics.cohensD >= 0.8 ? 'Large effect' : (metrics.cohensD >= 0.5 ? 'Medium effect' : 'Small effect');
+        statusDeltaSub.innerText = `Cohen's d = ${metrics.cohensD.toFixed(2)} (${dLabel})`;
+      }
+
+      const statusSEMVal = document.getElementById('powerStatusSEMVal');
+      const statusSEMSub = document.getElementById('powerStatusSEMSub');
+      if (statusSEMVal) statusSEMVal.innerText = `SEM = ${metrics.sem.toFixed(3)}`;
+      if (statusSEMSub) statusSEMSub.innerText = `SE_diff: ${metrics.seDiff.toFixed(3)} (σ·√(2/n))`;
+
+      const statusCutoffVal = document.getElementById('powerStatusCutoffVal');
+      const statusCutoffSub = document.getElementById('powerStatusCutoffSub');
+      if (statusCutoffVal) statusCutoffVal.innerText = `xcrit = ${metrics.xCrit.toFixed(3)}`;
+      if (statusCutoffSub) statusCutoffSub.innerText = `α = ${metrics.alpha.toFixed(3)} (Type I: ${(metrics.alpha * 100).toFixed(1)}%)`;
+
+      // Update Pedagogical Text
+      const pedaEl = document.getElementById('powerPedagogyText');
+      if (pedaEl) pedaEl.innerText = metrics.explanation;
+
+      // Update Chart Title
+      const titleEl = document.getElementById('powerChartTitle');
+      if (titleEl) {
+        if (viewMode === 'curve') {
+          titleEl.innerText = `Statistical Power Curve: Power (1 − β) vs Sample Size n (Δ = ${metrics.delta.toFixed(2)}, SD = ${metrics.sd.toFixed(2)})`;
+        } else if (viewMode === 'matrix') {
+          titleEl.innerText = `2×2 Decision Error Matrix: True State vs Clinical Statistical Decision`;
+        } else {
+          titleEl.innerText = `Dual Distribution: Null Hypothesis H₀ vs True Effect H₁ (Power & Beta Shading)`;
+        }
+      }
+
+      // Render Canvas
+      if (this.engines['teachingPowerCanvas']) {
+        Plots.renderPowerSimulation(this.engines['teachingPowerCanvas'], metrics);
+      }
+
+      // Cache
+      if (!this.results.teaching) this.results.teaching = {};
+      this.results.teaching.power = metrics;
+    }
+
+    animatePowerGain() {
+      const btn = document.getElementById('powerAnimateBtn');
+      if (this.powerAnimationTimer) {
+        clearInterval(this.powerAnimationTimer);
+        this.powerAnimationTimer = null;
+        if (btn) btn.innerText = '▶ Animate Power Gain';
+        return;
+      }
+
+      const sampleSizes = [10, 16, 24, 34, 46, 64, 86, 112, 144];
+      let currentIndex = 0;
+      const currentN = parseInt(document.getElementById('powerNRange')?.value) || 64;
+      const startIdx = sampleSizes.findIndex(n => n >= currentN);
+      if (startIdx >= 0 && startIdx < sampleSizes.length - 1) currentIndex = startIdx;
+
+      if (btn) btn.innerText = '⏸ Pause Animation';
+
+      this.powerAnimationTimer = setInterval(() => {
+        currentIndex++;
+        if (currentIndex >= sampleSizes.length) {
+          clearInterval(this.powerAnimationTimer);
+          this.powerAnimationTimer = null;
+          if (btn) btn.innerText = '▶ Replay Animation';
+          return;
+        }
+        const nextN = sampleSizes[currentIndex];
+        const nRange = document.getElementById('powerNRange');
+        if (nRange) nRange.value = nextN;
+        this.runPowerSimulation({ n: nextN }, 'n');
+      }, 550);
     }
   }
 

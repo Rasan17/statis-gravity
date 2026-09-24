@@ -1475,6 +1475,191 @@
             </div>
           </div>
 
+          <!-- SIMULATION 5: Statistical Power (1 - β), Type II Error (β), SD & SEM Visualizer -->
+          <div class="card" style="margin-top: 1.5rem; border: 1px solid rgba(16, 185, 129, 0.25); background: linear-gradient(180deg, rgba(16, 185, 129, 0.02) 0%, rgba(15, 23, 42, 0.4) 100%);">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem;">
+              <div>
+                <h3 class="card-title" style="color: #10b981; font-size: 1.08rem; display: flex; align-items: center; gap: 0.5rem;">
+                  <span>⚡ Simulation 5: Statistical Power (1 − β), Type II Error (β), SD &amp; SEM Interactive Visualizer</span>
+                </h3>
+                <p class="card-subtitle" style="margin-top: 0.2rem; font-size: 0.82rem; color: var(--text-muted);">
+                  Interactively explore the mechanical relationship between biological noise (<strong>SD</strong>), sample precision (<strong>SEM = SD/√n</strong>), Type II error (<strong>β</strong>), and Statistical Power (<strong>1 − β</strong>). See why clinical trials become underpowered and how sample size governs statistical discovery.
+                </p>
+              </div>
+              <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+                <button id="powerAnimateBtn" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem; background: #10b981; border-color: #10b981;">
+                  ▶ Animate Power Gain
+                </button>
+                <button id="powerResetBtn" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                  ↺ Reset (80% Power)
+                </button>
+              </div>
+            </div>
+
+            <!-- Preset Buttons Toolbar -->
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.15rem; align-items: center; padding: 0.6rem 0.8rem; background: rgba(15, 23, 42, 0.5); border-radius: 8px; border: 1px solid var(--border);">
+              <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Power Presets:</span>
+              <button class="btn btn-secondary btn-sm btn-power-preset active" data-power="0.80">80% Power (Standard | β=0.20)</button>
+              <button class="btn btn-secondary btn-sm btn-power-preset" data-power="0.90">90% Power (High Rigor | β=0.10)</button>
+              <button class="btn btn-secondary btn-sm btn-power-preset" data-power="0.95">95% Power (Confirmatory | β=0.05)</button>
+              <button class="btn btn-secondary btn-sm btn-power-preset" data-power="0.50">50% Power (Underpowered | β=0.50)</button>
+              <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-left: 0.5rem;">Effect Presets:</span>
+              <button class="btn btn-secondary btn-sm btn-power-effect-preset" data-d="0.20">Small (d=0.20)</button>
+              <button class="btn btn-secondary btn-sm btn-power-effect-preset active" data-d="0.50">Medium (d=0.50)</button>
+              <button class="btn btn-secondary btn-sm btn-power-effect-preset" data-d="0.80">Large (d=0.80)</button>
+            </div>
+
+            <!-- View Modes & Controls -->
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.15rem; align-items: center;">
+              <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">View Mode:</span>
+              <button id="viewPowerDistBtn" class="btn btn-primary btn-sm btn-power-mode active" data-mode="distributions">📊 Dual Distribution (H₀ vs H₁)</button>
+              <button id="viewPowerCurveBtn" class="btn btn-secondary btn-sm btn-power-mode" data-mode="curve">📈 Power vs Sample Size Curve</button>
+              <button id="viewPowerMatrixBtn" class="btn btn-secondary btn-sm btn-power-mode" data-mode="matrix">⚖️ 2×2 Decision Error Matrix</button>
+            </div>
+
+            <!-- Interactive Sliders Grid (2 Columns: Dispersion vs Error Rates) -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem;">
+              
+              <!-- Column 1: Biological Dispersion & Precision (SD & SEM) -->
+              <div style="background: rgba(15, 23, 42, 0.45); border: 1px solid rgba(6, 182, 212, 0.25); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                  <span style="font-weight: 600; font-size: 0.88rem; color: #06b6d4;">🧬 Biological Noise &amp; Sample Precision</span>
+                  <span id="powerG1Summary" style="font-size: 0.78rem; color: #06b6d4; font-family: monospace;">SD = 4.00 | SEM = 0.500</span>
+                </div>
+
+                <!-- SD Slider -->
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
+                    <label for="powerSDRange">Patient Standard Deviation (SD, σ):</label>
+                    <span id="powerSDVal" style="font-weight: 700; color: #06b6d4;">4.00</span>
+                  </div>
+                  <input type="range" id="powerSDRange" min="0.5" max="10.0" step="0.1" value="4.00" style="width: 100%;">
+                  <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Biological heterogeneity / measurement noise. Higher SD requires more subjects.</span>
+                </div>
+
+                <!-- SEM Slider -->
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
+                    <label for="powerSEMRange">Standard Error of the Mean (SEM):</label>
+                    <span id="powerSEMVal" style="font-weight: 700; color: #06b6d4;">0.500</span>
+                  </div>
+                  <input type="range" id="powerSEMRange" min="0.05" max="3.0" step="0.01" value="0.500" style="width: 100%;">
+                  <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Estimation precision (SEM = SD / √n). Shrinking SEM separates curves and skyrockets Power.</span>
+                </div>
+
+                <!-- Implied Sample Size Slider / Display -->
+                <div class="form-group" style="margin-bottom: 0;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
+                    <label for="powerNRange">Sample Size per Group (n):</label>
+                    <span id="powerNVal" style="font-weight: 700; color: #06b6d4;">n = 64 (N = 128)</span>
+                  </div>
+                  <input type="range" id="powerNRange" min="4" max="250" step="1" value="64" style="width: 100%;">
+                  <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Formula: n = (SD / SEM)² | Total trial size N = 2n subjects</span>
+                </div>
+              </div>
+
+              <!-- Column 2: Statistical Power, Beta & Effect Size -->
+              <div style="background: rgba(15, 23, 42, 0.45); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                  <span style="font-weight: 600; font-size: 0.88rem; color: #10b981;">🎯 Power, Type II Error &amp; Target Effect</span>
+                  <span id="powerG2Summary" style="font-size: 0.78rem; color: #10b981; font-family: monospace;">Power = 80.2% | β = 19.8%</span>
+                </div>
+
+                <!-- Power (1 - Beta) Slider -->
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
+                    <label for="powerPowerRange">Statistical Power (1 − β):</label>
+                    <span id="powerPowerVal" style="font-weight: 700; color: #10b981;">80.2%</span>
+                  </div>
+                  <input type="range" id="powerPowerRange" min="0.50" max="0.99" step="0.01" value="0.80" style="width: 100%;">
+                  <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Probability of detecting a true effect (True Positive Rate). Regulatory standard: ≥ 80%.</span>
+                </div>
+
+                <!-- Beta (Type II Error) Slider -->
+                <div class="form-group" style="margin-bottom: 0.85rem;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
+                    <label for="powerBetaRange">Type II Error Rate (Beta, β):</label>
+                    <span id="powerBetaVal" style="font-weight: 700; color: #f59e0b;">19.8%</span>
+                  </div>
+                  <input type="range" id="powerBetaRange" min="0.01" max="0.50" step="0.01" value="0.20" style="width: 100%;">
+                  <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Risk of missing a true difference (False Negative Rate: β = 1 − Power).</span>
+                </div>
+
+                <!-- Effect Size (Delta) & Alpha Inputs in row -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
+                      <label for="powerDeltaRange">Mean Diff (Δ):</label>
+                      <span id="powerDeltaVal" style="font-weight: 700; color: #a855f7;">2.00</span>
+                    </div>
+                    <input type="range" id="powerDeltaRange" min="0.5" max="6.0" step="0.1" value="2.00" style="width: 100%;">
+                    <span id="powerCohensDSub" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Cohen's d = 0.50</span>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
+                      <label for="powerAlphaRange">Alpha (α):</label>
+                      <span id="powerAlphaVal" style="font-weight: 700; color: #ef4444;">0.050</span>
+                    </div>
+                    <input type="range" id="powerAlphaRange" min="0.001" max="0.10" step="0.005" value="0.050" style="width: 100%;">
+                    <span id="powerZCritSub" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">z_crit = 1.960</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Real-time Power & Clinical Decision Metric Cards (6 Cards) -->
+            <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
+              <div class="metric-card" style="border-top: 3px solid #10b981;">
+                <div class="metric-label">Statistical Power (1 − β)</div>
+                <div id="powerStatusPowerVal" class="metric-value" style="color: #10b981; font-weight: 800;">80.2%</div>
+                <div id="powerStatusPowerSub" class="metric-sub">Target: ≥ 80% (Adequate)</div>
+              </div>
+              <div class="metric-card" style="border-top: 3px solid #f59e0b;">
+                <div class="metric-label">Type II Error (β)</div>
+                <div id="powerStatusBetaVal" class="metric-value" style="color: #f59e0b;">19.8%</div>
+                <div id="powerStatusBetaSub" class="metric-sub">False Negative Risk</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Required Sample Size</div>
+                <div id="powerStatusNVal" class="metric-value" style="color: #06b6d4;">n = 64</div>
+                <div id="powerStatusNSub" class="metric-sub">Total N = 128 subjects</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Effect Size (Δ &amp; d)</div>
+                <div id="powerStatusDeltaVal" class="metric-value" style="color: #a855f7;">Δ = 2.00</div>
+                <div id="powerStatusDeltaSub" class="metric-sub">Cohen's d = 0.50 (Medium)</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Sample Precision</div>
+                <div id="powerStatusSEMVal" class="metric-value">SEM = 0.500</div>
+                <div id="powerStatusSEMSub" class="metric-sub">SE_diff: 0.707 (σ·√(2/n))</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Significance Cutoff</div>
+                <div id="powerStatusCutoffVal" class="metric-value" style="color: #ef4444;">xcrit = 1.386</div>
+                <div id="powerStatusCutoffSub" class="metric-sub">α = 0.050 (Type I: 5.0%)</div>
+              </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="chart-container" style="margin-bottom: 1.25rem;">
+              <div class="chart-header">
+                <span id="powerChartTitle" class="card-title">Dual Distribution: Null Hypothesis H₀ vs True Effect H₁ (Power &amp; Beta Shading)</span>
+                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="teachingPowerCanvas">Save PNG</button>
+              </div>
+              <canvas id="teachingPowerCanvas" class="chart-canvas" height="340"></canvas>
+            </div>
+
+            <!-- Pedagogical Explanation Card -->
+            <div style="background: rgba(16, 185, 129, 0.04); border-left: 4px solid #10b981; padding: 0.85rem 1.1rem; border-radius: 0 8px 8px 0; font-size: 0.88rem; line-height: 1.55; margin-bottom: 1rem;">
+              <strong style="color: #10b981; display: block; margin-bottom: 0.25rem;">Mathematical &amp; Clinical Explanation:</strong>
+              <p id="powerPedagogyText" style="margin: 0; color: var(--text-main);">
+                Loading power calculation explanation...
+              </p>
+            </div>
+          </div>
+
           <!-- Clinical Reporting & Pedagogical Narrative Box -->
           <div class="report-box" style="margin-top: 1.5rem;">
             <div class="report-title">

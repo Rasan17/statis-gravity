@@ -88,7 +88,8 @@ class StatisGravityApp {
       'teachingCltParentCanvas',
       'teachingCltSamplingCanvas',
       'teachingTCanvas',
-      'teachingOverlapCanvas'
+      'teachingOverlapCanvas',
+      'teachingPowerCanvas'
     ];
 
     canvasIds.forEach(id => {
@@ -606,6 +607,111 @@ class StatisGravityApp {
         }
       });
       this.runTwoSampleOverlap();
+    });
+
+    // Teaching Simulation 5: Power Simulation Listeners
+    document.getElementById('powerSDRange')?.addEventListener('input', (e) => {
+      this.runPowerSimulation({ sd: parseFloat(e.target.value) }, 'sd');
+    });
+
+    document.getElementById('powerSEMRange')?.addEventListener('input', (e) => {
+      this.runPowerSimulation({ sem: parseFloat(e.target.value) }, 'sem');
+    });
+
+    document.getElementById('powerNRange')?.addEventListener('input', (e) => {
+      this.runPowerSimulation({ n: parseInt(e.target.value) }, 'n');
+    });
+
+    document.getElementById('powerPowerRange')?.addEventListener('input', (e) => {
+      this.runPowerSimulation({ power: parseFloat(e.target.value) }, 'power');
+    });
+
+    document.getElementById('powerBetaRange')?.addEventListener('input', (e) => {
+      this.runPowerSimulation({ beta: parseFloat(e.target.value) }, 'beta');
+    });
+
+    document.getElementById('powerDeltaRange')?.addEventListener('input', (e) => {
+      this.runPowerSimulation({ delta: parseFloat(e.target.value) }, 'delta');
+    });
+
+    document.getElementById('powerAlphaRange')?.addEventListener('input', (e) => {
+      this.runPowerSimulation({ alpha: parseFloat(e.target.value) }, 'alpha');
+    });
+
+    document.querySelectorAll('.btn-power-preset').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.btn-power-preset').forEach(b => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        const pwr = parseFloat(e.currentTarget.dataset.power);
+        this.runPowerSimulation({ power: pwr }, 'power');
+      });
+    });
+
+    document.querySelectorAll('.btn-power-effect-preset').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.btn-power-effect-preset').forEach(b => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        const d = parseFloat(e.currentTarget.dataset.d);
+        const sd = parseFloat(document.getElementById('powerSDRange')?.value) || 4.0;
+        const delta = d * sd;
+        this.runPowerSimulation({ delta }, 'delta');
+      });
+    });
+
+    document.querySelectorAll('.btn-power-mode').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.btn-power-mode').forEach(b => {
+          b.classList.remove('btn-primary', 'active');
+          b.classList.add('btn-secondary');
+        });
+        e.currentTarget.classList.remove('btn-secondary');
+        e.currentTarget.classList.add('btn-primary', 'active');
+        this.currentPowerMode = e.currentTarget.dataset.mode;
+        this.runPowerSimulation();
+      });
+    });
+
+    document.getElementById('powerAnimateBtn')?.addEventListener('click', () => {
+      this.animatePowerGain();
+    });
+
+    document.getElementById('powerResetBtn')?.addEventListener('click', () => {
+      if (this.powerAnimationTimer) {
+        clearInterval(this.powerAnimationTimer);
+        this.powerAnimationTimer = null;
+        const btn = document.getElementById('powerAnimateBtn');
+        if (btn) btn.innerText = '▶ Animate Power Gain';
+      }
+      const sdRange = document.getElementById('powerSDRange');
+      const semRange = document.getElementById('powerSEMRange');
+      const nRange = document.getElementById('powerNRange');
+      const pRange = document.getElementById('powerPowerRange');
+      const bRange = document.getElementById('powerBetaRange');
+      const dRange = document.getElementById('powerDeltaRange');
+      const aRange = document.getElementById('powerAlphaRange');
+      if (sdRange) sdRange.value = 4.0;
+      if (semRange) semRange.value = 0.500;
+      if (nRange) nRange.value = 64;
+      if (pRange) pRange.value = 0.80;
+      if (bRange) bRange.value = 0.20;
+      if (dRange) dRange.value = 2.0;
+      if (aRange) aRange.value = 0.050;
+      this.currentPowerMode = 'distributions';
+      document.querySelectorAll('.btn-power-mode').forEach(b => {
+        b.classList.remove('btn-primary', 'active');
+        b.classList.add('btn-secondary');
+        if (b.dataset.mode === 'distributions') {
+          b.classList.remove('btn-secondary');
+          b.classList.add('btn-primary', 'active');
+        }
+      });
+      document.querySelectorAll('.btn-power-preset').forEach(b => {
+        b.classList.toggle('active', b.dataset.power === '0.80');
+      });
+      document.querySelectorAll('.btn-power-effect-preset').forEach(b => {
+        b.classList.toggle('active', b.dataset.d === '0.50');
+      });
+      this.runPowerSimulation({ power: 0.80, sd: 4.0, delta: 2.0, alpha: 0.05 }, 'power');
     });
 
     // Disclaimer Modal Dismissal
@@ -1479,6 +1585,7 @@ window.addEventListener('DOMContentLoaded', () => {
         },
         tConv: res.tConv || Teaching.tConvergence.getMetrics(4),
         overlap: res.overlap || Teaching.significanceOverlap.getMetrics(),
+        power: res.power || Teaching.powerSimulation.getMetrics(),
         reportText: document.getElementById('teachingReportText')?.innerText
       };
     }
@@ -1494,6 +1601,7 @@ window.addEventListener('DOMContentLoaded', () => {
     this.updateCltUI(Teaching.clt.getSummary());
     this.runTConvergence(4);
     this.runTwoSampleOverlap();
+    this.runPowerSimulation();
   }
 
   renderTeachingParams() {
@@ -2200,5 +2308,193 @@ window.addEventListener('DOMContentLoaded', () => {
       this.runTwoSampleOverlap({ delta: nextDelta });
     }, 500);
   }
+
+  // --- Teaching Simulation 5: Power Simulation Methods ---
+
+  runPowerSimulation(overrideParams = {}, lastChanged = 'power') {
+    const sd = overrideParams.sd !== undefined
+      ? overrideParams.sd
+      : (parseFloat(document.getElementById('powerSDRange')?.value) || 4.0);
+    const sem = overrideParams.sem !== undefined
+      ? overrideParams.sem
+      : (parseFloat(document.getElementById('powerSEMRange')?.value) || 0.50);
+    const n = overrideParams.n !== undefined
+      ? overrideParams.n
+      : (parseInt(document.getElementById('powerNRange')?.value) || 64);
+    const power = overrideParams.power !== undefined
+      ? overrideParams.power
+      : (parseFloat(document.getElementById('powerPowerRange')?.value) || 0.80);
+    const beta = overrideParams.beta !== undefined
+      ? overrideParams.beta
+      : (parseFloat(document.getElementById('powerBetaRange')?.value) || 0.20);
+    const delta = overrideParams.delta !== undefined
+      ? overrideParams.delta
+      : (parseFloat(document.getElementById('powerDeltaRange')?.value) || 2.0);
+    const alpha = overrideParams.alpha !== undefined
+      ? overrideParams.alpha
+      : (parseFloat(document.getElementById('powerAlphaRange')?.value) || 0.05);
+
+    const viewMode = this.currentPowerMode || 'distributions';
+
+    const metrics = Teaching.powerSimulation.getMetrics({
+      sd,
+      sem,
+      n,
+      power,
+      beta,
+      delta,
+      alpha,
+      viewMode,
+      lastChanged
+    });
+
+    // Synchronize UI Slider Values without trigger loop
+    const sdInput = document.getElementById('powerSDRange');
+    const semInput = document.getElementById('powerSEMRange');
+    const nInput = document.getElementById('powerNRange');
+    const powerInput = document.getElementById('powerPowerRange');
+    const betaInput = document.getElementById('powerBetaRange');
+    const deltaInput = document.getElementById('powerDeltaRange');
+    const alphaInput = document.getElementById('powerAlphaRange');
+
+    if (sdInput && lastChanged !== 'sd') sdInput.value = metrics.sd.toFixed(1);
+    if (semInput && lastChanged !== 'sem') semInput.value = metrics.sem.toFixed(3);
+    if (nInput && lastChanged !== 'n') nInput.value = metrics.n;
+    if (powerInput && lastChanged !== 'power') powerInput.value = metrics.power.toFixed(2);
+    if (betaInput && lastChanged !== 'beta') betaInput.value = metrics.beta.toFixed(2);
+    if (deltaInput && lastChanged !== 'delta') deltaInput.value = metrics.delta.toFixed(1);
+    if (alphaInput && lastChanged !== 'alpha') alphaInput.value = metrics.alpha.toFixed(3);
+
+    // Update Slider Display Labels
+    const sdValEl = document.getElementById('powerSDVal');
+    const semValEl = document.getElementById('powerSEMVal');
+    const nValEl = document.getElementById('powerNVal');
+    const powerValEl = document.getElementById('powerPowerVal');
+    const betaValEl = document.getElementById('powerBetaVal');
+    const deltaValEl = document.getElementById('powerDeltaVal');
+    const alphaValEl = document.getElementById('powerAlphaVal');
+
+    if (sdValEl) sdValEl.innerText = metrics.sd.toFixed(2);
+    if (semValEl) semValEl.innerText = metrics.sem.toFixed(3);
+    if (nValEl) nValEl.innerText = `n = ${metrics.n} (N = ${metrics.totalN})`;
+    if (powerValEl) {
+      powerValEl.innerText = `${(metrics.power * 100).toFixed(1)}%`;
+      powerValEl.style.color = metrics.power >= 0.80 ? '#10b981' : (metrics.power >= 0.60 ? '#f59e0b' : '#ef4444');
+    }
+    if (betaValEl) {
+      betaValEl.innerText = `${(metrics.beta * 100).toFixed(1)}%`;
+      betaValEl.style.color = metrics.beta <= 0.20 ? '#10b981' : (metrics.beta <= 0.40 ? '#f59e0b' : '#ef4444');
+    }
+    if (deltaValEl) deltaValEl.innerText = metrics.delta.toFixed(2);
+    if (alphaValEl) alphaValEl.innerText = metrics.alpha.toFixed(3);
+
+    const dSub = document.getElementById('powerCohensDSub');
+    if (dSub) dSub.innerText = `Cohen's d = ${metrics.cohensD.toFixed(2)}`;
+    const zSub = document.getElementById('powerZCritSub');
+    if (zSub) zSub.innerText = `z_crit = ${metrics.zCrit.toFixed(3)}`;
+
+    const g1Summary = document.getElementById('powerG1Summary');
+    if (g1Summary) g1Summary.innerText = `SD = ${metrics.sd.toFixed(2)} | SEM = ${metrics.sem.toFixed(3)}`;
+    const g2Summary = document.getElementById('powerG2Summary');
+    if (g2Summary) g2Summary.innerText = `Power = ${(metrics.power * 100).toFixed(1)}% | β = ${(metrics.beta * 100).toFixed(1)}%`;
+
+    // Update 6 Status Metric Cards
+    const statusPwrVal = document.getElementById('powerStatusPowerVal');
+    const statusPwrSub = document.getElementById('powerStatusPowerSub');
+    if (statusPwrVal) {
+      statusPwrVal.innerText = `${(metrics.power * 100).toFixed(1)}%`;
+      statusPwrVal.style.color = metrics.power >= 0.80 ? '#10b981' : (metrics.power >= 0.60 ? '#f59e0b' : '#ef4444');
+    }
+    if (statusPwrSub) {
+      statusPwrSub.innerText = `Target: ≥ 80% (${metrics.powerRating})`;
+    }
+
+    const statusBetaVal = document.getElementById('powerStatusBetaVal');
+    if (statusBetaVal) {
+      statusBetaVal.innerText = `${(metrics.beta * 100).toFixed(1)}%`;
+      statusBetaVal.style.color = metrics.beta <= 0.20 ? '#10b981' : (metrics.beta <= 0.40 ? '#f59e0b' : '#ef4444');
+    }
+
+    const statusNVal = document.getElementById('powerStatusNVal');
+    const statusNSub = document.getElementById('powerStatusNSub');
+    if (statusNVal) statusNVal.innerText = `n = ${metrics.n}`;
+    if (statusNSub) statusNSub.innerText = `Total N = ${metrics.totalN} subjects`;
+
+    const statusDeltaVal = document.getElementById('powerStatusDeltaVal');
+    const statusDeltaSub = document.getElementById('powerStatusDeltaSub');
+    if (statusDeltaVal) statusDeltaVal.innerText = `Δ = ${metrics.delta.toFixed(2)}`;
+    if (statusDeltaSub) {
+      const dLabel = metrics.cohensD >= 0.8 ? 'Large effect' : (metrics.cohensD >= 0.5 ? 'Medium effect' : 'Small effect');
+      statusDeltaSub.innerText = `Cohen's d = ${metrics.cohensD.toFixed(2)} (${dLabel})`;
+    }
+
+    const statusSEMVal = document.getElementById('powerStatusSEMVal');
+    const statusSEMSub = document.getElementById('powerStatusSEMSub');
+    if (statusSEMVal) statusSEMVal.innerText = `SEM = ${metrics.sem.toFixed(3)}`;
+    if (statusSEMSub) statusSEMSub.innerText = `SE_diff: ${metrics.seDiff.toFixed(3)} (σ·√(2/n))`;
+
+    const statusCutoffVal = document.getElementById('powerStatusCutoffVal');
+    const statusCutoffSub = document.getElementById('powerStatusCutoffSub');
+    if (statusCutoffVal) statusCutoffVal.innerText = `xcrit = ${metrics.xCrit.toFixed(3)}`;
+    if (statusCutoffSub) statusCutoffSub.innerText = `α = ${metrics.alpha.toFixed(3)} (Type I: ${(metrics.alpha * 100).toFixed(1)}%)`;
+
+    // Update Pedagogical Text
+    const pedaEl = document.getElementById('powerPedagogyText');
+    if (pedaEl) pedaEl.innerText = metrics.explanation;
+
+    // Update Chart Title
+    const titleEl = document.getElementById('powerChartTitle');
+    if (titleEl) {
+      if (viewMode === 'curve') {
+        titleEl.innerText = `Statistical Power Curve: Power (1 − β) vs Sample Size n (Δ = ${metrics.delta.toFixed(2)}, SD = ${metrics.sd.toFixed(2)})`;
+      } else if (viewMode === 'matrix') {
+        titleEl.innerText = `2×2 Decision Error Matrix: True State vs Clinical Statistical Decision`;
+      } else {
+        titleEl.innerText = `Dual Distribution: Null Hypothesis H₀ vs True Effect H₁ (Power & Beta Shading)`;
+      }
+    }
+
+    // Render Canvas
+    if (this.engines['teachingPowerCanvas']) {
+      Plots.renderPowerSimulation(this.engines['teachingPowerCanvas'], metrics);
+    }
+
+    // Cache
+    if (!this.results.teaching) this.results.teaching = {};
+    this.results.teaching.power = metrics;
+  }
+
+  animatePowerGain() {
+    const btn = document.getElementById('powerAnimateBtn');
+    if (this.powerAnimationTimer) {
+      clearInterval(this.powerAnimationTimer);
+      this.powerAnimationTimer = null;
+      if (btn) btn.innerText = '▶ Animate Power Gain';
+      return;
+    }
+
+    const sampleSizes = [10, 16, 24, 34, 46, 64, 86, 112, 144];
+    let currentIndex = 0;
+    const currentN = parseInt(document.getElementById('powerNRange')?.value) || 64;
+    const startIdx = sampleSizes.findIndex(n => n >= currentN);
+    if (startIdx >= 0 && startIdx < sampleSizes.length - 1) currentIndex = startIdx;
+
+    if (btn) btn.innerText = '⏸ Pause Animation';
+
+    this.powerAnimationTimer = setInterval(() => {
+      currentIndex++;
+      if (currentIndex >= sampleSizes.length) {
+        clearInterval(this.powerAnimationTimer);
+        this.powerAnimationTimer = null;
+        if (btn) btn.innerText = '▶ Replay Animation';
+        return;
+      }
+      const nextN = sampleSizes[currentIndex];
+      const nRange = document.getElementById('powerNRange');
+      if (nRange) nRange.value = nextN;
+      this.runPowerSimulation({ n: nextN }, 'n');
+    }, 550);
+  }
 }
+
 

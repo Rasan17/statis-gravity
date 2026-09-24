@@ -944,10 +944,29 @@ export const DocxReports = {
       );
     }
 
+    if (data.power) {
+      d.addHeading2('Statistical Power (1 − β), Type II Error (β), SD & SEM Simulation Results');
+      d.addTable(
+        ['Power & Precision Parameter', 'Simulated Value', 'Clinical & Regulatory Significance'],
+        [
+          ['Statistical Power (1 − β)', `${(data.power.power * 100).toFixed(1)}%`, `Sensitivity / True positive detection rate (${data.power.powerRating})`],
+          ['Type II Error Rate (Beta, β)', `${(data.power.beta * 100).toFixed(1)}%`, 'Probability of failing to detect a true treatment difference (false negative risk)'],
+          ['Required Sample Size per Group (n)', `n = ${data.power.n} patients`, `Total trial recruitment: N = ${data.power.totalN} patients across 2 treatment arms`],
+          ['Target Mean Difference (Δ)', `Δ = ${data.power.delta.toFixed(2)}`, 'Minimum clinically important difference (MCID) between treatment means'],
+          ['Patient Standard Deviation (SD, σ)', `SD = ${data.power.sd.toFixed(2)}`, 'Biological variability among patients; higher SD inflates required sample size'],
+          ['Standard Error of the Mean (SEM)', `SEM = ${data.power.sem.toFixed(3)}`, 'Precision of mean estimate: SEM = SD / √n; shrinking SEM separates curves and drives Power'],
+          ['Standard Error of Difference (SE_diff)', `SE_diff = ${data.power.seDiff.toFixed(3)}`, 'Combined estimation error: σ · √(2/n) = √2 · SEM'],
+          ['Standardized Effect Size (Cohen\'s d)', `d = ${data.power.cohensD.toFixed(2)}`, `${data.power.cohensD >= 0.8 ? 'Large effect' : (data.power.cohensD >= 0.5 ? 'Medium effect' : 'Small effect')} (d = Δ / SD)`],
+          ['Critical Significance Cutoff (xcrit)', `xcrit = ${data.power.xCrit.toFixed(3)}`, `Boundary beyond which H₀ is rejected: xcrit = z_crit · SE_diff at α = ${data.power.alpha.toFixed(3)}`],
+          ['Non-Centrality Parameter (λ)', `λ = ${data.power.lambda.toFixed(3)}`, 'Signal-to-noise ratio shifting the H₁ distribution: λ = Δ / SE_diff']
+        ]
+      );
+    }
+
     d.addHeading1('3. Clinical & Statistical Interpretation');
     d.addCalloutBox(
       'Pedagogical Synthesis & Clinical Trial Relevance',
-      data.reportText || 'The Central Limit Theorem, Student\'s t convergence, and Two-Sample Overlap simulations demonstrate the mathematical foundations of parametric testing and the definition of alpha in clinical trials.',
+      data.reportText || 'The Central Limit Theorem, Student\'s t convergence, Two-Sample Overlap, and Statistical Power simulations demonstrate the mathematical foundations of parametric testing, the definition of alpha, and sample size determination in clinical trials.',
       'F0FDF4',
       '16A34A'
     );
@@ -959,6 +978,8 @@ export const DocxReports = {
     d.addBullet('Why α = 0.05 Defines the Point of Significance: In 1925, Ronald A. Fisher proposed the 5% significance level (p < 0.05) as a pragmatic convention for scientific research—representing a 1 in 20 chance of observing an effect as extreme under the null hypothesis of no difference. On a standard Gaussian distribution, exactly 5% of probability mass lies in the tails beyond ±1.960 standard errors (2.5% in each tail). Hence, the critical separation distance between sample means is Δcrit = 1.960 · SE_diff. When the observed difference Δ exceeds Δcrit, the p-value falls below 0.05.');
     d.addBullet('The Fundamental Distinction Between SD and SEM: Standard Deviation (SD) reflects real inter-individual biological diversity among patients and does not contract when sample size increases. In contrast, the Standard Error of the Mean (SEM = SD/√n) quantifies our uncertainty in the population mean estimate and contracts steadily as 1/√n. Consequently, two treatment groups can exhibit 70% biological overlap in individual patient scores, yet their treatment difference can be verified as statistically significant (p < 0.001) once sufficient patients are enrolled to shrink the SEM.');
     d.addBullet('Consequences of Modifying Alpha (α): Relaxing α to 0.10 moves the critical cutoff inward to z = 1.645, lowering the required separation Δcrit and declaring significance on smaller differences or smaller sample sizes, at the expense of doubling the false-positive risk to 10%. Tightening α to 0.01 (z = 2.576) or 0.001 (z = 3.291), as required in confirmatory registration trials or genome-wide studies, shifts the cutoff outward into the extreme tails, demanding either much larger effect sizes or substantially expanded sample sizes before significance can be claimed.');
+    d.addBullet('Statistical Power (1 − β) as the Scientific Safeguard Against False Negatives: While alpha (α = 0.05) strictly caps the risk of a false positive, statistical power (1 − β) measures the study\'s ability to identify a genuine therapeutic effect. An underpowered trial (e.g. 50% power) is ethically and scientifically problematic because patients undergo experimental risk when the study has only a coin-toss probability of reaching definitive conclusions.');
+    d.addBullet('The Interplay of SD, SEM, Beta, and Power: The non-centrality parameter λ = Δ / (SD · √(2/n)) controls the separation between null and alternative distributions. Because SEM = SD / √n, doubling the sample size shrinks SEM by 1.414, drawing the distributions apart and collapsing the Type II error region β.');
 
     d.addHeading1('5. Background Statistical Knowledge & Medical Research Context');
     d.addParagraph('Mathematical Formulations:');
@@ -967,7 +988,12 @@ export const DocxReports = {
     d.addBullet('Standard Error of the Mean: SEM = σ / √n. Quadrupling patient enrollment cuts the estimation uncertainty in half.');
     d.addBullet('Weitzman\'s Distribution Overlap Coefficient (OVL): For two equal-variance Gaussian curves separated by difference Δ: OVL = 2 · Φ(-|Δ| / (2 · s)), where s = SD for patient-level overlap and s = SEM for sampling-mean-level overlap.');
     d.addBullet('Critical Significance Boundary: Δcrit = t_crit(α, df) · SD · √(2/n).');
+    d.addBullet('Two-Sample Power Formulation: 1 - β = Φ(Δ / (σ · √(2/n)) - z_{1 - α/2}).');
+    d.addBullet('Required Sample Size Equation: n = 2 · (z_{1 - α/2} + z_{1 - β})² · σ² / Δ².');
     d.addParagraph('Key Academic References:');
+    d.addBullet('Cohen J (1988). Statistical Power Analysis for the Behavioral Sciences. 2nd ed. Hillsdale, NJ: Lawrence Erlbaum Associates.');
+    d.addBullet('Moher D, Hopewell S, Schulz KF, et al. (2010). CONSORT 2010 explanation and elaboration: updated guidelines for reporting parallel group randomised trials. BMJ, 340: c869.');
+    d.addBullet('Altman DG, Bland JM (1995). Absence of evidence is not evidence of absence. BMJ, 311(7003): 485.');
     d.addBullet('Fisher RA (1925). Statistical Methods for Research Workers. Edinburgh: Oliver and Boyd.');
     d.addBullet('Cumming G, Finch S (2005). Inference by eye: confidence intervals and how to read pictures of data. Am Psychol, 60(2): 170–180.');
     d.addBullet('Student [Gosset WS] (1908). The probable error of a mean. Biometrika, 6(1): 1–25.');

@@ -2173,6 +2173,534 @@ export const Plots = {
       ctx.fillStyle = '#f59e0b';
       ctx.fillText(`┆ Boundary: Δcrit = ${deltaCrit.toFixed(2)} at α = ${alpha.toFixed(3)} (Welch df = ${df.toFixed(1)})`, b.x + 12, b.y + 52);
     }
+  },
+
+  /**
+   * Render Statistical Power Simulation (Dual Distribution, Power Curve, or 2x2 Matrix)
+   * @param {ChartEngine} engine
+   * @param {object} metrics Output from Teaching.powerSimulation.getMetrics()
+   * @param {object} options
+   */
+  renderPowerSimulation(engine, metrics, options = {}) {
+    engine.lastRenderFn = () => this.renderPowerSimulation(engine, metrics, options);
+    engine.clear();
+    const b = engine.getPlotBounds ? engine.getPlotBounds() : engine.getBounds();
+    const ctx = engine.ctx;
+    const pal = engine.palette;
+
+    const {
+      sd = 4.0,
+      sem = 0.50,
+      n = 64,
+      totalN = 128,
+      power = 0.80,
+      beta = 0.20,
+      delta = 2.0,
+      alpha = 0.05,
+      zCrit = 1.96,
+      seDiff = 0.707,
+      lambda = 2.83,
+      xCrit = 1.386,
+      cohensD = 0.50,
+      viewMode = 'distributions',
+      matrix = {},
+      curvePoints = [],
+      powerRating = 'ADEQUATE'
+    } = metrics || {};
+
+    // -------------------------------------------------------------
+    // VIEW MODE 1: POWER VS SAMPLE SIZE CURVE
+    // -------------------------------------------------------------
+    if (viewMode === 'curve') {
+      const minN = 4;
+      const maxN = 250;
+      const toX = (val) => {
+        const clamped = Math.max(minN, Math.min(maxN, Number.isFinite(val) ? val : minN));
+        return b.x + ((clamped - minN) / (maxN - minN)) * b.width;
+      };
+      const toY = (val) => {
+        const clamped = Math.max(0, Math.min(1.0, Number.isFinite(val) ? val : 0));
+        return b.y + b.height - clamped * b.height;
+      };
+
+      // Draw Grid & Axes
+      ctx.strokeStyle = pal.grid;
+      ctx.lineWidth = 1;
+
+      // X grid
+      const nTicks = [4, 25, 50, 75, 100, 150, 200, 250];
+      nTicks.forEach(nVal => {
+        const xPix = toX(nVal);
+        ctx.beginPath();
+        ctx.moveTo(xPix, b.y);
+        ctx.lineTo(xPix, b.y + b.height);
+        ctx.stroke();
+
+        ctx.fillStyle = pal.textMuted;
+        ctx.font = `500 10px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`n=${nVal}`, xPix, b.y + b.height + 15);
+      });
+
+      // Y grid
+      const pTicks = [0.2, 0.4, 0.6, 0.8, 0.9, 1.0];
+      pTicks.forEach(pVal => {
+        const yPix = toY(pVal);
+        ctx.beginPath();
+        ctx.moveTo(b.x, yPix);
+        ctx.lineTo(b.x + b.width, yPix);
+        ctx.stroke();
+
+        ctx.fillStyle = pal.textMuted;
+        ctx.font = `500 10px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'right';
+        ctx.fillText(`${(pVal * 100).toFixed(0)}%`, b.x - 8, yPix + 4);
+      });
+
+      // 80% Benchmark Line (Amber/Green dashed)
+      const y80 = toY(0.80);
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(b.x, y80);
+      ctx.lineTo(b.x + b.width, y80);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#10b981';
+      ctx.font = `600 10px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'right';
+      ctx.fillText('80% Regulatory Standard', b.x + b.width - 10, y80 - 6);
+
+      // 90% Benchmark Line (Cyan dashed)
+      const y90 = toY(0.90);
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(b.x, y90);
+      ctx.lineTo(b.x + b.width, y90);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#06b6d4';
+      ctx.fillText('90% High Rigor', b.x + b.width - 10, y90 - 6);
+
+      // Shaded area under curve
+      if (curvePoints && curvePoints.length > 1) {
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.12)';
+        ctx.beginPath();
+        ctx.moveTo(toX(curvePoints[0].n), toY(0));
+        curvePoints.forEach(pt => ctx.lineTo(toX(pt.n), toY(pt.power)));
+        ctx.lineTo(toX(curvePoints[curvePoints.length - 1].n), toY(0));
+        ctx.closePath();
+        ctx.fill();
+
+        // Draw Power Curve line
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 3.0;
+        ctx.beginPath();
+        curvePoints.forEach((pt, idx) => {
+          if (idx === 0) ctx.moveTo(toX(pt.n), toY(pt.power));
+          else ctx.lineTo(toX(pt.n), toY(pt.power));
+        });
+        ctx.stroke();
+      }
+
+      // Current Point Marker
+      const curXPix = toX(n);
+      const curYPix = toY(power);
+
+      // Drop lines to axes
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(curXPix, b.y + b.height);
+      ctx.lineTo(curXPix, curYPix);
+      ctx.lineTo(b.x, curYPix);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Glowing dot
+      ctx.fillStyle = 'rgba(168, 85, 247, 0.35)';
+      ctx.beginPath();
+      ctx.arc(curXPix, curYPix, 9, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#a855f7';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.arc(curXPix, curYPix, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Tooltip Callout Box
+      const calloutText = `n = ${n} | Power = ${(power * 100).toFixed(1)}% (β = ${(beta * 100).toFixed(1)}%)`;
+      ctx.font = `700 11px ${engine.options.fontFamily}`;
+      const textWidth = ctx.measureText(calloutText).width;
+      const boxW = textWidth + 18;
+      const boxH = 26;
+      const boxX = Math.min(b.x + b.width - boxW - 8, Math.max(b.x + 8, curXPix - boxW / 2));
+      const boxY = Math.max(b.y + 8, curYPix - 38);
+
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(boxX, boxY, boxW, boxH, 6) : ctx.rect(boxX, boxY, boxW, boxH);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.textAlign = 'center';
+      ctx.fillText(calloutText, boxX + boxW / 2, boxY + 17);
+
+      // Legend
+      ctx.textAlign = 'left';
+      ctx.font = `500 11px ${engine.options.fontFamily}`;
+      ctx.fillStyle = '#10b981';
+      ctx.fillText(`— Statistical Power Curve: P(n) at Δ = ${delta.toFixed(2)}, SD = ${sd.toFixed(2)}, α = ${alpha.toFixed(3)}`, b.x + 12, b.y + 20);
+      ctx.fillStyle = '#a855f7';
+      ctx.fillText(`● Current Operating Point (n = ${n} per group, N = ${totalN}, SEM = ${sem.toFixed(3)})`, b.x + 12, b.y + 36);
+      return;
+    }
+
+    // -------------------------------------------------------------
+    // VIEW MODE 2: 2x2 DECISION ERROR MATRIX
+    // -------------------------------------------------------------
+    if (viewMode === 'matrix') {
+      const pad = 12;
+      const cardW = (b.width - pad * 3) / 2;
+      const cardH = (b.height - pad * 3) / 2;
+
+      const cells = [
+        {
+          col: 0, row: 0,
+          title: 'SPECIFICITY (1 − α)',
+          val: `${((1 - alpha) * 100).toFixed(1)}%`,
+          sub: 'True Negative Rate',
+          desc: 'H₀ is TRUE (no effect), decision is RETAIN H₀. Correct clinical conclusion: drug is correctly recognized as having no effect.',
+          color: '#38bdf8',
+          bg: 'rgba(56, 189, 248, 0.08)',
+          border: 'rgba(56, 189, 248, 0.35)',
+          pct: 1 - alpha
+        },
+        {
+          col: 1, row: 0,
+          title: 'TYPE I ERROR (α)',
+          val: `${(alpha * 100).toFixed(1)}%`,
+          sub: 'False Positive Rate (Significance Level)',
+          desc: 'H₀ is TRUE (no effect), but decision is REJECT H₀. False alarm: ineffective drug erroneously declared effective.',
+          color: '#ef4444',
+          bg: 'rgba(239, 68, 68, 0.08)',
+          border: 'rgba(239, 68, 68, 0.35)',
+          pct: alpha
+        },
+        {
+          col: 0, row: 1,
+          title: 'TYPE II ERROR (β)',
+          val: `${(beta * 100).toFixed(1)}%`,
+          sub: 'False Negative Rate',
+          desc: 'H₁ is TRUE (real effect Δ), but decision is RETAIN H₀. Missed discovery: effective therapy discarded due to lack of power!',
+          color: '#f59e0b',
+          bg: 'rgba(245, 158, 11, 0.08)',
+          border: 'rgba(245, 158, 11, 0.35)',
+          pct: beta
+        },
+        {
+          col: 1, row: 1,
+          title: 'STATISTICAL POWER (1 − β)',
+          val: `${(power * 100).toFixed(1)}%`,
+          sub: 'True Positive Rate (Sensitivity)',
+          desc: 'H₁ is TRUE (real effect Δ), and decision is REJECT H₀. Successful trial: effective therapy correctly discovered and verified!',
+          color: '#10b981',
+          bg: 'rgba(16, 185, 129, 0.08)',
+          border: 'rgba(16, 185, 129, 0.35)',
+          pct: power
+        }
+      ];
+
+      cells.forEach(c => {
+        const cx = b.x + pad + c.col * (cardW + pad);
+        const cy = b.y + pad + c.row * (cardH + pad);
+
+        ctx.fillStyle = c.bg;
+        ctx.strokeStyle = c.border;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(cx, cy, cardW, cardH, 8) : ctx.rect(cx, cy, cardW, cardH);
+        ctx.fill();
+        ctx.stroke();
+
+        // Card Title
+        ctx.fillStyle = c.color;
+        ctx.font = `700 11px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'left';
+        ctx.fillText(c.title, cx + 12, cy + 20);
+
+        // Subtitle
+        ctx.fillStyle = pal.textMuted;
+        ctx.font = `500 9px ${engine.options.fontFamily}`;
+        ctx.fillText(c.sub, cx + 12, cy + 34);
+
+        // Large Percentage Value
+        ctx.fillStyle = c.color;
+        ctx.font = `800 24px ${engine.options.fontFamily}`;
+        ctx.fillText(c.val, cx + 12, cy + 64);
+
+        // Progress bar indicator
+        const barX = cx + 12;
+        const barY = cy + 72;
+        const barW = cardW - 24;
+        const barH = 6;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fillRect(barX, barY, barW, barH);
+        ctx.fillStyle = c.color;
+        ctx.fillRect(barX, barY, barW * Math.max(0, Math.min(1.0, c.pct)), barH);
+
+        // Description text wrapped
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = `400 9.5px ${engine.options.fontFamily}`;
+        const words = c.desc.split(' ');
+        let line = '';
+        let lineY = cy + 93;
+        for (let w = 0; w < words.length; w++) {
+          const testLine = line + words[w] + ' ';
+          if (ctx.measureText(testLine).width > cardW - 24 && w > 0) {
+            ctx.fillText(line, cx + 12, lineY);
+            line = words[w] + ' ';
+            lineY += 12;
+          } else {
+            line = testLine;
+          }
+        }
+        ctx.fillText(line, cx + 12, lineY);
+      });
+      return;
+    }
+
+    // -------------------------------------------------------------
+    // VIEW MODE 3: DUAL DISTRIBUTION (H0 VS H1) WITH SHADED REGIONS
+    // -------------------------------------------------------------
+    const safeSEDiff = Math.max(0.001, Number.isFinite(seDiff) ? seDiff : 0.707);
+    const safeDelta = Number.isFinite(delta) ? delta : 2.0;
+
+    const minX = -3.5 * safeSEDiff;
+    const maxX = safeDelta + 3.8 * safeSEDiff;
+    const xSpan = Math.max(0.1, maxX - minX);
+
+    const peakY = 1.0 / (safeSEDiff * Math.sqrt(2 * Math.PI));
+    const maxY = peakY * 1.32;
+
+    const toX = (val) => {
+      const v = Number.isFinite(val) ? val : minX;
+      return b.x + ((v - minX) / xSpan) * b.width;
+    };
+    const toY = (val) => {
+      const v = Number.isFinite(val) ? val : 0;
+      return b.y + b.height - (v / maxY) * b.height;
+    };
+
+    // Grid lines & X-axis
+    ctx.strokeStyle = pal.grid;
+    ctx.lineWidth = 1;
+    const xSteps = 7;
+    for (let i = 0; i <= xSteps; i++) {
+      const xVal = minX + (i / xSteps) * xSpan;
+      const xPix = toX(xVal);
+      ctx.beginPath();
+      ctx.moveTo(xPix, b.y);
+      ctx.lineTo(xPix, b.y + b.height);
+      ctx.stroke();
+
+      ctx.fillStyle = pal.textMuted;
+      ctx.font = `500 10px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(xVal.toFixed(2), xPix, b.y + b.height + 15);
+    }
+
+    // Generate Points for H0: N(0, seDiff^2) and H1: N(delta, seDiff^2)
+    const numPts = 320;
+    const ptsH0 = [];
+    const ptsH1 = [];
+    const normPDF = (x, mu, s) => (1.0 / (s * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mu) / s, 2));
+
+    for (let i = 0; i <= numPts; i++) {
+      const x = minX + (i / numPts) * xSpan;
+      ptsH0.push({ x, y: normPDF(x, 0, safeSEDiff) });
+      ptsH1.push({ x, y: normPDF(x, safeDelta, safeSEDiff) });
+    }
+
+    // 1. Shading: Statistical Power (1 - beta) under H1 (where x >= xCrit, Emerald Green)
+    ctx.fillStyle = 'rgba(16, 185, 129, 0.38)';
+    ctx.beginPath();
+    ctx.moveTo(toX(xCrit), toY(0));
+    for (const pt of ptsH1) {
+      if (pt.x >= xCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+    }
+    ctx.lineTo(toX(maxX), toY(0));
+    ctx.closePath();
+    ctx.fill();
+
+    // 2. Shading: Type II Error (beta) under H1 (where x < xCrit, Amber)
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.35)';
+    ctx.beginPath();
+    ctx.moveTo(toX(minX), toY(0));
+    for (const pt of ptsH1) {
+      if (pt.x <= xCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+    }
+    ctx.lineTo(toX(xCrit), toY(0));
+    ctx.closePath();
+    ctx.fill();
+
+    // 3. Shading: Type I Error (alpha/2) under H0 (where x >= xCrit, Red rejection tail)
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
+    ctx.beginPath();
+    ctx.moveTo(toX(xCrit), toY(0));
+    for (const pt of ptsH0) {
+      if (pt.x >= xCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+    }
+    ctx.lineTo(toX(maxX), toY(0));
+    ctx.closePath();
+    ctx.fill();
+
+    // 4. Shading: Retention Zone (1 - alpha/2) under H0 (Soft blue tint)
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+    ctx.beginPath();
+    ctx.moveTo(toX(minX), toY(0));
+    for (const pt of ptsH0) {
+      if (pt.x <= xCrit) ctx.lineTo(toX(pt.x), toY(pt.y));
+    }
+    ctx.lineTo(toX(xCrit), toY(0));
+    ctx.closePath();
+    ctx.fill();
+
+    // 5. Draw H0 Curve (Cyan)
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ptsH0.forEach((pt, idx) => {
+      if (idx === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+      else ctx.lineTo(toX(pt.x), toY(pt.y));
+    });
+    ctx.stroke();
+
+    // 6. Draw H1 Curve (Violet/Purple)
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ptsH1.forEach((pt, idx) => {
+      if (idx === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+      else ctx.lineTo(toX(pt.x), toY(pt.y));
+    });
+    ctx.stroke();
+
+    // 7. Center Means Vertical Drop Lines (mu=0 and mu=delta)
+    [
+      { mu: 0, color: '#06b6d4', label: 'Null H₀: Δ = 0' },
+      { mu: safeDelta, color: '#a855f7', label: `Alternative H₁: Δ = ${safeDelta.toFixed(2)}` }
+    ].forEach(grp => {
+      const xPix = toX(grp.mu);
+      ctx.strokeStyle = grp.color;
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(xPix, toY(0));
+      ctx.lineTo(xPix, toY(peakY));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = grp.color;
+      ctx.font = `600 10px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(grp.label, xPix, toY(peakY) - 8);
+    });
+
+    // 8. Effect Size Bracket Δ between mu0 and mu1
+    const yBracket = toY(peakY * 0.45);
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(toX(0), yBracket);
+    ctx.lineTo(toX(safeDelta), yBracket);
+    ctx.stroke();
+    // Bracket tick ends
+    [0, safeDelta].forEach(muVal => {
+      ctx.beginPath();
+      ctx.moveTo(toX(muVal), yBracket - 4);
+      ctx.lineTo(toX(muVal), yBracket + 4);
+      ctx.stroke();
+    });
+    ctx.fillStyle = '#a855f7';
+    ctx.font = `700 10px ${engine.options.fontFamily}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`True Effect Δ = ${safeDelta.toFixed(2)} (d = ${cohensD.toFixed(2)})`, toX(safeDelta / 2), yBracket - 6);
+
+    // 9. Critical Threshold Line xcrit (Red dashed)
+    if (Number.isFinite(xCrit) && xCrit >= minX && xCrit <= maxX) {
+      const critXPix = toX(xCrit);
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2.2;
+      ctx.setLineDash([5, 3]);
+      ctx.beginPath();
+      ctx.moveTo(critXPix, toY(0));
+      ctx.lineTo(critXPix, toY(peakY * 1.05));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#ef4444';
+      ctx.font = `700 10px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`Significance Cutoff xcrit = ${xCrit.toFixed(2)}`, critXPix, toY(peakY * 1.05) - 6);
+    }
+
+    // 10. Shading Zone Labels
+    // Power label in green area
+    const pwrX = toX(Math.max(xCrit + 0.3 * safeSEDiff, safeDelta));
+    if (pwrX < b.x + b.width - 60) {
+      ctx.fillStyle = '#10b981';
+      ctx.font = `700 11px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`Power (1 − β): ${(power * 100).toFixed(1)}%`, pwrX, toY(peakY * 0.28));
+    }
+
+    // Beta label in amber area
+    const betaX = toX(Math.min(xCrit - 0.2 * safeSEDiff, safeDelta - 0.3 * safeSEDiff));
+    if (betaX > b.x + 50) {
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = `700 11px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`Beta (β): ${(beta * 100).toFixed(1)}%`, betaX, toY(peakY * 0.16));
+    }
+
+    // 11. Status Badge at Top-Right
+    const isAdequate = power >= 0.80;
+    const badgeText = isAdequate
+      ? `✓ ADEQUATE POWER: ${(power * 100).toFixed(1)}% (β = ${(beta * 100).toFixed(1)}%)`
+      : `⚠ UNDERPOWERED: ${(power * 100).toFixed(1)}% (β = ${(beta * 100).toFixed(1)}%)`;
+    ctx.fillStyle = isAdequate ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+    ctx.strokeStyle = isAdequate ? '#10b981' : '#ef4444';
+    ctx.lineWidth = 1;
+    ctx.font = `700 11px ${engine.options.fontFamily}`;
+    const badgeWidth = ctx.measureText(badgeText).width + 24;
+    ctx.fillRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
+    ctx.strokeRect(b.x + b.width - badgeWidth - 10, b.y + 10, badgeWidth, 24);
+
+    ctx.fillStyle = isAdequate ? '#10b981' : '#ef4444';
+    ctx.textAlign = 'right';
+    ctx.fillText(badgeText, b.x + b.width - 22, b.y + 26);
+
+    // 12. Dynamic Legend
+    ctx.textAlign = 'left';
+    ctx.font = `500 11px ${engine.options.fontFamily}`;
+    ctx.fillStyle = '#06b6d4';
+    ctx.fillText(`— Null Distribution H₀: Δ ~ N(0, SE²diff), SE = ${safeSEDiff.toFixed(3)} (SEM = ${sem.toFixed(3)})`, b.x + 12, b.y + 20);
+    ctx.fillStyle = '#a855f7';
+    ctx.fillText(`— Alternative Distribution H₁: Δ ~ N(${safeDelta.toFixed(2)}, SE²diff), n = ${n} per group (N = ${totalN})`, b.x + 12, b.y + 36);
+    ctx.fillStyle = '#10b981';
+    ctx.fillText(`░ Green Shaded Area: Power (1 − β) = ${(power * 100).toFixed(1)}% | ░ Amber Area: β = ${(beta * 100).toFixed(1)}%`, b.x + 12, b.y + 52);
   }
 };
+
 
