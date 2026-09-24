@@ -61,6 +61,9 @@
     <main class="tab-content">
       <!-- 1. Descriptive Stats Tab -->
       <section id="tab-descriptive" class="tab-pane active">
+        <div class="tab-pane-toolbar">
+          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="descriptive" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+        </div>
         <div class="analysis-grid">
           <div class="card">
             <div class="card-header">
@@ -71,7 +74,6 @@
               <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center;">
                 <button id="descSampleBtn" class="btn btn-secondary btn-sm">Normal Sample</button>
                 <button id="descOutlierSampleBtn" class="btn btn-secondary btn-sm" title="Load sample with positive skew and mild/extreme outliers">Sample Skew &amp; Outliers</button>
-                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="descriptive" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
               </div>
             </div>
             <div class="form-group">
@@ -204,6 +206,9 @@
 
       <!-- 2. Hypothesis Testing Tab -->
       <section id="tab-hypothesis" class="tab-pane">
+        <div class="tab-pane-toolbar">
+          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="hypothesis" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+        </div>
         <div class="analysis-grid">
           <div class="card">
             <div class="card-header">
@@ -213,7 +218,6 @@
               </div>
               <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                 <button id="hypoSampleBtn" class="btn btn-secondary btn-sm">Load Pre/Post ICP</button>
-                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="hypothesis" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
               </div>
             </div>
 
@@ -307,6 +311,9 @@
 
       <!-- 3. ANOVA Tab -->
       <section id="tab-anova" class="tab-pane">
+        <div class="tab-pane-toolbar">
+          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="anova" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+        </div>
         <div class="analysis-grid">
           <div class="card">
             <div class="card-header">
@@ -316,7 +323,6 @@
               </div>
               <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                 <button id="anovaSampleBtn" class="btn btn-secondary btn-sm">Load Cranial Cohorts</button>
-                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="anova" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
               </div>
             </div>
 
@@ -423,8 +429,10 @@
       </section>
 
       <!-- 4. Categorical & 2x2 Tab -->
-      <!-- 4. Categorical & 2x2 Tab -->
       <section id="tab-categorical" class="tab-pane">
+        <div class="tab-pane-toolbar">
+          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="categorical" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+        </div>
         <div class="analysis-grid">
           <div class="card">
             <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
@@ -434,7 +442,6 @@
               </div>
               <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                 <button id="catSampleBtn" class="btn btn-secondary btn-sm">Sample Data</button>
-                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="categorical" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
               </div>
             </div>
 
@@ -565,6 +572,9 @@
 
       <!-- 5. Correlation & Regression Tab -->
       <section id="tab-correlation" class="tab-pane">
+        <div class="tab-pane-toolbar">
+          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="correlation" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+        </div>
         <div class="analysis-grid">
           <div class="card">
             <div class="card-header">
@@ -576,7 +586,6 @@
                 <button id="corrSampleBtn" class="btn btn-secondary btn-sm">Sample Linear</button>
                 <button id="corrUShapeBtn" class="btn btn-secondary btn-sm" title="Load classic neurosurgical U-shaped dataset (Cerebral Perfusion Pressure vs Mortality)">Sample U-Curve</button>
                 <button id="corrNCurveBtn" class="btn btn-secondary btn-sm" title="Load tri-phasic non-monotonic dataset (Increase → Decrease → Increase)">Sample N-Curve</button>
-                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="correlation" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
               </div>
             </div>
 
@@ -684,6 +693,9 @@
 
       <!-- 6. Diagnostic & ROC Tab -->
       <section id="tab-diagnostic" class="tab-pane">
+        <div class="tab-pane-toolbar">
+          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="diagnostic" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+        </div>
         <div class="analysis-grid">
           <div class="card">
             <div class="card-header">
@@ -693,7 +705,6 @@
               </div>
               <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                 <button id="rocSampleBtn" class="btn btn-secondary btn-sm">Sample NfL Biomarker</button>
-                <button class="btn btn-primary btn-sm btn-export-docx" data-tab="diagnostic" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
               </div>
             </div>
 
@@ -757,6 +768,9 @@
 
       <!-- 7. Sample Size & Power Tab -->
       <section id="tab-power" class="tab-pane">
+        <div class="tab-pane-toolbar">
+          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="power" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+        </div>
         <div class="analysis-grid">
           <div class="card">
             <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
@@ -764,7 +778,6 @@
                 <h2 class="card-title">Power &amp; Sample Size Determination</h2>
                 <p id="pwrSubtitle" class="card-subtitle">A-priori sample size planning &amp; post-hoc power calculation</p>
               </div>
-              <button class="btn btn-primary btn-sm btn-export-docx" data-tab="power" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
             </div>
 
             <div class="form-group" style="margin-bottom: 1rem;">

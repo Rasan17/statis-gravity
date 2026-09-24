@@ -64,6 +64,15 @@
   display: block;
 }
 
+/* Tab Pane Upper Right Toolbar */
+.tab-pane-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
