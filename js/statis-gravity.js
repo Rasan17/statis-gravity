@@ -1,7 +1,8 @@
 /**
  * Statis-Gravity — Complete Self-Contained Clinical Biostatistics & Visualization Engine
  * Unified standalone build: Compatible with both local file:// protocol and web servers.
- * Developed by Dr G Narenthiran BSc(MedSci)(Hons) MB ChB MRCSE FEBNS FRCS(SN).
+ * Conceived, supervised design and testing: Dr G Narenthiran MB ChB BSc(MedSci)(Hons) MRCS(Ed.) FEBNS FRCS(SN)
+ * Copyright, G Narenthiran FEBS FRCS(SN), g_narenthiran@hotmail.com
  */
 
 (function () {
@@ -2766,6 +2767,21 @@
           const cid = e.currentTarget.dataset.canvasId;
           if (this.engines[cid]) this.engines[cid].saveImage(`${cid}.png`);
         });
+      });
+
+      // Disclaimer Modal Dismissal
+      document.getElementById('disclaimerDismissBtn')?.addEventListener('click', () => {
+        document.getElementById('disclaimerModal')?.classList.add('hidden');
+      });
+      document.getElementById('disclaimerModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'disclaimerModal') {
+          e.currentTarget.classList.add('hidden');
+        }
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          document.getElementById('disclaimerModal')?.classList.add('hidden');
+        }
       });
     }
 

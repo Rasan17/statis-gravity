@@ -20,6 +20,9 @@
         <div class="brand-info">
           <h1>Statis-Gravity</h1>
           <p>Clinical Biostatistics &amp; Exploratory Visualization Platform</p>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem; font-weight: 500; line-height: 1.4;">
+            Conceived, supervised design and testing: Dr G Narenthiran MB ChB BSc(MedSci)(Hons) MRCS(Ed.) FEBNS FRCS(SN)
+          </p>
         </div>
       </div>
       <div class="header-actions">
@@ -882,8 +885,7 @@
     <!-- Footer -->
     <footer class="app-footer">
       <p>
-        <strong>Statis-Gravity</strong> — Clinical Biostatistics &amp; Data Visualization Suite.
-        Developed by <strong>Dr G Narenthiran</strong> BSc(MedSci)(Hons) MB ChB MRCSE FEBNS FRCS(SN).
+        Copyright, G Narenthiran FEBS FRCS(SN), <a href="mailto:g_narenthiran@hotmail.com">g_narenthiran@hotmail.com</a>
       </p>
       <p style="margin-top: 0.35rem; font-size: 0.7rem; color: var(--text-muted);">
         Dedicated to <strong>Mrs Nirmaladevy Ganesalingam BSc (mother)</strong>. Part of the Anti-Gravity neurosurgical productivity ecosystem.
@@ -891,6 +893,26 @@
     </footer>
   </div>
 
-  <script src="js/statis-gravity.js?v=2.3.0"></script>
+  <!-- Testing / AI Vibe Coding Disclaimer Pop-up Window -->
+  <div id="disclaimerModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="disclaimerHeading">
+    <div class="modal-card">
+      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+        <span style="font-size: 1.6rem; line-height: 1;">⚠️</span>
+        <h3 id="disclaimerHeading" style="font-size: 1.15rem; font-weight: 700; color: var(--amber-primary); margin: 0;">Notice</h3>
+      </div>
+      <div style="font-size: 0.98rem; line-height: 1.6; color: var(--text-main); margin-bottom: 1.5rem;">
+        <p style="margin: 0; font-weight: 500;">
+          AI was used to vibe code this WebApp. The App is still in testing phase. Not to use for clinical, research or decision making
+        </p>
+      </div>
+      <div style="display: flex; justify-content: flex-end;">
+        <button id="disclaimerDismissBtn" class="btn btn-primary" style="padding: 0.55rem 1.6rem; font-weight: 600; cursor: pointer;">
+          I Understand
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/statis-gravity.js?v=2.4.0"></script>
 </body>
 </html>

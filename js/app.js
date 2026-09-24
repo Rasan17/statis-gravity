@@ -299,6 +299,21 @@ class StatisGravityApp {
         }
       });
     });
+
+    // Disclaimer Modal Dismissal
+    document.getElementById('disclaimerDismissBtn')?.addEventListener('click', () => {
+      document.getElementById('disclaimerModal')?.classList.add('hidden');
+    });
+    document.getElementById('disclaimerModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'disclaimerModal') {
+        e.currentTarget.classList.add('hidden');
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.getElementById('disclaimerModal')?.classList.add('hidden');
+      }
+    });
   }
 
   loadInitialSamples() {

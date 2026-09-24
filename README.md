@@ -2,8 +2,11 @@
 
 **Statis-Gravity** is an interactive, zero-dependency clinical biostatistics and exploratory data analysis web application designed for biomedical researchers, clinicians, and neurosurgeons.
 
-Developed by **Dr G Narenthiran** BSc(MedSci)(Hons) MB ChB MRCSE FEBNS, FRCS(SN), Southampton, UK (`g_narenthiran@hotmail.com`).  
+Conceived, supervised design and testing: **Dr G Narenthiran** MB ChB BSc(MedSci)(Hons) MRCS(Ed.) FEBNS FRCS(SN).  
+Copyright, G Narenthiran FEBS FRCS(SN), `g_narenthiran@hotmail.com`.  
 Dedicated to **Mrs Nirmaladevy Ganesalingam BSc (mother)**.
+
+> ⚠️ **Notice**: AI was used to vibe code this WebApp. The App is still in testing phase. Not to use for clinical, research or decision making.
 
 ---
 
