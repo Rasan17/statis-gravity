@@ -1888,12 +1888,16 @@ export const Plots = {
     // -------------------------------------------------------------
     // MEANS, PATIENTS, OR DUAL VIEW
     // -------------------------------------------------------------
-    const activeSigma = (viewMode === 'patients') ? sd : sem;
-    const minX = mean1 - Math.max(3.8 * sd, 4.0);
-    const maxX = Math.max(mean2 + Math.max(3.8 * sd, 4.0), mean1 + 7.5);
+    const activeSigma1 = (viewMode === 'patients') ? sd1 : sem1;
+    const activeSigma2 = (viewMode === 'patients') ? sd2 : sem2;
+    const maxSpread = Math.max(sd1, sd2, 4.0);
+    const minX = mean1 - Math.max(3.8 * maxSpread, 4.0);
+    const maxX = Math.max(mean2 + Math.max(3.8 * maxSpread, 4.0), mean1 + 7.5);
     const xSpan = maxX - minX;
 
-    const maxDensity = 1.0 / (activeSigma * Math.sqrt(2 * Math.PI));
+    const peak1 = 1.0 / (activeSigma1 * Math.sqrt(2 * Math.PI));
+    const peak2 = 1.0 / (activeSigma2 * Math.sqrt(2 * Math.PI));
+    const maxDensity = Math.max(peak1, peak2);
     const maxY = maxDensity * 1.30;
 
     const toX = (val) => b.x + ((val - minX) / xSpan) * b.width;
@@ -1918,7 +1922,7 @@ export const Plots = {
     }
 
     // Generate points for both distributions
-    const numPts = 300;
+    const numPts = 320;
     const pts1 = [];
     const pts2 = [];
     const ptsOverlap = [];
@@ -1927,8 +1931,8 @@ export const Plots = {
 
     for (let i = 0; i <= numPts; i++) {
       const x = minX + (i / numPts) * xSpan;
-      const y1 = normPDF(x, mean1, activeSigma);
-      const y2 = normPDF(x, mean2, activeSigma);
+      const y1 = normPDF(x, mean1, activeSigma1);
+      const y2 = normPDF(x, mean2, activeSigma2);
       const yOverlap = Math.min(y1, y2);
 
       pts1.push({ x, y: y1 });
@@ -1947,24 +1951,35 @@ export const Plots = {
 
     // 2. Dual Mode Background Patient Density (translucent dashed curves)
     if (viewMode === 'dual') {
-      // Scale patient density to fit visually alongside SEM
-      const patientMaxDensity = 1.0 / (sd * Math.sqrt(2 * Math.PI));
-      const dualScale = (maxDensity * 0.45) / patientMaxDensity;
+      const patientPeak1 = 1.0 / (sd1 * Math.sqrt(2 * Math.PI));
+      const patientPeak2 = 1.0 / (sd2 * Math.sqrt(2 * Math.PI));
+      const dualScale1 = (maxDensity * 0.45) / patientPeak1;
+      const dualScale2 = (maxDensity * 0.45) / patientPeak2;
 
-      [mean1, mean2].forEach((mu, gIdx) => {
-        ctx.strokeStyle = gIdx === 0 ? 'rgba(6, 182, 212, 0.45)' : 'rgba(168, 85, 247, 0.45)';
-        ctx.lineWidth = 1.6;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        for (let i = 0; i <= numPts; i++) {
-          const x = minX + (i / numPts) * xSpan;
-          const y = normPDF(x, mu, sd) * dualScale;
-          if (i === 0) ctx.moveTo(toX(x), toY(y));
-          else ctx.lineTo(toX(x), toY(y));
-        }
-        ctx.stroke();
-        ctx.setLineDash([]);
-      });
+      // Group 1 Patient dashed
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.45)';
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      for (let i = 0; i <= numPts; i++) {
+        const x = minX + (i / numPts) * xSpan;
+        const y = normPDF(x, mean1, sd1) * dualScale1;
+        if (i === 0) ctx.moveTo(toX(x), toY(y));
+        else ctx.lineTo(toX(x), toY(y));
+      }
+      ctx.stroke();
+
+      // Group 2 Patient dashed
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
+      ctx.beginPath();
+      for (let i = 0; i <= numPts; i++) {
+        const x = minX + (i / numPts) * xSpan;
+        const y = normPDF(x, mean2, sd2) * dualScale2;
+        if (i === 0) ctx.moveTo(toX(x), toY(y));
+        else ctx.lineTo(toX(x), toY(y));
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
 
     // 3. Render Distribution 1 (Group 1 / Control, Cyan)
@@ -1989,8 +2004,8 @@ export const Plots = {
 
     // 5. Mean Centers & Drop Lines
     [
-      { mu: mean1, color: '#06b6d4', label: `Group 1 (μ₁ = ${mean1.toFixed(1)})` },
-      { mu: mean2, color: '#a855f7', label: `Group 2 (μ₂ = ${mean2.toFixed(1)})` }
+      { mu: mean1, color: '#06b6d4', label: `Group 1 (μ₁ = ${mean1.toFixed(1)}${viewMode === 'patients' ? `, SD₁=${sd1.toFixed(2)}` : `, SEM₁=${sem1.toFixed(2)}`})` },
+      { mu: mean2, color: '#a855f7', label: `Group 2 (μ₂ = ${mean2.toFixed(1)}${viewMode === 'patients' ? `, SD₂=${sd2.toFixed(2)}` : `, SEM₂=${sem2.toFixed(2)}`})` }
     ].forEach((grp) => {
       const xPix = toX(grp.mu);
       ctx.strokeStyle = grp.color;
@@ -2096,25 +2111,25 @@ export const Plots = {
 
     if (viewMode === 'patients') {
       ctx.fillStyle = '#06b6d4';
-      ctx.fillText(`— Group 1 Patient Population N(μ₁, SD²), SD = ${sd.toFixed(2)}`, b.x + 12, b.y + 20);
+      ctx.fillText(`— Group 1 Patient Population N(μ₁, SD₁²), SD₁ = ${sd1.toFixed(2)}`, b.x + 12, b.y + 20);
       ctx.fillStyle = '#a855f7';
-      ctx.fillText(`— Group 2 Patient Population N(μ₂, SD²), SD = ${sd.toFixed(2)}`, b.x + 12, b.y + 36);
+      ctx.fillText(`— Group 2 Patient Population N(μ₂, SD₂²), SD₂ = ${sd2.toFixed(2)}`, b.x + 12, b.y + 36);
       ctx.fillStyle = '#94a3b8';
       ctx.fillText(`░ Patient Overlap = ${(patientOVL * 100).toFixed(1)}% (Cohen's d = ${cohensD.toFixed(2)})`, b.x + 12, b.y + 52);
     } else if (viewMode === 'dual') {
       ctx.fillStyle = '#06b6d4';
-      ctx.fillText(`— Group 1 Means (Solid, SEM = ${sem.toFixed(3)}) & Patients (Dashed, SD = ${sd.toFixed(2)})`, b.x + 12, b.y + 20);
+      ctx.fillText(`— Group 1 Means (Solid, SEM₁ = ${sem1.toFixed(3)}) & Patients (Dashed, SD₁ = ${sd1.toFixed(2)})`, b.x + 12, b.y + 20);
       ctx.fillStyle = '#a855f7';
-      ctx.fillText(`— Group 2 Means (Solid, SEM = ${sem.toFixed(3)}) & Patients (Dashed, SD = ${sd.toFixed(2)})`, b.x + 12, b.y + 36);
+      ctx.fillText(`— Group 2 Means (Solid, SEM₂ = ${sem2.toFixed(3)}) & Patients (Dashed, SD₂ = ${sd2.toFixed(2)})`, b.x + 12, b.y + 36);
       ctx.fillStyle = '#94a3b8';
       ctx.fillText(`░ Means Overlap = ${(meansOVL * 100).toFixed(1)}% vs Patient Overlap = ${(patientOVL * 100).toFixed(1)}%`, b.x + 12, b.y + 52);
     } else {
       ctx.fillStyle = '#06b6d4';
-      ctx.fillText(`— Group 1 Sampling Distribution of Mean (SEM = ${sem.toFixed(3)}, n = ${n})`, b.x + 12, b.y + 20);
+      ctx.fillText(`— Group 1 Sampling Distribution (SEM₁ = ${sem1.toFixed(3)}, n₁ = ${n1})`, b.x + 12, b.y + 20);
       ctx.fillStyle = '#a855f7';
-      ctx.fillText(`— Group 2 Sampling Distribution of Mean (SEM = ${sem.toFixed(3)}, n = ${n})`, b.x + 12, b.y + 36);
+      ctx.fillText(`— Group 2 Sampling Distribution (SEM₂ = ${sem2.toFixed(3)}, n₂ = ${n2})`, b.x + 12, b.y + 36);
       ctx.fillStyle = '#f59e0b';
-      ctx.fillText(`┆ Boundary: Δcrit = ${deltaCrit.toFixed(2)} at α = ${alpha.toFixed(3)} (t_crit = ${tCrit.toFixed(3)})`, b.x + 12, b.y + 52);
+      ctx.fillText(`┆ Boundary: Δcrit = ${deltaCrit.toFixed(2)} at α = ${alpha.toFixed(3)} (Welch df = ${df.toFixed(1)})`, b.x + 12, b.y + 52);
     }
   }
 };

@@ -531,27 +531,85 @@ export const Teaching = {
     },
 
     /**
+     * Numerical computation of Weitzman's Overlap Coefficient (OVL)
+     * between two normal distributions with arbitrary means and standard deviations/errors.
+     */
+    computeOverlap(mu1, s1, mu2, s2) {
+      if (s1 <= 0 || s2 <= 0) return 0;
+      const normPDF = (x, m, s) => (1.0 / (s * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - m) / s, 2));
+      const minX = Math.min(mu1 - 5.0 * s1, mu2 - 5.0 * s2);
+      const maxX = Math.max(mu1 + 5.0 * s1, mu2 + 5.0 * s2);
+      const steps = 600;
+      const dx = (maxX - minX) / steps;
+      let sum = 0;
+      for (let i = 0; i <= steps; i++) {
+        const x = minX + i * dx;
+        const y1 = normPDF(x, mu1, s1);
+        const y2 = normPDF(x, mu2, s2);
+        const w = (i === 0 || i === steps) ? 0.5 : 1.0;
+        sum += Math.min(y1, y2) * w * dx;
+      }
+      return Math.max(0, Math.min(1.0, sum));
+    },
+
+    /**
      * Compute full analytical metrics for two-sample overlap and alpha boundary
+     * Supports both shared and group-specific SD and SEM/n.
      */
     getMetrics({
       mean1 = 10.0,
       delta = 2.0,
       sd = 2.5,
+      sd1,
+      sd2,
       n = 16,
+      n1,
+      n2,
+      sem1 = null,
+      sem2 = null,
       alpha = 0.05,
       viewMode = 'means'
     } = {}) {
       const mu1 = parseFloat(mean1) || 10.0;
       const dMu = Math.max(0, parseFloat(delta) !== undefined && !isNaN(parseFloat(delta)) ? parseFloat(delta) : 2.0);
       const mu2 = mu1 + dMu;
-      const sigma = Math.max(0.2, parseFloat(sd) || 2.5);
-      const sampleN = Math.max(3, Math.round(n) || 16);
+
+      // Group 1 & Group 2 SDs
+      const baseSD = parseFloat(sd) || 2.5;
+      const sigma1 = Math.max(0.2, parseFloat(sd1 !== undefined && sd1 !== null ? sd1 : baseSD));
+      const sigma2 = Math.max(0.2, parseFloat(sd2 !== undefined && sd2 !== null ? sd2 : baseSD));
+
+      // Group 1 sample size & SEM
+      let sampleN1, sError1;
+      if (sem1 !== null && sem1 !== undefined && !isNaN(parseFloat(sem1))) {
+        sError1 = Math.max(0.01, parseFloat(sem1));
+        sampleN1 = Math.max(2, Math.min(1000, Math.round(Math.pow(sigma1 / sError1, 2))));
+      } else {
+        sampleN1 = Math.max(2, Math.round(n1 !== undefined && n1 !== null ? n1 : (n || 16)));
+        sError1 = sigma1 / Math.sqrt(sampleN1);
+      }
+
+      // Group 2 sample size & SEM
+      let sampleN2, sError2;
+      if (sem2 !== null && sem2 !== undefined && !isNaN(parseFloat(sem2))) {
+        sError2 = Math.max(0.01, parseFloat(sem2));
+        sampleN2 = Math.max(2, Math.min(1000, Math.round(Math.pow(sigma2 / sError2, 2))));
+      } else {
+        sampleN2 = Math.max(2, Math.round(n2 !== undefined && n2 !== null ? n2 : (n || 16)));
+        sError2 = sigma2 / Math.sqrt(sampleN2);
+      }
+
       const sigAlpha = Math.min(0.20, Math.max(0.001, parseFloat(alpha) || 0.05));
 
-      // Precision metrics
-      const sem = sigma / Math.sqrt(sampleN);
-      const seDiff = sigma * Math.sqrt(2.0 / sampleN); // sqrt(sd^2/n + sd^2/n) = sqrt(2)*sem
-      const df = 2 * sampleN - 2;
+      // Precision metrics with Welch-Satterthwaite approximation
+      const v1 = Math.pow(sError1, 2);
+      const v2 = Math.pow(sError2, 2);
+      const seDiff = Math.sqrt(v1 + v2);
+
+      const dfNum = Math.pow(v1 + v2, 2);
+      const dfDenom = ((sampleN1 > 1) ? Math.pow(v1, 2) / (sampleN1 - 1) : 0) +
+                      ((sampleN2 > 1) ? Math.pow(v2, 2) / (sampleN2 - 1) : 0);
+      const df = dfDenom > 0 ? Math.max(1, dfNum / dfDenom) : (sampleN1 + sampleN2 - 2);
 
       // Critical values
       const zCrit = Distributions.invNormalCDF(1 - sigAlpha / 2);
@@ -567,20 +625,23 @@ export const Teaching = {
       const pValue = Distributions.tPValue(tStat, df);
       const isSignificant = pValue < sigAlpha;
 
-      // Effect Size
-      const cohensD = sigma > 0 ? dMu / sigma : 0;
+      // Effect Size (Cohen's d using pooled SD)
+      const pooledSD = Math.sqrt(
+        ((sampleN1 - 1) * Math.pow(sigma1, 2) + (sampleN2 - 1) * Math.pow(sigma2, 2)) /
+        Math.max(1, (sampleN1 + sampleN2 - 2))
+      );
+      const cohensD = pooledSD > 0 ? dMu / pooledSD : 0;
 
-      // Overlap Coefficients (Weitzman's OVL for equal variance normals)
-      const patientOVL = Math.max(0, Math.min(1.0, 2.0 * Distributions.normalCDF(-cohensD / 2.0)));
-      const semD = sem > 0 ? dMu / sem : 0;
-      const meansOVL = Math.max(0, Math.min(1.0, 2.0 * Distributions.normalCDF(-semD / 2.0)));
+      // Overlap Coefficients (Weitzman's OVL for arbitrary SDs & SEMs)
+      const patientOVL = this.computeOverlap(mu1, sigma1, mu2, sigma2);
+      const meansOVL = this.computeOverlap(mu1, sError1, mu2, sError2);
 
       // Confidence Intervals for the means: mu +/- tCrit * SEM
-      const moe = tCrit * sem;
-      const ci1 = [mu1 - moe, mu1 + moe];
-      const ci2 = [mu2 - moe, mu2 + moe];
+      const moe1 = tCrit * sError1;
+      const moe2 = tCrit * sError2;
+      const ci1 = [mu1 - moe1, mu1 + moe1];
+      const ci2 = [mu2 - moe2, mu2 + moe2];
       const ciOverlapDist = Math.max(0, ci1[1] - ci2[0]);
-      const ciOverlapFraction = moe > 0 ? ciOverlapDist / moe : 0;
 
       // Null hypothesis bounds (H0: difference centered at 0 with SE = seDiff)
       const nullCritLeft = -deltaCrit;
@@ -595,26 +656,33 @@ export const Teaching = {
       }
 
       let explanation = '';
+      const isHetero = Math.abs(sigma1 - sigma2) > 0.05 || Math.abs(sError1 - sError2) > 0.02;
       if (isSignificant) {
         explanation = `The observed difference between means (Δ = ${dMu.toFixed(2)}) meets or exceeds the critical significance threshold (Δcrit = ${deltaCrit.toFixed(2)} at α = ${sigAlpha.toFixed(3)}). ` +
-          `While individual patient values overlap substantially (${(patientOVL * 100).toFixed(1)}% patient overlap due to clinical SD = ${sigma.toFixed(2)}), ` +
-          `the standard error of the mean (SEM = ${sem.toFixed(3)}) has contracted with sample size n = ${sampleN} so that the sampling distributions of the two means only overlap by ${(meansOVL * 100).toFixed(1)}%. ` +
-          `Under H₀, observing a mean difference this large occurs with probability p = ${pValue.toFixed(4)} < α = ${sigAlpha.toFixed(3)}, rejecting the null hypothesis.`;
+          `While individual patient values overlap substantially (${(patientOVL * 100).toFixed(1)}% patient overlap with SD₁ = ${sigma1.toFixed(2)} and SD₂ = ${sigma2.toFixed(2)}), ` +
+          `the standard errors of the means (SEM₁ = ${sError1.toFixed(3)}, SEM₂ = ${sError2.toFixed(3)}) have contracted with sample sizes (n₁ = ${sampleN1}, n₂ = ${sampleN2}) so that the sampling distributions of the two means only overlap by ${(meansOVL * 100).toFixed(1)}%. ` +
+          `Under H₀, observing a mean difference this large occurs with probability p = ${pValue < 0.0001 ? '< 0.0001' : pValue.toFixed(4)} < α = ${sigAlpha.toFixed(3)}, rejecting the null hypothesis${isHetero ? ` (Welch df = ${df.toFixed(1)})` : ''}.`;
       } else {
         explanation = `The observed difference between means (Δ = ${dMu.toFixed(2)}) is smaller than the required critical threshold (Δcrit = ${deltaCrit.toFixed(2)} at α = ${sigAlpha.toFixed(3)}). ` +
           `The sampling distributions of the two sample means overlap too heavily (${(meansOVL * 100).toFixed(1)}% overlap, p = ${pValue.toFixed(3)} ≥ α). ` +
-          `To achieve significance at this α level, you must either: (1) observe a larger effect size Δ, (2) reduce measurement noise (lower SD), or (3) recruit more patients (increasing n from ${sampleN} to shrink SEM).`;
+          `To achieve significance at this α level, you must either: (1) observe a larger effect size Δ, (2) reduce measurement noise (lower SD), or (3) recruit more patients to shrink SEM (SEM₁ = ${sError1.toFixed(3)}, SEM₂ = ${sError2.toFixed(3)}).`;
       }
 
       return {
         mean1: mu1,
         mean2: mu2,
         delta: dMu,
-        sd: sigma,
-        n: sampleN,
+        sd1: sigma1,
+        sd2: sigma2,
+        sd: (sigma1 + sigma2) / 2,
+        sem1: sError1,
+        sem2: sError2,
+        sem: (sError1 + sError2) / 2,
+        n1: sampleN1,
+        n2: sampleN2,
+        n: sampleN1,
         alpha: sigAlpha,
         viewMode,
-        sem,
         seDiff,
         df,
         zCrit,
@@ -626,14 +694,16 @@ export const Teaching = {
         pValue,
         isSignificant,
         statusText,
+        pooledSD,
         cohensD,
         patientOVL,
         meansOVL,
-        moe,
+        moe1,
+        moe2,
+        moe: moe1,
         ci1,
         ci2,
         ciOverlapDist,
-        ciOverlapFraction,
         nullCritLeft,
         nullCritRight,
         explanation
@@ -641,3 +711,4 @@ export const Teaching = {
     }
   }
 };
+

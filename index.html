@@ -1280,8 +1280,8 @@
 
             <!-- Controls Panel -->
             <div style="background: var(--bg-surface-elevated); padding: 1.15rem; border-radius: 8px; border: 1px solid var(--border-subtle); margin-bottom: 1.25rem;">
-              <!-- Top Row: Sliders Grid -->
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 1.1rem;">
+              <!-- Row 1: Study Hypotheses & Primary Alpha -->
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.15rem; margin-bottom: 1rem; align-items: start;">
                 <!-- 1. Difference Delta -->
                 <div>
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
@@ -1290,43 +1290,14 @@
                   </div>
                   <input id="overlapDeltaRange" type="range" min="0" max="6.0" step="0.1" value="2.0" style="width: 100%; cursor: pointer;">
                   <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
-                    <span>Δ=0 (Identical)</span>
+                    <span>Δ=0 (Null)</span>
                     <span>Δ=1.5 (Moderate)</span>
                     <span>Δ=3.5 (Large)</span>
                     <span>Δ=6.0</span>
                   </div>
                 </div>
 
-                <!-- 2. Standard Deviation SD -->
-                <div>
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                    <label for="overlapSDRange" class="form-label" style="margin: 0; font-weight: 600;">Patient Variability (SD / σ):</label>
-                    <span id="overlapSDVal" style="font-weight: 700; color: #a855f7;">2.50</span>
-                  </div>
-                  <input id="overlapSDRange" type="range" min="0.5" max="6.0" step="0.1" value="2.5" style="width: 100%; cursor: pointer;">
-                  <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
-                    <span>SD=0.5 (Homogeneous)</span>
-                    <span>SD=2.5</span>
-                    <span>SD=6.0 (High Variance)</span>
-                  </div>
-                </div>
-
-                <!-- 3. Sample Size n -->
-                <div>
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                    <label for="overlapNRange" class="form-label" style="margin: 0; font-weight: 600;">Sample Size per Group (n):</label>
-                    <span id="overlapNVal" style="font-weight: 700; color: #22c55e;">n = 16 (SEM = 0.625)</span>
-                  </div>
-                  <input id="overlapNRange" type="range" min="3" max="150" step="1" value="16" style="width: 100%; cursor: pointer;">
-                  <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
-                    <span>n=3 (Wide SEM)</span>
-                    <span>n=16</span>
-                    <span>n=64</span>
-                    <span>n=150 (Razor SEM)</span>
-                  </div>
-                </div>
-
-                <!-- 4. Significance Level Alpha -->
+                <!-- 2. Significance Level Alpha -->
                 <div>
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                     <label for="overlapAlphaRange" class="form-label" style="margin: 0; font-weight: 600;">Significance Level (α):</label>
@@ -1339,6 +1310,93 @@
                     <span style="color: #f59e0b; font-weight: 600;">α=0.05 (Standard)</span>
                     <span>α=0.10</span>
                     <span>α=0.20</span>
+                  </div>
+                </div>
+
+                <!-- 3. Link Groups Toggle & Animation Controls -->
+                <div style="display: flex; flex-direction: column; gap: 0.5rem; justify-content: center; height: 100%;">
+                  <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; font-weight: 600; cursor: pointer; color: var(--text-main); margin-top: 0.35rem;">
+                    <input type="checkbox" id="overlapLinkGroupsCheck" style="cursor: pointer;">
+                    <span>🔗 Link Group 2 to Group 1 (Homoscedastic)</span>
+                  </label>
+                  <div style="display: flex; gap: 0.45rem; margin-top: 0.2rem;">
+                    <button id="overlapAnimateBtn" class="btn btn-secondary btn-sm" style="flex: 1; font-size: 0.78rem;">▶ Animate</button>
+                    <button id="overlapResetBtn" class="btn btn-secondary btn-sm" style="flex: 1; font-size: 0.78rem;">↺ Reset</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Row 2: Group 1 vs Group 2 Side-by-Side Dispersion Boxes -->
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 1rem; margin-bottom: 1.1rem;">
+                <!-- Group 1 Box (Cyan) -->
+                <div style="background: rgba(6, 182, 212, 0.035); border: 1px solid rgba(6, 182, 212, 0.35); border-radius: 8px; padding: 0.85rem 1rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; border-bottom: 1px solid rgba(6, 182, 212, 0.2); padding-bottom: 0.35rem;">
+                    <strong style="color: #06b6d4; font-size: 0.88rem;">🔵 Group 1 (Control / Baseline)</strong>
+                    <span id="overlapG1Summary" style="font-size: 0.76rem; font-weight: 600; color: #06b6d4;">SD₁ = 2.50 | SEM₁ = 0.625</span>
+                  </div>
+
+                  <!-- SD1 Slider -->
+                  <div style="margin-bottom: 0.65rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                      <label for="overlapSD1Range" class="form-label" style="margin: 0; font-size: 0.78rem; font-weight: 600;">Patient SD (σ₁):</label>
+                      <span id="overlapSD1Val" style="font-weight: 700; color: #06b6d4; font-size: 0.82rem;">2.50</span>
+                    </div>
+                    <input id="overlapSD1Range" type="range" min="0.5" max="8.0" step="0.1" value="2.5" style="width: 100%; cursor: pointer;">
+                  </div>
+
+                  <!-- SEM1 Slider -->
+                  <div style="margin-bottom: 0.65rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                      <label for="overlapSEM1Range" class="form-label" style="margin: 0; font-size: 0.78rem; font-weight: 600;">Standard Error (SEM₁):</label>
+                      <span id="overlapSEM1Val" style="font-weight: 700; color: #06b6d4; font-size: 0.82rem;">0.625</span>
+                    </div>
+                    <input id="overlapSEM1Range" type="range" min="0.05" max="3.00" step="0.025" value="0.625" style="width: 100%; cursor: pointer;">
+                  </div>
+
+                  <!-- n1 Slider -->
+                  <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                      <label for="overlapN1Range" class="form-label" style="margin: 0; font-size: 0.78rem; font-weight: 600;">Sample Size (n₁):</label>
+                      <span id="overlapN1Val" style="font-weight: 700; color: var(--text-main); font-size: 0.82rem;">n₁ = 16</span>
+                    </div>
+                    <input id="overlapN1Range" type="range" min="3" max="200" step="1" value="16" style="width: 100%; cursor: pointer;">
+                    <div style="font-size: 0.70rem; color: var(--text-muted); margin-top: 0.2rem;">Formula: SEM₁ = SD₁ / √n₁</div>
+                  </div>
+                </div>
+
+                <!-- Group 2 Box (Violet) -->
+                <div style="background: rgba(168, 85, 247, 0.035); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 8px; padding: 0.85rem 1rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; border-bottom: 1px solid rgba(168, 85, 247, 0.2); padding-bottom: 0.35rem;">
+                    <strong style="color: #a855f7; font-size: 0.88rem;">🟣 Group 2 (Treatment / Test)</strong>
+                    <span id="overlapG2Summary" style="font-size: 0.76rem; font-weight: 600; color: #a855f7;">SD₂ = 2.50 | SEM₂ = 0.625</span>
+                  </div>
+
+                  <!-- SD2 Slider -->
+                  <div style="margin-bottom: 0.65rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                      <label for="overlapSD2Range" class="form-label" style="margin: 0; font-size: 0.78rem; font-weight: 600;">Patient SD (σ₂):</label>
+                      <span id="overlapSD2Val" style="font-weight: 700; color: #a855f7; font-size: 0.82rem;">2.50</span>
+                    </div>
+                    <input id="overlapSD2Range" type="range" min="0.5" max="8.0" step="0.1" value="2.5" style="width: 100%; cursor: pointer;">
+                  </div>
+
+                  <!-- SEM2 Slider -->
+                  <div style="margin-bottom: 0.65rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                      <label for="overlapSEM2Range" class="form-label" style="margin: 0; font-size: 0.78rem; font-weight: 600;">Standard Error (SEM₂):</label>
+                      <span id="overlapSEM2Val" style="font-weight: 700; color: #a855f7; font-size: 0.82rem;">0.625</span>
+                    </div>
+                    <input id="overlapSEM2Range" type="range" min="0.05" max="3.00" step="0.025" value="0.625" style="width: 100%; cursor: pointer;">
+                  </div>
+
+                  <!-- n2 Slider -->
+                  <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+                      <label for="overlapN2Range" class="form-label" style="margin: 0; font-size: 0.78rem; font-weight: 600;">Sample Size (n₂):</label>
+                      <span id="overlapN2Val" style="font-weight: 700; color: var(--text-main); font-size: 0.82rem;">n₂ = 16</span>
+                    </div>
+                    <input id="overlapN2Range" type="range" min="3" max="200" step="1" value="16" style="width: 100%; cursor: pointer;">
+                    <div style="font-size: 0.70rem; color: var(--text-muted); margin-top: 0.2rem;">Formula: SEM₂ = SD₂ / √n₂</div>
                   </div>
                 </div>
               </div>
@@ -1378,14 +1436,14 @@
                 <div id="overlapDeltaCritSub" class="metric-sub">Δcrit = 1.80 (Boundary)</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">Standard Error (SEM)</div>
-                <div id="overlapSEMValue" class="metric-value">0.625</div>
-                <div id="overlapSEDiffSub" class="metric-sub">SE_diff: 0.884 (n = 16)</div>
+                <div class="metric-label">Group 1 Spread (SD₁ | SEM₁)</div>
+                <div id="overlapG1MetricValue" class="metric-value" style="font-size: 0.95rem; color: #06b6d4;">2.50 | 0.625</div>
+                <div id="overlapG1MetricSub" class="metric-sub">n₁ = 16 subjects</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">Standard Deviation (SD)</div>
-                <div id="overlapSDValue" class="metric-value">2.50</div>
-                <div id="overlapCohenDSub" class="metric-sub">Cohen's d = 0.80</div>
+                <div class="metric-label">Group 2 Spread (SD₂ | SEM₂)</div>
+                <div id="overlapG2MetricValue" class="metric-value" style="font-size: 0.95rem; color: #a855f7;">2.50 | 0.625</div>
+                <div id="overlapG2MetricSub" class="metric-sub">n₂ = 16 subjects</div>
               </div>
               <div class="metric-card">
                 <div class="metric-label">Distribution Overlap</div>
@@ -1393,9 +1451,9 @@
                 <div id="overlapPatientOVLSub" class="metric-sub">Patient Overlap: 68.9%</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">Critical Cutoff</div>
+                <div class="metric-label">Precision &amp; Cutoff</div>
                 <div id="overlapCritValue" class="metric-value" style="color: #f59e0b;">t = 2.042</div>
-                <div id="overlapAlphaSub" class="metric-sub">α = 0.050 (z = 1.960)</div>
+                <div id="overlapAlphaSub" class="metric-sub">SE_diff: 0.884 | df: 30.0</div>
               </div>
             </div>
 

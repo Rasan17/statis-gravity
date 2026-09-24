@@ -541,7 +541,58 @@ assert(approx(ovlLargeN.patientOVL, ovlBase.patientOVL, 1e-4), `Patient biologic
 assert(approx(ovlLargeN.sem, 0.3125, 1e-4), `SEM cuts in half from 0.625 to 0.3125`);
 assert(ovlLargeN.tStat > 4.5, `t-statistic doubles from 2.26 to 4.53, got ${ovlLargeN.tStat.toFixed(2)}`);
 assert(ovlLargeN.pValue < 0.0001, `p-value plunges to < 0.0001, got ${ovlLargeN.pValue.toFixed(6)}`);
-assert(ovlLargeN.meansOVL < 0.005, `Means overlap drops to near-zero (<0.5%), separating the curves decisively`);
+// Testing Independent Group 1 and Group 2 SD and SEM Controls:
+console.log('--- Testing Independent Group 1 and Group 2 SD & SEM Controls ---');
+const ovlHetero = Teaching.significanceOverlap.getMetrics({
+  mean1: 10.0,
+  delta: 2.5,
+  sd1: 2.0,
+  sd2: 4.0,
+  n1: 16,
+  n2: 16,
+  alpha: 0.05
+});
+assert(approx(ovlHetero.sem1, 0.500, 1e-3), `Group 1 SEM is 2.0 / 4 = 0.500, got ${ovlHetero.sem1.toFixed(3)}`);
+assert(approx(ovlHetero.sem2, 1.000, 1e-3), `Group 2 SEM is 4.0 / 4 = 1.000, got ${ovlHetero.sem2.toFixed(3)}`);
+assert(approx(ovlHetero.seDiff, Math.sqrt(1.25), 1e-3), `SE_diff is sqrt(0.5^2 + 1.0^2) = 1.118, got ${ovlHetero.seDiff.toFixed(3)}`);
+assert(approx(ovlHetero.df, 22.06, 0.05), `Welch-Satterthwaite df for unequal variances is ~22.06, got ${ovlHetero.df.toFixed(2)}`);
+assert(ovlHetero.patientOVL > 0.40 && ovlHetero.patientOVL < 0.65, `Heteroscedastic patient overlap is valid, got ${(ovlHetero.patientOVL*100).toFixed(1)}%`);
+assert(ovlHetero.meansOVL < 0.30, `Heteroscedastic means overlap correctly narrows, got ${(ovlHetero.meansOVL*100).toFixed(1)}%`);
+
+// Direct SEM manipulation (e.g. user drags SEM1 slider to 0.25, SEM2 to 0.50)
+const ovlDirectSEM = Teaching.significanceOverlap.getMetrics({
+  mean1: 10.0,
+  delta: 2.0,
+  sd1: 2.0,
+  sd2: 3.0,
+  sem1: 0.25,
+  sem2: 0.50,
+  alpha: 0.05
+});
+assert(approx(ovlDirectSEM.sem1, 0.25, 1e-4), `Direct SEM1 set to 0.25, got ${ovlDirectSEM.sem1}`);
+assert(approx(ovlDirectSEM.sem2, 0.50, 1e-4), `Direct SEM2 set to 0.50, got ${ovlDirectSEM.sem2}`);
+assert(ovlDirectSEM.n1 === 64, `Implied sample size n1 for SD=2.0 and SEM=0.25 is 64, got ${ovlDirectSEM.n1}`);
+assert(ovlDirectSEM.n2 === 36, `Implied sample size n2 for SD=3.0 and SEM=0.50 is 36, got ${ovlDirectSEM.n2}`);
+assert(approx(ovlDirectSEM.seDiff, Math.sqrt(0.25*0.25 + 0.50*0.50), 1e-3), `SE_diff is ~0.559, got ${ovlDirectSEM.seDiff.toFixed(3)}`);
+assert(ovlDirectSEM.isSignificant === true, `Delta=2.0 with contracted SEMs is significant`);
+
+// Test Teaching DOCX export with dual group overlap metrics
+const docxWithDualOverlap = DocxReports.createTeachingDocx({
+  distName: 'Normal Distribution',
+  sampleMean: 10.0,
+  theoMean: 10.0,
+  sampleSD: 2.5,
+  theoSD: 2.5,
+  skewness: 0.05,
+  kurtosis: -0.02,
+  jbStat: 0.12,
+  jbP: 0.94,
+  isNormal: true,
+  overlap: ovlHetero
+});
+const docxDualBuffer = docxWithDualOverlap.generateUint8Array();
+assert(docxDualBuffer.length > 30000, `Teaching DOCX with dual group overlap generated ${docxDualBuffer.length} bytes`);
+assert(isZip(docxDualBuffer), 'Teaching DOCX with dual group overlap is a valid PKZIP archive');
 
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);

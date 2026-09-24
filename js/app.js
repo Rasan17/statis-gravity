@@ -418,11 +418,109 @@ class StatisGravityApp {
       this.runTConvergence();
     });
 
-    // Section 4: Two-Sample Overlap, SD vs SEM & Alpha Boundary Events
-    ['overlapDeltaRange', 'overlapSDRange', 'overlapNRange', 'overlapAlphaRange'].forEach(id => {
-      document.getElementById(id)?.addEventListener('input', () => {
+    // Section 4: Two-Sample Overlap, Group SD/SEM & Alpha Boundary Events
+    const syncGroup1FromSD = () => {
+      const sd1 = parseFloat(document.getElementById('overlapSD1Range')?.value) || 2.5;
+      const n1 = parseInt(document.getElementById('overlapN1Range')?.value) || 16;
+      const sem1 = sd1 / Math.sqrt(n1);
+      const sem1El = document.getElementById('overlapSEM1Range');
+      if (sem1El) sem1El.value = sem1.toFixed(3);
+      if (document.getElementById('overlapLinkGroupsCheck')?.checked) {
+        const sd2El = document.getElementById('overlapSD2Range');
+        const sem2El = document.getElementById('overlapSEM2Range');
+        if (sd2El) sd2El.value = sd1;
+        if (sem2El) sem2El.value = sem1.toFixed(3);
+      }
+      this.runTwoSampleOverlap();
+    };
+
+    const syncGroup1FromSEM = () => {
+      const sd1 = parseFloat(document.getElementById('overlapSD1Range')?.value) || 2.5;
+      const sem1 = parseFloat(document.getElementById('overlapSEM1Range')?.value) || 0.625;
+      const n1 = Math.max(2, Math.min(500, Math.round(Math.pow(sd1 / sem1, 2))));
+      const n1El = document.getElementById('overlapN1Range');
+      if (n1El) n1El.value = n1;
+      if (document.getElementById('overlapLinkGroupsCheck')?.checked) {
+        const sem2El = document.getElementById('overlapSEM2Range');
+        const n2El = document.getElementById('overlapN2Range');
+        if (sem2El) sem2El.value = sem1.toFixed(3);
+        if (n2El) n2El.value = n1;
+      }
+      this.runTwoSampleOverlap();
+    };
+
+    const syncGroup1FromN = () => {
+      const sd1 = parseFloat(document.getElementById('overlapSD1Range')?.value) || 2.5;
+      const n1 = parseInt(document.getElementById('overlapN1Range')?.value) || 16;
+      const sem1 = sd1 / Math.sqrt(n1);
+      const sem1El = document.getElementById('overlapSEM1Range');
+      if (sem1El) sem1El.value = sem1.toFixed(3);
+      if (document.getElementById('overlapLinkGroupsCheck')?.checked) {
+        const n2El = document.getElementById('overlapN2Range');
+        const sem2El = document.getElementById('overlapSEM2Range');
+        if (n2El) n2El.value = n1;
+        if (sem2El) sem2El.value = sem1.toFixed(3);
+      }
+      this.runTwoSampleOverlap();
+    };
+
+    const syncGroup2FromSD = () => {
+      const linkCheck = document.getElementById('overlapLinkGroupsCheck');
+      if (linkCheck) linkCheck.checked = false;
+      const sd2 = parseFloat(document.getElementById('overlapSD2Range')?.value) || 2.5;
+      const n2 = parseInt(document.getElementById('overlapN2Range')?.value) || 16;
+      const sem2 = sd2 / Math.sqrt(n2);
+      const sem2El = document.getElementById('overlapSEM2Range');
+      if (sem2El) sem2El.value = sem2.toFixed(3);
+      this.runTwoSampleOverlap();
+    };
+
+    const syncGroup2FromSEM = () => {
+      const linkCheck = document.getElementById('overlapLinkGroupsCheck');
+      if (linkCheck) linkCheck.checked = false;
+      const sd2 = parseFloat(document.getElementById('overlapSD2Range')?.value) || 2.5;
+      const sem2 = parseFloat(document.getElementById('overlapSEM2Range')?.value) || 0.625;
+      const n2 = Math.max(2, Math.min(500, Math.round(Math.pow(sd2 / sem2, 2))));
+      const n2El = document.getElementById('overlapN2Range');
+      if (n2El) n2El.value = n2;
+      this.runTwoSampleOverlap();
+    };
+
+    const syncGroup2FromN = () => {
+      const linkCheck = document.getElementById('overlapLinkGroupsCheck');
+      if (linkCheck) linkCheck.checked = false;
+      const sd2 = parseFloat(document.getElementById('overlapSD2Range')?.value) || 2.5;
+      const n2 = parseInt(document.getElementById('overlapN2Range')?.value) || 16;
+      const sem2 = sd2 / Math.sqrt(n2);
+      const sem2El = document.getElementById('overlapSEM2Range');
+      if (sem2El) sem2El.value = sem2.toFixed(3);
+      this.runTwoSampleOverlap();
+    };
+
+    document.getElementById('overlapSD1Range')?.addEventListener('input', syncGroup1FromSD);
+    document.getElementById('overlapSEM1Range')?.addEventListener('input', syncGroup1FromSEM);
+    document.getElementById('overlapN1Range')?.addEventListener('input', syncGroup1FromN);
+
+    document.getElementById('overlapSD2Range')?.addEventListener('input', syncGroup2FromSD);
+    document.getElementById('overlapSEM2Range')?.addEventListener('input', syncGroup2FromSEM);
+    document.getElementById('overlapN2Range')?.addEventListener('input', syncGroup2FromN);
+
+    document.getElementById('overlapDeltaRange')?.addEventListener('input', () => this.runTwoSampleOverlap());
+    document.getElementById('overlapAlphaRange')?.addEventListener('input', () => this.runTwoSampleOverlap());
+
+    document.getElementById('overlapLinkGroupsCheck')?.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        const sd1 = document.getElementById('overlapSD1Range')?.value;
+        const sem1 = document.getElementById('overlapSEM1Range')?.value;
+        const n1 = document.getElementById('overlapN1Range')?.value;
+        const sd2El = document.getElementById('overlapSD2Range');
+        const sem2El = document.getElementById('overlapSEM2Range');
+        const n2El = document.getElementById('overlapN2Range');
+        if (sd2El && sd1) sd2El.value = sd1;
+        if (sem2El && sem1) sem2El.value = sem1;
+        if (n2El && n1) n2El.value = n1;
         this.runTwoSampleOverlap();
-      });
+      }
     });
 
     document.querySelectorAll('.btn-overlap-alpha').forEach(btn => {
@@ -467,16 +565,26 @@ class StatisGravityApp {
         clearInterval(this.overlapAnimationTimer);
         this.overlapAnimationTimer = null;
         const btn = document.getElementById('overlapAnimateBtn');
-        if (btn) btn.innerText = '▶ Animate Separation';
+        if (btn) btn.innerText = '▶ Animate';
       }
       const dRange = document.getElementById('overlapDeltaRange');
-      const sdRange = document.getElementById('overlapSDRange');
-      const nRange = document.getElementById('overlapNRange');
       const aRange = document.getElementById('overlapAlphaRange');
+      const sd1Range = document.getElementById('overlapSD1Range');
+      const sem1Range = document.getElementById('overlapSEM1Range');
+      const n1Range = document.getElementById('overlapN1Range');
+      const sd2Range = document.getElementById('overlapSD2Range');
+      const sem2Range = document.getElementById('overlapSEM2Range');
+      const n2Range = document.getElementById('overlapN2Range');
+      const linkCheck = document.getElementById('overlapLinkGroupsCheck');
       if (dRange) dRange.value = 2.0;
-      if (sdRange) sdRange.value = 2.5;
-      if (nRange) nRange.value = 16;
       if (aRange) aRange.value = 0.050;
+      if (sd1Range) sd1Range.value = 2.5;
+      if (sem1Range) sem1Range.value = 0.625;
+      if (n1Range) n1Range.value = 16;
+      if (sd2Range) sd2Range.value = 2.5;
+      if (sem2Range) sem2Range.value = 0.625;
+      if (n2Range) n2Range.value = 16;
+      if (linkCheck) linkCheck.checked = false;
       this.currentOverlapMode = 'means';
       document.querySelectorAll('.btn-overlap-mode').forEach(b => {
         b.classList.remove('btn-primary');
@@ -1921,22 +2029,41 @@ window.addEventListener('DOMContentLoaded', () => {
     const delta = overrideParams.delta !== undefined
       ? overrideParams.delta
       : (parseFloat(document.getElementById('overlapDeltaRange')?.value) || 2.0);
-    const sd = overrideParams.sd !== undefined
-      ? overrideParams.sd
-      : (parseFloat(document.getElementById('overlapSDRange')?.value) || 2.5);
-    const n = overrideParams.n !== undefined
-      ? overrideParams.n
-      : (parseInt(document.getElementById('overlapNRange')?.value) || 16);
     const alpha = overrideParams.alpha !== undefined
       ? overrideParams.alpha
       : (parseFloat(document.getElementById('overlapAlphaRange')?.value) || 0.05);
+
+    const sd1 = overrideParams.sd1 !== undefined
+      ? overrideParams.sd1
+      : (parseFloat(document.getElementById('overlapSD1Range')?.value) || 2.5);
+    const sem1 = overrideParams.sem1 !== undefined
+      ? overrideParams.sem1
+      : (parseFloat(document.getElementById('overlapSEM1Range')?.value) || 0.625);
+    const n1 = overrideParams.n1 !== undefined
+      ? overrideParams.n1
+      : (parseInt(document.getElementById('overlapN1Range')?.value) || 16);
+
+    const sd2 = overrideParams.sd2 !== undefined
+      ? overrideParams.sd2
+      : (parseFloat(document.getElementById('overlapSD2Range')?.value) || 2.5);
+    const sem2 = overrideParams.sem2 !== undefined
+      ? overrideParams.sem2
+      : (parseFloat(document.getElementById('overlapSEM2Range')?.value) || 0.625);
+    const n2 = overrideParams.n2 !== undefined
+      ? overrideParams.n2
+      : (parseInt(document.getElementById('overlapN2Range')?.value) || 16);
+
     const viewMode = this.currentOverlapMode || 'means';
 
     const metrics = Teaching.significanceOverlap.getMetrics({
       mean1: 10.0,
       delta,
-      sd,
-      n,
+      sd1,
+      sd2,
+      sem1,
+      sem2,
+      n1,
+      n2,
       alpha,
       viewMode
     });
@@ -1945,14 +2072,34 @@ window.addEventListener('DOMContentLoaded', () => {
     const deltaValEl = document.getElementById('overlapDeltaVal');
     if (deltaValEl) deltaValEl.innerText = metrics.delta.toFixed(2);
 
-    const sdValEl = document.getElementById('overlapSDVal');
-    if (sdValEl) sdValEl.innerText = metrics.sd.toFixed(2);
-
-    const nValEl = document.getElementById('overlapNVal');
-    if (nValEl) nValEl.innerText = `n = ${metrics.n} (SEM = ${metrics.sem.toFixed(3)})`;
-
     const alphaValEl = document.getElementById('overlapAlphaVal');
     if (alphaValEl) alphaValEl.innerText = `α = ${metrics.alpha.toFixed(3)} (z = ${metrics.zCrit.toFixed(3)})`;
+
+    // Group 1 Displays
+    const g1SummaryEl = document.getElementById('overlapG1Summary');
+    if (g1SummaryEl) g1SummaryEl.innerText = `SD₁ = ${metrics.sd1.toFixed(2)} | SEM₁ = ${metrics.sem1.toFixed(3)}`;
+
+    const sd1ValEl = document.getElementById('overlapSD1Val');
+    if (sd1ValEl) sd1ValEl.innerText = metrics.sd1.toFixed(2);
+
+    const sem1ValEl = document.getElementById('overlapSEM1Val');
+    if (sem1ValEl) sem1ValEl.innerText = metrics.sem1.toFixed(3);
+
+    const n1ValEl = document.getElementById('overlapN1Val');
+    if (n1ValEl) n1ValEl.innerText = `n₁ = ${metrics.n1}`;
+
+    // Group 2 Displays
+    const g2SummaryEl = document.getElementById('overlapG2Summary');
+    if (g2SummaryEl) g2SummaryEl.innerText = `SD₂ = ${metrics.sd2.toFixed(2)} | SEM₂ = ${metrics.sem2.toFixed(3)}`;
+
+    const sd2ValEl = document.getElementById('overlapSD2Val');
+    if (sd2ValEl) sd2ValEl.innerText = metrics.sd2.toFixed(2);
+
+    const sem2ValEl = document.getElementById('overlapSEM2Val');
+    if (sem2ValEl) sem2ValEl.innerText = metrics.sem2.toFixed(3);
+
+    const n2ValEl = document.getElementById('overlapN2Val');
+    if (n2ValEl) n2ValEl.innerText = `n₂ = ${metrics.n2}`;
 
     // Update Metric Cards
     const statusValEl = document.getElementById('overlapStatusValue');
@@ -1970,15 +2117,15 @@ window.addEventListener('DOMContentLoaded', () => {
     if (deltaDispEl) deltaDispEl.innerText = `Δ = ${metrics.delta.toFixed(2)}`;
     if (deltaCritSubEl) deltaCritSubEl.innerText = `Δcrit = ${metrics.deltaCrit.toFixed(2)} (Boundary)`;
 
-    const semValEl = document.getElementById('overlapSEMValue');
-    const seDiffSubEl = document.getElementById('overlapSEDiffSub');
-    if (semValEl) semValEl.innerText = metrics.sem.toFixed(3);
-    if (seDiffSubEl) seDiffSubEl.innerText = `SE_diff: ${metrics.seDiff.toFixed(3)} (n = ${metrics.n})`;
+    const g1MetricVal = document.getElementById('overlapG1MetricValue');
+    const g1MetricSub = document.getElementById('overlapG1MetricSub');
+    if (g1MetricVal) g1MetricVal.innerText = `${metrics.sd1.toFixed(2)} | ${metrics.sem1.toFixed(3)}`;
+    if (g1MetricSub) g1MetricSub.innerText = `n₁ = ${metrics.n1} subjects`;
 
-    const sdValEl2 = document.getElementById('overlapSDValue');
-    const cohenSubEl = document.getElementById('overlapCohenDSub');
-    if (sdValEl2) sdValEl2.innerText = metrics.sd.toFixed(2);
-    if (cohenSubEl) cohenSubEl.innerText = `Cohen's d = ${metrics.cohensD.toFixed(2)}`;
+    const g2MetricVal = document.getElementById('overlapG2MetricValue');
+    const g2MetricSub = document.getElementById('overlapG2MetricSub');
+    if (g2MetricVal) g2MetricVal.innerText = `${metrics.sd2.toFixed(2)} | ${metrics.sem2.toFixed(3)}`;
+    if (g2MetricSub) g2MetricSub.innerText = `n₂ = ${metrics.n2} subjects`;
 
     const meansOVLEl = document.getElementById('overlapMeansOVLValue');
     const patientOVLSubEl = document.getElementById('overlapPatientOVLSub');
@@ -1991,7 +2138,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const critValEl = document.getElementById('overlapCritValue');
     const alphaSubEl = document.getElementById('overlapAlphaSub');
     if (critValEl) critValEl.innerText = `t = ${metrics.tCrit.toFixed(3)}`;
-    if (alphaSubEl) alphaSubEl.innerText = `α = ${metrics.alpha.toFixed(3)} (z = ${metrics.zCrit.toFixed(3)})`;
+    if (alphaSubEl) alphaSubEl.innerText = `SE_diff: ${metrics.seDiff.toFixed(3)} | df: ${metrics.df.toFixed(1)}`;
 
     // Update Pedagogical Text
     const pedaEl = document.getElementById('overlapPedagogyText');

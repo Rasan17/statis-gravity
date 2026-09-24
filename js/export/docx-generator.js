@@ -881,7 +881,7 @@ export const DocxReports = {
       d.addParagraph(`Student's t Simulation: Sample Size n = ${data.tConv.sampleSize} (Degrees of Freedom ν = ${data.tConv.df})`);
     }
     if (data.overlap) {
-      d.addParagraph(`Two-Sample Overlap Simulation: Mean Difference Δ = ${data.overlap.delta.toFixed(2)}, Patient SD = ${data.overlap.sd.toFixed(2)}, Sample Size n = ${data.overlap.n}, Significance Level α = ${data.overlap.alpha.toFixed(3)}`);
+      d.addParagraph(`Two-Sample Overlap Simulation: Mean Difference Δ = ${data.overlap.delta.toFixed(2)}, Group 1 (SD₁ = ${data.overlap.sd1.toFixed(2)}, SEM₁ = ${data.overlap.sem1.toFixed(3)}, n₁ = ${data.overlap.n1}), Group 2 (SD₂ = ${data.overlap.sd2.toFixed(2)}, SEM₂ = ${data.overlap.sem2.toFixed(3)}, n₂ = ${data.overlap.n2}), Significance Level α = ${data.overlap.alpha.toFixed(3)}`);
     }
 
     d.addHeading1('2. Statistical Outcome & Empirical Convergence Metrics');
@@ -931,10 +931,9 @@ export const DocxReports = {
         ['Analytical Parameter', 'Simulated Value', 'Clinical & Inferential Meaning'],
         [
           ['Mean Difference (Δ = μ₂ - μ₁)', `Δ = ${data.overlap.delta.toFixed(2)}`, 'Observed separation between the two group means'],
-          ['Patient Standard Deviation (SD)', `SD = ${data.overlap.sd.toFixed(2)} (Cohen\'s d = ${data.overlap.cohensD.toFixed(2)})`, 'Biological variability between individual human subjects (does not shrink with n)'],
-          ['Sample Size per Group (n)', `n = ${data.overlap.n} (df = ${data.overlap.df})`, 'Enrollment capacity per treatment arm'],
-          ['Standard Error of the Mean (SEM)', `SEM = ${data.overlap.sem.toFixed(3)}`, 'Precision of mean estimate: SEM = SD / √n (shrinks by 1/√n)'],
-          ['Standard Error of Difference (SE_diff)', `SE_diff = ${data.overlap.seDiff.toFixed(3)}`, 'Pooled uncertainty in the difference: SD · √(2/n)'],
+          ['Group 1 Spread (SD₁ & SEM₁)', `SD₁ = ${data.overlap.sd1.toFixed(2)}, SEM₁ = ${data.overlap.sem1.toFixed(3)} (n₁ = ${data.overlap.n1})`, 'Biological spread (SD₁) vs. sample mean precision (SEM₁ = SD₁/√n₁)'],
+          ['Group 2 Spread (SD₂ & SEM₂)', `SD₂ = ${data.overlap.sd2.toFixed(2)}, SEM₂ = ${data.overlap.sem2.toFixed(3)} (n₂ = ${data.overlap.n2})`, 'Biological spread (SD₂) vs. sample mean precision (SEM₂ = SD₂/√n₂)'],
+          ['Standard Error of Difference (SE_diff)', `SE_diff = ${data.overlap.seDiff.toFixed(3)} (Welch df = ${data.overlap.df.toFixed(1)})`, 'Combined standard error: √(SEM₁² + SEM₂²) under unequal variances'],
           ['Chosen Significance Level (α)', `α = ${data.overlap.alpha.toFixed(3)}`, `Type I error tolerance: ${data.overlap.alpha === 0.05 ? 'Standard 5% biomedical risk' : (data.overlap.alpha < 0.05 ? 'Strict threshold' : 'Relaxed exploratory threshold')}`],
           ['Critical Value (t_crit vs z_crit)', `t_crit = ${data.overlap.tCrit.toFixed(3)} (z = ${data.overlap.zCrit.toFixed(3)})`, 'Required number of standard errors to claim statistical significance'],
           ['Critical Difference Boundary (Δcrit)', `Δcrit = ${data.overlap.deltaCrit.toFixed(2)}`, 'Minimum mean separation needed to achieve p < α (Δcrit = t_crit · SE_diff)'],

@@ -1929,24 +1929,74 @@
         return Math.max(z, z + a + b + c + d);
       },
 
+      computeOverlap(mu1, s1, mu2, s2) {
+        if (s1 <= 0 || s2 <= 0) return 0;
+        const normPDF = (x, m, s) => (1.0 / (s * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - m) / s, 2));
+        const minX = Math.min(mu1 - 5.0 * s1, mu2 - 5.0 * s2);
+        const maxX = Math.max(mu1 + 5.0 * s1, mu2 + 5.0 * s2);
+        const steps = 600;
+        const dx = (maxX - minX) / steps;
+        let sum = 0;
+        for (let i = 0; i <= steps; i++) {
+          const x = minX + i * dx;
+          const y1 = normPDF(x, mu1, s1);
+          const y2 = normPDF(x, mu2, s2);
+          const w = (i === 0 || i === steps) ? 0.5 : 1.0;
+          sum += Math.min(y1, y2) * w * dx;
+        }
+        return Math.max(0, Math.min(1.0, sum));
+      },
+
       getMetrics({
         mean1 = 10.0,
         delta = 2.0,
         sd = 2.5,
+        sd1,
+        sd2,
         n = 16,
+        n1,
+        n2,
+        sem1 = null,
+        sem2 = null,
         alpha = 0.05,
         viewMode = 'means'
       } = {}) {
         const mu1 = parseFloat(mean1) || 10.0;
         const dMu = Math.max(0, parseFloat(delta) !== undefined && !isNaN(parseFloat(delta)) ? parseFloat(delta) : 2.0);
         const mu2 = mu1 + dMu;
-        const sigma = Math.max(0.2, parseFloat(sd) || 2.5);
-        const sampleN = Math.max(3, Math.round(n) || 16);
+
+        const baseSD = parseFloat(sd) || 2.5;
+        const sigma1 = Math.max(0.2, parseFloat(sd1 !== undefined && sd1 !== null ? sd1 : baseSD));
+        const sigma2 = Math.max(0.2, parseFloat(sd2 !== undefined && sd2 !== null ? sd2 : baseSD));
+
+        let sampleN1, sError1;
+        if (sem1 !== null && sem1 !== undefined && !isNaN(parseFloat(sem1))) {
+          sError1 = Math.max(0.01, parseFloat(sem1));
+          sampleN1 = Math.max(2, Math.min(1000, Math.round(Math.pow(sigma1 / sError1, 2))));
+        } else {
+          sampleN1 = Math.max(2, Math.round(n1 !== undefined && n1 !== null ? n1 : (n || 16)));
+          sError1 = sigma1 / Math.sqrt(sampleN1);
+        }
+
+        let sampleN2, sError2;
+        if (sem2 !== null && sem2 !== undefined && !isNaN(parseFloat(sem2))) {
+          sError2 = Math.max(0.01, parseFloat(sem2));
+          sampleN2 = Math.max(2, Math.min(1000, Math.round(Math.pow(sigma2 / sError2, 2))));
+        } else {
+          sampleN2 = Math.max(2, Math.round(n2 !== undefined && n2 !== null ? n2 : (n || 16)));
+          sError2 = sigma2 / Math.sqrt(sampleN2);
+        }
+
         const sigAlpha = Math.min(0.20, Math.max(0.001, parseFloat(alpha) || 0.05));
 
-        const sem = sigma / Math.sqrt(sampleN);
-        const seDiff = sigma * Math.sqrt(2.0 / sampleN);
-        const df = 2 * sampleN - 2;
+        const v1 = Math.pow(sError1, 2);
+        const v2 = Math.pow(sError2, 2);
+        const seDiff = Math.sqrt(v1 + v2);
+
+        const dfNum = Math.pow(v1 + v2, 2);
+        const dfDenom = ((sampleN1 > 1) ? Math.pow(v1, 2) / (sampleN1 - 1) : 0) +
+                        ((sampleN2 > 1) ? Math.pow(v2, 2) / (sampleN2 - 1) : 0);
+        const df = dfDenom > 0 ? Math.max(1, dfNum / dfDenom) : (sampleN1 + sampleN2 - 2);
 
         const zCrit = Distributions.invNormalCDF(1 - sigAlpha / 2);
         const tCrit = this.getTCriticalValue(df, sigAlpha);
@@ -1959,17 +2009,20 @@
         const pValue = Distributions.tPValue(tStat, df);
         const isSignificant = pValue < sigAlpha;
 
-        const cohensD = sigma > 0 ? dMu / sigma : 0;
+        const pooledSD = Math.sqrt(
+          ((sampleN1 - 1) * Math.pow(sigma1, 2) + (sampleN2 - 1) * Math.pow(sigma2, 2)) /
+          Math.max(1, (sampleN1 + sampleN2 - 2))
+        );
+        const cohensD = pooledSD > 0 ? dMu / pooledSD : 0;
 
-        const patientOVL = Math.max(0, Math.min(1.0, 2.0 * Distributions.normalCDF(-cohensD / 2.0)));
-        const semD = sem > 0 ? dMu / sem : 0;
-        const meansOVL = Math.max(0, Math.min(1.0, 2.0 * Distributions.normalCDF(-semD / 2.0)));
+        const patientOVL = this.computeOverlap(mu1, sigma1, mu2, sigma2);
+        const meansOVL = this.computeOverlap(mu1, sError1, mu2, sError2);
 
-        const moe = tCrit * sem;
-        const ci1 = [mu1 - moe, mu1 + moe];
-        const ci2 = [mu2 - moe, mu2 + moe];
+        const moe1 = tCrit * sError1;
+        const moe2 = tCrit * sError2;
+        const ci1 = [mu1 - moe1, mu1 + moe1];
+        const ci2 = [mu2 - moe2, mu2 + moe2];
         const ciOverlapDist = Math.max(0, ci1[1] - ci2[0]);
-        const ciOverlapFraction = moe > 0 ? ciOverlapDist / moe : 0;
 
         const nullCritLeft = -deltaCrit;
         const nullCritRight = deltaCrit;
@@ -1982,26 +2035,33 @@
         }
 
         let explanation = '';
+        const isHetero = Math.abs(sigma1 - sigma2) > 0.05 || Math.abs(sError1 - sError2) > 0.02;
         if (isSignificant) {
           explanation = `The observed difference between means (Δ = ${dMu.toFixed(2)}) meets or exceeds the critical significance threshold (Δcrit = ${deltaCrit.toFixed(2)} at α = ${sigAlpha.toFixed(3)}). ` +
-            `While individual patient values overlap substantially (${(patientOVL * 100).toFixed(1)}% patient overlap due to clinical SD = ${sigma.toFixed(2)}), ` +
-            `the standard error of the mean (SEM = ${sem.toFixed(3)}) has contracted with sample size n = ${sampleN} so that the sampling distributions of the two means only overlap by ${(meansOVL * 100).toFixed(1)}%. ` +
-            `Under H₀, observing a mean difference this large occurs with probability p = ${pValue.toFixed(4)} < α = ${sigAlpha.toFixed(3)}, rejecting the null hypothesis.`;
+            `While individual patient values overlap substantially (${(patientOVL * 100).toFixed(1)}% patient overlap with SD₁ = ${sigma1.toFixed(2)} and SD₂ = ${sigma2.toFixed(2)}), ` +
+            `the standard errors of the means (SEM₁ = ${sError1.toFixed(3)}, SEM₂ = ${sError2.toFixed(3)}) have contracted with sample sizes (n₁ = ${sampleN1}, n₂ = ${sampleN2}) so that the sampling distributions of the two means only overlap by ${(meansOVL * 100).toFixed(1)}%. ` +
+            `Under H₀, observing a mean difference this large occurs with probability p = ${pValue < 0.0001 ? '< 0.0001' : pValue.toFixed(4)} < α = ${sigAlpha.toFixed(3)}, rejecting the null hypothesis${isHetero ? ` (Welch df = ${df.toFixed(1)})` : ''}.`;
         } else {
           explanation = `The observed difference between means (Δ = ${dMu.toFixed(2)}) is smaller than the required critical threshold (Δcrit = ${deltaCrit.toFixed(2)} at α = ${sigAlpha.toFixed(3)}). ` +
             `The sampling distributions of the two sample means overlap too heavily (${(meansOVL * 100).toFixed(1)}% overlap, p = ${pValue.toFixed(3)} ≥ α). ` +
-            `To achieve significance at this α level, you must either: (1) observe a larger effect size Δ, (2) reduce measurement noise (lower SD), or (3) recruit more patients (increasing n from ${sampleN} to shrink SEM).`;
+            `To achieve significance at this α level, you must either: (1) observe a larger effect size Δ, (2) reduce measurement noise (lower SD), or (3) recruit more patients to shrink SEM (SEM₁ = ${sError1.toFixed(3)}, SEM₂ = ${sError2.toFixed(3)}).`;
         }
 
         return {
           mean1: mu1,
           mean2: mu2,
           delta: dMu,
-          sd: sigma,
-          n: sampleN,
+          sd1: sigma1,
+          sd2: sigma2,
+          sd: (sigma1 + sigma2) / 2,
+          sem1: sError1,
+          sem2: sError2,
+          sem: (sError1 + sError2) / 2,
+          n1: sampleN1,
+          n2: sampleN2,
+          n: sampleN1,
           alpha: sigAlpha,
           viewMode,
-          sem,
           seDiff,
           df,
           zCrit,
@@ -2013,14 +2073,16 @@
           pValue,
           isSignificant,
           statusText,
+          pooledSD,
           cohensD,
           patientOVL,
           meansOVL,
-          moe,
+          moe1,
+          moe2,
+          moe: moe1,
           ci1,
           ci2,
           ciOverlapDist,
-          ciOverlapFraction,
           nullCritLeft,
           nullCritRight,
           explanation
@@ -2912,7 +2974,7 @@ const DocxReports = {
       d.addParagraph(`Student's t Simulation: Sample Size n = ${data.tConv.sampleSize} (Degrees of Freedom ν = ${data.tConv.df})`);
     }
     if (data.overlap) {
-      d.addParagraph(`Two-Sample Overlap Simulation: Mean Difference Δ = ${data.overlap.delta.toFixed(2)}, Patient SD = ${data.overlap.sd.toFixed(2)}, Sample Size n = ${data.overlap.n}, Significance Level α = ${data.overlap.alpha.toFixed(3)}`);
+      d.addParagraph(`Two-Sample Overlap Simulation: Mean Difference Δ = ${data.overlap.delta.toFixed(2)}, Group 1 (SD₁ = ${data.overlap.sd1.toFixed(2)}, SEM₁ = ${data.overlap.sem1.toFixed(3)}, n₁ = ${data.overlap.n1}), Group 2 (SD₂ = ${data.overlap.sd2.toFixed(2)}, SEM₂ = ${data.overlap.sem2.toFixed(3)}, n₂ = ${data.overlap.n2}), Significance Level α = ${data.overlap.alpha.toFixed(3)}`);
     }
 
     d.addHeading1('2. Statistical Outcome & Empirical Convergence Metrics');
@@ -2962,10 +3024,9 @@ const DocxReports = {
         ['Analytical Parameter', 'Simulated Value', 'Clinical & Inferential Meaning'],
         [
           ['Mean Difference (Δ = μ₂ - μ₁)', `Δ = ${data.overlap.delta.toFixed(2)}`, 'Observed separation between the two group means'],
-          ['Patient Standard Deviation (SD)', `SD = ${data.overlap.sd.toFixed(2)} (Cohen\'s d = ${data.overlap.cohensD.toFixed(2)})`, 'Biological variability between individual human subjects (does not shrink with n)'],
-          ['Sample Size per Group (n)', `n = ${data.overlap.n} (df = ${data.overlap.df})`, 'Enrollment capacity per treatment arm'],
-          ['Standard Error of the Mean (SEM)', `SEM = ${data.overlap.sem.toFixed(3)}`, 'Precision of mean estimate: SEM = SD / √n (shrinks by 1/√n)'],
-          ['Standard Error of Difference (SE_diff)', `SE_diff = ${data.overlap.seDiff.toFixed(3)}`, 'Pooled uncertainty in the difference: SD · √(2/n)'],
+          ['Group 1 Spread (SD₁ & SEM₁)', `SD₁ = ${data.overlap.sd1.toFixed(2)}, SEM₁ = ${data.overlap.sem1.toFixed(3)} (n₁ = ${data.overlap.n1})`, 'Biological spread (SD₁) vs. sample mean precision (SEM₁ = SD₁/√n₁)'],
+          ['Group 2 Spread (SD₂ & SEM₂)', `SD₂ = ${data.overlap.sd2.toFixed(2)}, SEM₂ = ${data.overlap.sem2.toFixed(3)} (n₂ = ${data.overlap.n2})`, 'Biological spread (SD₂) vs. sample mean precision (SEM₂ = SD₂/√n₂)'],
+          ['Standard Error of Difference (SE_diff)', `SE_diff = ${data.overlap.seDiff.toFixed(3)} (Welch df = ${data.overlap.df.toFixed(1)})`, 'Combined standard error: √(SEM₁² + SEM₂²) under unequal variances'],
           ['Chosen Significance Level (α)', `α = ${data.overlap.alpha.toFixed(3)}`, `Type I error tolerance: ${data.overlap.alpha === 0.05 ? 'Standard 5% biomedical risk' : (data.overlap.alpha < 0.05 ? 'Strict threshold' : 'Relaxed exploratory threshold')}`],
           ['Critical Value (t_crit vs z_crit)', `t_crit = ${data.overlap.tCrit.toFixed(3)} (z = ${data.overlap.zCrit.toFixed(3)})`, 'Required number of standard errors to claim statistical significance'],
           ['Critical Difference Boundary (Δcrit)', `Δcrit = ${data.overlap.deltaCrit.toFixed(2)}`, 'Minimum mean separation needed to achieve p < α (Δcrit = t_crit · SE_diff)'],
@@ -4869,12 +4930,19 @@ const DocxReports = {
         return;
       }
 
-      const activeSigma = (viewMode === 'patients') ? sd : sem;
-      const minX = mean1 - Math.max(3.8 * sd, 4.0);
-      const maxX = Math.max(mean2 + Math.max(3.8 * sd, 4.0), mean1 + 7.5);
+      // -------------------------------------------------------------
+      // MEANS, PATIENTS, OR DUAL VIEW
+      // -------------------------------------------------------------
+      const activeSigma1 = (viewMode === 'patients') ? sd1 : sem1;
+      const activeSigma2 = (viewMode === 'patients') ? sd2 : sem2;
+      const maxSpread = Math.max(sd1, sd2, 4.0);
+      const minX = mean1 - Math.max(3.8 * maxSpread, 4.0);
+      const maxX = Math.max(mean2 + Math.max(3.8 * maxSpread, 4.0), mean1 + 7.5);
       const xSpan = maxX - minX;
 
-      const maxDensity = 1.0 / (activeSigma * Math.sqrt(2 * Math.PI));
+      const peak1 = 1.0 / (activeSigma1 * Math.sqrt(2 * Math.PI));
+      const peak2 = 1.0 / (activeSigma2 * Math.sqrt(2 * Math.PI));
+      const maxDensity = Math.max(peak1, peak2);
       const maxY = maxDensity * 1.30;
 
       const toX = (val) => b.x + ((val - minX) / xSpan) * b.width;
@@ -4897,7 +4965,7 @@ const DocxReports = {
         ctx.fillText(xVal.toFixed(1), xPix, b.y + b.height + 15);
       }
 
-      const numPts = 300;
+      const numPts = 320;
       const pts1 = [];
       const pts2 = [];
       const ptsOverlap = [];
@@ -4906,8 +4974,8 @@ const DocxReports = {
 
       for (let i = 0; i <= numPts; i++) {
         const x = minX + (i / numPts) * xSpan;
-        const y1 = normPDF(x, mean1, activeSigma);
-        const y2 = normPDF(x, mean2, activeSigma);
+        const y1 = normPDF(x, mean1, activeSigma1);
+        const y2 = normPDF(x, mean2, activeSigma2);
         const yOverlap = Math.min(y1, y2);
 
         pts1.push({ x, y: y1 });
@@ -4924,23 +4992,33 @@ const DocxReports = {
       ctx.fill();
 
       if (viewMode === 'dual') {
-        const patientMaxDensity = 1.0 / (sd * Math.sqrt(2 * Math.PI));
-        const dualScale = (maxDensity * 0.45) / patientMaxDensity;
+        const patientPeak1 = 1.0 / (sd1 * Math.sqrt(2 * Math.PI));
+        const patientPeak2 = 1.0 / (sd2 * Math.sqrt(2 * Math.PI));
+        const dualScale1 = (maxDensity * 0.45) / patientPeak1;
+        const dualScale2 = (maxDensity * 0.45) / patientPeak2;
 
-        [mean1, mean2].forEach((mu, gIdx) => {
-          ctx.strokeStyle = gIdx === 0 ? 'rgba(6, 182, 212, 0.45)' : 'rgba(168, 85, 247, 0.45)';
-          ctx.lineWidth = 1.6;
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath();
-          for (let i = 0; i <= numPts; i++) {
-            const x = minX + (i / numPts) * xSpan;
-            const y = normPDF(x, mu, sd) * dualScale;
-            if (i === 0) ctx.moveTo(toX(x), toY(y));
-            else ctx.lineTo(toX(x), toY(y));
-          }
-          ctx.stroke();
-          ctx.setLineDash([]);
-        });
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.45)';
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        for (let i = 0; i <= numPts; i++) {
+          const x = minX + (i / numPts) * xSpan;
+          const y = normPDF(x, mean1, sd1) * dualScale1;
+          if (i === 0) ctx.moveTo(toX(x), toY(y));
+          else ctx.lineTo(toX(x), toY(y));
+        }
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
+        ctx.beginPath();
+        for (let i = 0; i <= numPts; i++) {
+          const x = minX + (i / numPts) * xSpan;
+          const y = normPDF(x, mean2, sd2) * dualScale2;
+          if (i === 0) ctx.moveTo(toX(x), toY(y));
+          else ctx.lineTo(toX(x), toY(y));
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
 
       ctx.strokeStyle = '#06b6d4';
@@ -4962,8 +5040,8 @@ const DocxReports = {
       ctx.stroke();
 
       [
-        { mu: mean1, color: '#06b6d4', label: `Group 1 (μ₁ = ${mean1.toFixed(1)})` },
-        { mu: mean2, color: '#a855f7', label: `Group 2 (μ₂ = ${mean2.toFixed(1)})` }
+        { mu: mean1, color: '#06b6d4', label: `Group 1 (μ₁ = ${mean1.toFixed(1)}${viewMode === 'patients' ? `, SD₁=${sd1.toFixed(2)}` : `, SEM₁=${sem1.toFixed(2)}`})` },
+        { mu: mean2, color: '#a855f7', label: `Group 2 (μ₂ = ${mean2.toFixed(1)}${viewMode === 'patients' ? `, SD₂=${sd2.toFixed(2)}` : `, SEM₂=${sem2.toFixed(2)}`})` }
       ].forEach((grp) => {
         const xPix = toX(grp.mu);
         ctx.strokeStyle = grp.color;
@@ -5060,25 +5138,25 @@ const DocxReports = {
 
       if (viewMode === 'patients') {
         ctx.fillStyle = '#06b6d4';
-        ctx.fillText(`— Group 1 Patient Population N(μ₁, SD²), SD = ${sd.toFixed(2)}`, b.x + 12, b.y + 20);
+        ctx.fillText(`— Group 1 Patient Population N(μ₁, SD₁²), SD₁ = ${sd1.toFixed(2)}`, b.x + 12, b.y + 20);
         ctx.fillStyle = '#a855f7';
-        ctx.fillText(`— Group 2 Patient Population N(μ₂, SD²), SD = ${sd.toFixed(2)}`, b.x + 12, b.y + 36);
+        ctx.fillText(`— Group 2 Patient Population N(μ₂, SD₂²), SD₂ = ${sd2.toFixed(2)}`, b.x + 12, b.y + 36);
         ctx.fillStyle = '#94a3b8';
         ctx.fillText(`░ Patient Overlap = ${(patientOVL * 100).toFixed(1)}% (Cohen's d = ${cohensD.toFixed(2)})`, b.x + 12, b.y + 52);
       } else if (viewMode === 'dual') {
         ctx.fillStyle = '#06b6d4';
-        ctx.fillText(`— Group 1 Means (Solid, SEM = ${sem.toFixed(3)}) & Patients (Dashed, SD = ${sd.toFixed(2)})`, b.x + 12, b.y + 20);
+        ctx.fillText(`— Group 1 Means (Solid, SEM₁ = ${sem1.toFixed(3)}) & Patients (Dashed, SD₁ = ${sd1.toFixed(2)})`, b.x + 12, b.y + 20);
         ctx.fillStyle = '#a855f7';
-        ctx.fillText(`— Group 2 Means (Solid, SEM = ${sem.toFixed(3)}) & Patients (Dashed, SD = ${sd.toFixed(2)})`, b.x + 12, b.y + 36);
+        ctx.fillText(`— Group 2 Means (Solid, SEM₂ = ${sem2.toFixed(3)}) & Patients (Dashed, SD₂ = ${sd2.toFixed(2)})`, b.x + 12, b.y + 36);
         ctx.fillStyle = '#94a3b8';
         ctx.fillText(`░ Means Overlap = ${(meansOVL * 100).toFixed(1)}% vs Patient Overlap = ${(patientOVL * 100).toFixed(1)}%`, b.x + 12, b.y + 52);
       } else {
         ctx.fillStyle = '#06b6d4';
-        ctx.fillText(`— Group 1 Sampling Distribution of Mean (SEM = ${sem.toFixed(3)}, n = ${n})`, b.x + 12, b.y + 20);
+        ctx.fillText(`— Group 1 Sampling Distribution (SEM₁ = ${sem1.toFixed(3)}, n₁ = ${n1})`, b.x + 12, b.y + 20);
         ctx.fillStyle = '#a855f7';
-        ctx.fillText(`— Group 2 Sampling Distribution of Mean (SEM = ${sem.toFixed(3)}, n = ${n})`, b.x + 12, b.y + 36);
+        ctx.fillText(`— Group 2 Sampling Distribution (SEM₂ = ${sem2.toFixed(3)}, n₂ = ${n2})`, b.x + 12, b.y + 36);
         ctx.fillStyle = '#f59e0b';
-        ctx.fillText(`┆ Boundary: Δcrit = ${deltaCrit.toFixed(2)} at α = ${alpha.toFixed(3)} (t_crit = ${tCrit.toFixed(3)})`, b.x + 12, b.y + 52);
+        ctx.fillText(`┆ Boundary: Δcrit = ${deltaCrit.toFixed(2)} at α = ${alpha.toFixed(3)} (Welch df = ${df.toFixed(1)})`, b.x + 12, b.y + 52);
       }
     }
   };
@@ -5473,10 +5551,109 @@ const DocxReports = {
       });
 
       // Section 4: Two-Sample Overlap, SD vs SEM & Alpha Boundary Events
-      ['overlapDeltaRange', 'overlapSDRange', 'overlapNRange', 'overlapAlphaRange'].forEach(id => {
-        document.getElementById(id)?.addEventListener('input', () => {
+      // Section 4: Two-Sample Overlap, Group SD/SEM & Alpha Boundary Events
+      const syncGroup1FromSD = () => {
+        const sd1 = parseFloat(document.getElementById('overlapSD1Range')?.value) || 2.5;
+        const n1 = parseInt(document.getElementById('overlapN1Range')?.value) || 16;
+        const sem1 = sd1 / Math.sqrt(n1);
+        const sem1El = document.getElementById('overlapSEM1Range');
+        if (sem1El) sem1El.value = sem1.toFixed(3);
+        if (document.getElementById('overlapLinkGroupsCheck')?.checked) {
+          const sd2El = document.getElementById('overlapSD2Range');
+          const sem2El = document.getElementById('overlapSEM2Range');
+          if (sd2El) sd2El.value = sd1;
+          if (sem2El) sem2El.value = sem1.toFixed(3);
+        }
+        this.runTwoSampleOverlap();
+      };
+
+      const syncGroup1FromSEM = () => {
+        const sd1 = parseFloat(document.getElementById('overlapSD1Range')?.value) || 2.5;
+        const sem1 = parseFloat(document.getElementById('overlapSEM1Range')?.value) || 0.625;
+        const n1 = Math.max(2, Math.min(500, Math.round(Math.pow(sd1 / sem1, 2))));
+        const n1El = document.getElementById('overlapN1Range');
+        if (n1El) n1El.value = n1;
+        if (document.getElementById('overlapLinkGroupsCheck')?.checked) {
+          const sem2El = document.getElementById('overlapSEM2Range');
+          const n2El = document.getElementById('overlapN2Range');
+          if (sem2El) sem2El.value = sem1.toFixed(3);
+          if (n2El) n2El.value = n1;
+        }
+        this.runTwoSampleOverlap();
+      };
+
+      const syncGroup1FromN = () => {
+        const sd1 = parseFloat(document.getElementById('overlapSD1Range')?.value) || 2.5;
+        const n1 = parseInt(document.getElementById('overlapN1Range')?.value) || 16;
+        const sem1 = sd1 / Math.sqrt(n1);
+        const sem1El = document.getElementById('overlapSEM1Range');
+        if (sem1El) sem1El.value = sem1.toFixed(3);
+        if (document.getElementById('overlapLinkGroupsCheck')?.checked) {
+          const n2El = document.getElementById('overlapN2Range');
+          const sem2El = document.getElementById('overlapSEM2Range');
+          if (n2El) n2El.value = n1;
+          if (sem2El) sem2El.value = sem1.toFixed(3);
+        }
+        this.runTwoSampleOverlap();
+      };
+
+      const syncGroup2FromSD = () => {
+        const linkCheck = document.getElementById('overlapLinkGroupsCheck');
+        if (linkCheck) linkCheck.checked = false;
+        const sd2 = parseFloat(document.getElementById('overlapSD2Range')?.value) || 2.5;
+        const n2 = parseInt(document.getElementById('overlapN2Range')?.value) || 16;
+        const sem2 = sd2 / Math.sqrt(n2);
+        const sem2El = document.getElementById('overlapSEM2Range');
+        if (sem2El) sem2El.value = sem2.toFixed(3);
+        this.runTwoSampleOverlap();
+      };
+
+      const syncGroup2FromSEM = () => {
+        const linkCheck = document.getElementById('overlapLinkGroupsCheck');
+        if (linkCheck) linkCheck.checked = false;
+        const sd2 = parseFloat(document.getElementById('overlapSD2Range')?.value) || 2.5;
+        const sem2 = parseFloat(document.getElementById('overlapSEM2Range')?.value) || 0.625;
+        const n2 = Math.max(2, Math.min(500, Math.round(Math.pow(sd2 / sem2, 2))));
+        const n2El = document.getElementById('overlapN2Range');
+        if (n2El) n2El.value = n2;
+        this.runTwoSampleOverlap();
+      };
+
+      const syncGroup2FromN = () => {
+        const linkCheck = document.getElementById('overlapLinkGroupsCheck');
+        if (linkCheck) linkCheck.checked = false;
+        const sd2 = parseFloat(document.getElementById('overlapSD2Range')?.value) || 2.5;
+        const n2 = parseInt(document.getElementById('overlapN2Range')?.value) || 16;
+        const sem2 = sd2 / Math.sqrt(n2);
+        const sem2El = document.getElementById('overlapSEM2Range');
+        if (sem2El) sem2El.value = sem2.toFixed(3);
+        this.runTwoSampleOverlap();
+      };
+
+      document.getElementById('overlapSD1Range')?.addEventListener('input', syncGroup1FromSD);
+      document.getElementById('overlapSEM1Range')?.addEventListener('input', syncGroup1FromSEM);
+      document.getElementById('overlapN1Range')?.addEventListener('input', syncGroup1FromN);
+
+      document.getElementById('overlapSD2Range')?.addEventListener('input', syncGroup2FromSD);
+      document.getElementById('overlapSEM2Range')?.addEventListener('input', syncGroup2FromSEM);
+      document.getElementById('overlapN2Range')?.addEventListener('input', syncGroup2FromN);
+
+      document.getElementById('overlapDeltaRange')?.addEventListener('input', () => this.runTwoSampleOverlap());
+      document.getElementById('overlapAlphaRange')?.addEventListener('input', () => this.runTwoSampleOverlap());
+
+      document.getElementById('overlapLinkGroupsCheck')?.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          const sd1 = document.getElementById('overlapSD1Range')?.value;
+          const sem1 = document.getElementById('overlapSEM1Range')?.value;
+          const n1 = document.getElementById('overlapN1Range')?.value;
+          const sd2El = document.getElementById('overlapSD2Range');
+          const sem2El = document.getElementById('overlapSEM2Range');
+          const n2El = document.getElementById('overlapN2Range');
+          if (sd2El && sd1) sd2El.value = sd1;
+          if (sem2El && sem1) sem2El.value = sem1;
+          if (n2El && n1) n2El.value = n1;
           this.runTwoSampleOverlap();
-        });
+        }
       });
 
       document.querySelectorAll('.btn-overlap-alpha').forEach(btn => {
@@ -5521,16 +5698,26 @@ const DocxReports = {
           clearInterval(this.overlapAnimationTimer);
           this.overlapAnimationTimer = null;
           const btn = document.getElementById('overlapAnimateBtn');
-          if (btn) btn.innerText = '▶ Animate Separation';
+          if (btn) btn.innerText = '▶ Animate';
         }
         const dRange = document.getElementById('overlapDeltaRange');
-        const sdRange = document.getElementById('overlapSDRange');
-        const nRange = document.getElementById('overlapNRange');
         const aRange = document.getElementById('overlapAlphaRange');
+        const sd1Range = document.getElementById('overlapSD1Range');
+        const sem1Range = document.getElementById('overlapSEM1Range');
+        const n1Range = document.getElementById('overlapN1Range');
+        const sd2Range = document.getElementById('overlapSD2Range');
+        const sem2Range = document.getElementById('overlapSEM2Range');
+        const n2Range = document.getElementById('overlapN2Range');
+        const linkCheck = document.getElementById('overlapLinkGroupsCheck');
         if (dRange) dRange.value = 2.0;
-        if (sdRange) sdRange.value = 2.5;
-        if (nRange) nRange.value = 16;
         if (aRange) aRange.value = 0.050;
+        if (sd1Range) sd1Range.value = 2.5;
+        if (sem1Range) sem1Range.value = 0.625;
+        if (n1Range) n1Range.value = 16;
+        if (sd2Range) sd2Range.value = 2.5;
+        if (sem2Range) sem2Range.value = 0.625;
+        if (n2Range) n2Range.value = 16;
+        if (linkCheck) linkCheck.checked = false;
         this.currentOverlapMode = 'means';
         document.querySelectorAll('.btn-overlap-mode').forEach(b => {
           b.classList.remove('btn-primary');
@@ -7016,38 +7203,79 @@ const DocxReports = {
       const delta = overrideParams.delta !== undefined
         ? overrideParams.delta
         : (parseFloat(document.getElementById('overlapDeltaRange')?.value) || 2.0);
-      const sd = overrideParams.sd !== undefined
-        ? overrideParams.sd
-        : (parseFloat(document.getElementById('overlapSDRange')?.value) || 2.5);
-      const n = overrideParams.n !== undefined
-        ? overrideParams.n
-        : (parseInt(document.getElementById('overlapNRange')?.value) || 16);
       const alpha = overrideParams.alpha !== undefined
         ? overrideParams.alpha
         : (parseFloat(document.getElementById('overlapAlphaRange')?.value) || 0.05);
+
+      const sd1 = overrideParams.sd1 !== undefined
+        ? overrideParams.sd1
+        : (parseFloat(document.getElementById('overlapSD1Range')?.value) || 2.5);
+      const sem1 = overrideParams.sem1 !== undefined
+        ? overrideParams.sem1
+        : (parseFloat(document.getElementById('overlapSEM1Range')?.value) || 0.625);
+      const n1 = overrideParams.n1 !== undefined
+        ? overrideParams.n1
+        : (parseInt(document.getElementById('overlapN1Range')?.value) || 16);
+
+      const sd2 = overrideParams.sd2 !== undefined
+        ? overrideParams.sd2
+        : (parseFloat(document.getElementById('overlapSD2Range')?.value) || 2.5);
+      const sem2 = overrideParams.sem2 !== undefined
+        ? overrideParams.sem2
+        : (parseFloat(document.getElementById('overlapSEM2Range')?.value) || 0.625);
+      const n2 = overrideParams.n2 !== undefined
+        ? overrideParams.n2
+        : (parseInt(document.getElementById('overlapN2Range')?.value) || 16);
+
       const viewMode = this.currentOverlapMode || 'means';
 
       const metrics = Teaching.significanceOverlap.getMetrics({
         mean1: 10.0,
         delta,
-        sd,
-        n,
+        sd1,
+        sd2,
+        sem1,
+        sem2,
+        n1,
+        n2,
         alpha,
         viewMode
       });
 
+      // Update Slider Displays
       const deltaValEl = document.getElementById('overlapDeltaVal');
       if (deltaValEl) deltaValEl.innerText = metrics.delta.toFixed(2);
-
-      const sdValEl = document.getElementById('overlapSDVal');
-      if (sdValEl) sdValEl.innerText = metrics.sd.toFixed(2);
-
-      const nValEl = document.getElementById('overlapNVal');
-      if (nValEl) nValEl.innerText = `n = ${metrics.n} (SEM = ${metrics.sem.toFixed(3)})`;
 
       const alphaValEl = document.getElementById('overlapAlphaVal');
       if (alphaValEl) alphaValEl.innerText = `α = ${metrics.alpha.toFixed(3)} (z = ${metrics.zCrit.toFixed(3)})`;
 
+      // Group 1 Displays
+      const g1SummaryEl = document.getElementById('overlapG1Summary');
+      if (g1SummaryEl) g1SummaryEl.innerText = `SD₁ = ${metrics.sd1.toFixed(2)} | SEM₁ = ${metrics.sem1.toFixed(3)}`;
+
+      const sd1ValEl = document.getElementById('overlapSD1Val');
+      if (sd1ValEl) sd1ValEl.innerText = metrics.sd1.toFixed(2);
+
+      const sem1ValEl = document.getElementById('overlapSEM1Val');
+      if (sem1ValEl) sem1ValEl.innerText = metrics.sem1.toFixed(3);
+
+      const n1ValEl = document.getElementById('overlapN1Val');
+      if (n1ValEl) n1ValEl.innerText = `n₁ = ${metrics.n1}`;
+
+      // Group 2 Displays
+      const g2SummaryEl = document.getElementById('overlapG2Summary');
+      if (g2SummaryEl) g2SummaryEl.innerText = `SD₂ = ${metrics.sd2.toFixed(2)} | SEM₂ = ${metrics.sem2.toFixed(3)}`;
+
+      const sd2ValEl = document.getElementById('overlapSD2Val');
+      if (sd2ValEl) sd2ValEl.innerText = metrics.sd2.toFixed(2);
+
+      const sem2ValEl = document.getElementById('overlapSEM2Val');
+      if (sem2ValEl) sem2ValEl.innerText = metrics.sem2.toFixed(3);
+
+      const n2ValEl = document.getElementById('overlapN2Val');
+      if (n2ValEl) n2ValEl.innerText = `n₂ = ${metrics.n2}`;
+
+      // Update Metric Cards
       const statusValEl = document.getElementById('overlapStatusValue');
       const pValSubEl = document.getElementById('overlapPValueSub');
       if (statusValEl) {
@@ -7063,15 +7291,15 @@ const DocxReports = {
       if (deltaDispEl) deltaDispEl.innerText = `Δ = ${metrics.delta.toFixed(2)}`;
       if (deltaCritSubEl) deltaCritSubEl.innerText = `Δcrit = ${metrics.deltaCrit.toFixed(2)} (Boundary)`;
 
-      const semValEl = document.getElementById('overlapSEMValue');
-      const seDiffSubEl = document.getElementById('overlapSEDiffSub');
-      if (semValEl) semValEl.innerText = metrics.sem.toFixed(3);
-      if (seDiffSubEl) seDiffSubEl.innerText = `SE_diff: ${metrics.seDiff.toFixed(3)} (n = ${metrics.n})`;
+      const g1MetricVal = document.getElementById('overlapG1MetricValue');
+      const g1MetricSub = document.getElementById('overlapG1MetricSub');
+      if (g1MetricVal) g1MetricVal.innerText = `${metrics.sd1.toFixed(2)} | ${metrics.sem1.toFixed(3)}`;
+      if (g1MetricSub) g1MetricSub.innerText = `n₁ = ${metrics.n1} subjects`;
 
-      const sdValEl2 = document.getElementById('overlapSDValue');
-      const cohenSubEl = document.getElementById('overlapCohenDSub');
-      if (sdValEl2) sdValEl2.innerText = metrics.sd.toFixed(2);
-      if (cohenSubEl) cohenSubEl.innerText = `Cohen's d = ${metrics.cohensD.toFixed(2)}`;
+      const g2MetricVal = document.getElementById('overlapG2MetricValue');
+      const g2MetricSub = document.getElementById('overlapG2MetricSub');
+      if (g2MetricVal) g2MetricVal.innerText = `${metrics.sd2.toFixed(2)} | ${metrics.sem2.toFixed(3)}`;
+      if (g2MetricSub) g2MetricSub.innerText = `n₂ = ${metrics.n2} subjects`;
 
       const meansOVLEl = document.getElementById('overlapMeansOVLValue');
       const patientOVLSubEl = document.getElementById('overlapPatientOVLSub');
@@ -7084,11 +7312,13 @@ const DocxReports = {
       const critValEl = document.getElementById('overlapCritValue');
       const alphaSubEl = document.getElementById('overlapAlphaSub');
       if (critValEl) critValEl.innerText = `t = ${metrics.tCrit.toFixed(3)}`;
-      if (alphaSubEl) alphaSubEl.innerText = `α = ${metrics.alpha.toFixed(3)} (z = ${metrics.zCrit.toFixed(3)})`;
+      if (alphaSubEl) alphaSubEl.innerText = `SE_diff: ${metrics.seDiff.toFixed(3)} | df: ${metrics.df.toFixed(1)}`;
 
+      // Update Pedagogical Text
       const pedaEl = document.getElementById('overlapPedagogyText');
       if (pedaEl) pedaEl.innerText = metrics.explanation;
 
+      // Update Chart Title
       const titleEl = document.getElementById('overlapChartTitle');
       if (titleEl) {
         if (viewMode === 'patients') {
@@ -7102,10 +7332,12 @@ const DocxReports = {
         }
       }
 
+      // Render Canvas
       if (this.engines['teachingOverlapCanvas']) {
         Plots.renderTwoSampleOverlap(this.engines['teachingOverlapCanvas'], metrics);
       }
 
+      // Cache
       if (!this.results.teaching) this.results.teaching = {};
       this.results.teaching.overlap = metrics;
     }
