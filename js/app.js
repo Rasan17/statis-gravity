@@ -22,6 +22,7 @@ class StatisGravityApp {
   constructor() {
     this.currentTheme = localStorage.getItem('sg_theme') || 'dark';
     this.engines = {};
+    this.results = { teaching: {} };
     this.init();
   }
 

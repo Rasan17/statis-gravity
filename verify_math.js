@@ -12,6 +12,7 @@ import { Diagnostic } from './js/stats/diagnostic.js';
 import { PowerAnalysis } from './js/stats/power.js';
 import { Teaching } from './js/stats/teaching.js';
 import { DocxReports } from './js/export/docx-generator.js';
+import { Plots } from './js/visualization/plots.js';
 
 let passes = 0;
 let failures = 0;
@@ -593,6 +594,68 @@ const docxWithDualOverlap = DocxReports.createTeachingDocx({
 const docxDualBuffer = docxWithDualOverlap.generateUint8Array();
 assert(docxDualBuffer.length > 30000, `Teaching DOCX with dual group overlap generated ${docxDualBuffer.length} bytes`);
 assert(isZip(docxDualBuffer), 'Teaching DOCX with dual group overlap is a valid PKZIP archive');
+
+console.log('--- Testing Two-Sample Overlap Canvas Rendering (All Modes & Small n) ---');
+const dummyCanvasCtx = new Proxy({}, {
+  get(target, prop) {
+    if (prop === 'measureText') return () => ({ width: 60 });
+    return () => {};
+  }
+});
+const mockEngine = {
+  ctx: dummyCanvasCtx,
+  clear() {},
+  getPlotBounds() { return { x: 50, y: 30, width: 600, height: 300 }; },
+  palette: { grid: '#333', textMuted: '#888' },
+  options: { fontFamily: 'Inter' }
+};
+
+// 1. User screenshot state: n1=2, n2=16, df=1.3, delta=4.0
+const screenshotMetrics = Teaching.significanceOverlap.getMetrics({
+  mean1: 10,
+  delta: 4.0,
+  sd1: 2.5,
+  sd2: 2.5,
+  sem1: 1.65,
+  sem2: 0.625,
+  n1: 2,
+  n2: 16,
+  alpha: 0.051
+});
+
+assert(screenshotMetrics.df < 2, `Welch df is fractional (< 2): got ${screenshotMetrics.df.toFixed(2)}`);
+assert(screenshotMetrics.sd1 === 2.5 && screenshotMetrics.sem1 === 1.65, 'Group 1 SD and SEM correctly preserved');
+
+['means', 'patients', 'dual', 'null'].forEach(mode => {
+  let rendered = false;
+  try {
+    Plots.renderTwoSampleOverlap(mockEngine, { ...screenshotMetrics, viewMode: mode });
+    rendered = true;
+  } catch (err) {
+    rendered = false;
+  }
+  assert(rendered, `Plots.renderTwoSampleOverlap renders successfully in "${mode}" mode with df=${screenshotMetrics.df.toFixed(2)}`);
+});
+
+// 2. Edge cases: empty metrics, equal variances, extreme unequal sample sizes
+const edgeCases = [
+  { name: 'Default Empty Object', params: {} },
+  { name: 'Equal Variances n=30', params: { mean1: 10, delta: 2.0, sd1: 2.5, sd2: 2.5, n1: 30, n2: 30 } },
+  { name: 'Extreme n1=2, n2=500', params: { mean1: 10, delta: 1.5, sd1: 4.0, sd2: 0.5, sem1: 2.828, sem2: 0.022 } }
+];
+
+edgeCases.forEach(ec => {
+  const m = Teaching.significanceOverlap.getMetrics(ec.params);
+  let ok = true;
+  ['means', 'patients', 'dual', 'null'].forEach(mode => {
+    try {
+      Plots.renderTwoSampleOverlap(mockEngine, { ...m, viewMode: mode });
+    } catch {
+      ok = false;
+    }
+  });
+  assert(ok, `Plots.renderTwoSampleOverlap renders without error for "${ec.name}"`);
+});
 
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);

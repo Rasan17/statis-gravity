@@ -4789,21 +4789,53 @@ const DocxReports = {
       const pal = engine.palette;
 
       const {
-        mean1, mean2, delta, sd, n, alpha, viewMode,
-        sem, seDiff, df, tCrit, zCrit, deltaCrit,
-        tStat, pValue, isSignificant, cohensD,
-        patientOVL, meansOVL, moe, ci1, ci2
-      } = metrics;
+        mean1 = 10,
+        mean2 = 12,
+        delta = 2,
+        sd = 2.5,
+        sd1 = sd || 2.5,
+        sd2 = sd || 2.5,
+        n = 16,
+        n1 = n || 16,
+        n2 = n || 16,
+        sem = 0.625,
+        sem1 = sem || 0.625,
+        sem2 = sem || 0.625,
+        alpha = 0.05,
+        viewMode = 'means',
+        seDiff = 0.88,
+        df = 30,
+        tCrit = 2.04,
+        zCrit = 1.96,
+        deltaCrit = 1.8,
+        tStat = 0,
+        pValue = 0.05,
+        isSignificant = false,
+        cohensD = 0.8,
+        patientOVL = 0.5,
+        meansOVL = 0.05,
+        moe = 1.0,
+        ci1 = [mean1 - 1, mean1 + 1],
+        ci2 = [mean2 - 1, mean2 + 1]
+      } = metrics || {};
 
       if (viewMode === 'null') {
-        const xSpan = Math.max(4.2 * seDiff, delta + 2.5 * seDiff);
+        const safeSEDiff = Math.max(0.001, Number.isFinite(seDiff) ? seDiff : 0.88);
+        const safeDelta = Number.isFinite(delta) ? delta : 2.0;
+        const xSpan = Math.max(0.1, Math.max(4.2 * safeSEDiff, safeDelta + 2.5 * safeSEDiff));
         const minX = -xSpan;
         const maxX = xSpan;
-        const peakY = 1.0 / (seDiff * Math.sqrt(2 * Math.PI));
+        const peakY = 1.0 / (safeSEDiff * Math.sqrt(2 * Math.PI));
         const maxY = peakY * 1.25;
 
-        const toX = (val) => b.x + ((val - minX) / (maxX - minX)) * b.width;
-        const toY = (val) => b.y + b.height - (val / maxY) * b.height;
+        const toX = (val) => {
+          const v = Number.isFinite(val) ? val : minX;
+          return b.x + ((v - minX) / (maxX - minX)) * b.width;
+        };
+        const toY = (val) => {
+          const v = Number.isFinite(val) ? val : 0;
+          return b.y + b.height - (v / maxY) * b.height;
+        };
 
         ctx.strokeStyle = pal.grid;
         ctx.lineWidth = 1;
@@ -4933,20 +4965,26 @@ const DocxReports = {
       // -------------------------------------------------------------
       // MEANS, PATIENTS, OR DUAL VIEW
       // -------------------------------------------------------------
-      const activeSigma1 = (viewMode === 'patients') ? sd1 : sem1;
-      const activeSigma2 = (viewMode === 'patients') ? sd2 : sem2;
+      const activeSigma1 = Math.max(0.001, (viewMode === 'patients') ? sd1 : sem1);
+      const activeSigma2 = Math.max(0.001, (viewMode === 'patients') ? sd2 : sem2);
       const maxSpread = Math.max(sd1, sd2, 4.0);
       const minX = mean1 - Math.max(3.8 * maxSpread, 4.0);
       const maxX = Math.max(mean2 + Math.max(3.8 * maxSpread, 4.0), mean1 + 7.5);
-      const xSpan = maxX - minX;
+      const xSpan = Math.max(0.1, maxX - minX);
 
       const peak1 = 1.0 / (activeSigma1 * Math.sqrt(2 * Math.PI));
       const peak2 = 1.0 / (activeSigma2 * Math.sqrt(2 * Math.PI));
-      const maxDensity = Math.max(peak1, peak2);
+      const maxDensity = Math.max(0.001, peak1, peak2);
       const maxY = maxDensity * 1.30;
 
-      const toX = (val) => b.x + ((val - minX) / xSpan) * b.width;
-      const toY = (val) => b.y + b.height - (val / maxY) * b.height;
+      const toX = (val) => {
+        const v = Number.isFinite(val) ? val : minX;
+        return b.x + ((v - minX) / xSpan) * b.width;
+      };
+      const toY = (val) => {
+        const v = Number.isFinite(val) ? val : 0;
+        return b.y + b.height - (v / maxY) * b.height;
+      };
 
       ctx.strokeStyle = pal.grid;
       ctx.lineWidth = 1;
@@ -5060,7 +5098,7 @@ const DocxReports = {
       });
 
       const critX = mean1 + deltaCrit;
-      if (critX <= maxX) {
+      if (Number.isFinite(critX) && critX <= maxX && critX >= minX) {
         const critXPix = toX(critX);
         ctx.strokeStyle = '#f59e0b';
         ctx.lineWidth = 2.0;
@@ -5081,31 +5119,35 @@ const DocxReports = {
         const barY1 = toY(maxDensity * 0.05);
         const barY2 = toY(maxDensity * 0.12);
 
-        ctx.strokeStyle = '#06b6d4';
-        ctx.lineWidth = 2.0;
-        ctx.beginPath();
-        ctx.moveTo(toX(ci1[0]), barY1);
-        ctx.lineTo(toX(ci1[1]), barY1);
-        ctx.stroke();
-        [ci1[0], ci1[1]].forEach(cx => {
+        if (Array.isArray(ci1) && Number.isFinite(ci1[0]) && Number.isFinite(ci1[1])) {
+          ctx.strokeStyle = '#06b6d4';
+          ctx.lineWidth = 2.0;
           ctx.beginPath();
-          ctx.moveTo(toX(cx), barY1 - 4);
-          ctx.lineTo(toX(cx), barY1 + 4);
+          ctx.moveTo(toX(ci1[0]), barY1);
+          ctx.lineTo(toX(ci1[1]), barY1);
           ctx.stroke();
-        });
+          [ci1[0], ci1[1]].forEach(cx => {
+            ctx.beginPath();
+            ctx.moveTo(toX(cx), barY1 - 4);
+            ctx.lineTo(toX(cx), barY1 + 4);
+            ctx.stroke();
+          });
+        }
 
-        ctx.strokeStyle = '#a855f7';
-        ctx.lineWidth = 2.0;
-        ctx.beginPath();
-        ctx.moveTo(toX(ci2[0]), barY2);
-        ctx.lineTo(toX(ci2[1]), barY2);
-        ctx.stroke();
-        [ci2[0], ci2[1]].forEach(cx => {
+        if (Array.isArray(ci2) && Number.isFinite(ci2[0]) && Number.isFinite(ci2[1])) {
+          ctx.strokeStyle = '#a855f7';
+          ctx.lineWidth = 2.0;
           ctx.beginPath();
-          ctx.moveTo(toX(cx), barY2 - 4);
-          ctx.lineTo(toX(cx), barY2 + 4);
+          ctx.moveTo(toX(ci2[0]), barY2);
+          ctx.lineTo(toX(ci2[1]), barY2);
           ctx.stroke();
-        });
+          [ci2[0], ci2[1]].forEach(cx => {
+            ctx.beginPath();
+            ctx.moveTo(toX(cx), barY2 - 4);
+            ctx.lineTo(toX(cx), barY2 + 4);
+            ctx.stroke();
+          });
+        }
 
         ctx.fillStyle = '#64748b';
         ctx.font = `500 9px ${engine.options.fontFamily}`;
@@ -5170,6 +5212,7 @@ const DocxReports = {
       window.app = this;
       this.theme = localStorage.getItem('sg_theme') || 'dark';
       this.engines = {};
+      this.results = { teaching: {} };
       this.init();
     }
 
