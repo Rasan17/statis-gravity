@@ -2600,6 +2600,9 @@
         document.getElementById('anovaG3').value = ca[2].join(', ');
         this.runAnova();
       });
+      document.getElementById('anovaErrorBarMode')?.addEventListener('change', () => {
+        this.runAnova();
+      });
 
       // 4. Categorical / 2x2 Risk & Contingency
       ['catA', 'catB', 'catC', 'catD'].forEach(id => {
@@ -3072,8 +3075,24 @@
       }
       document.getElementById('anovaReportText').innerText = report;
 
+      // Render Dispersion Plot (95% CI, SEM, SD, or IQR Box & Whiskers)
+      const errorBarMode = document.getElementById('anovaErrorBarMode')?.value || 'ci95';
+      const modeDescriptions = {
+        ci95: 'Error Bars: 95% Confidence Interval (Mean ± 95% CI)',
+        sem: 'Error Bars: Standard Error of Mean (Mean ± 1 SEM)',
+        sd: 'Error Bars: Standard Deviation (Mean ± 1 SD)',
+        iqr: 'Distribution: Box & Whiskers (Median, Q1-Q3 IQR, Tukey Fences)'
+      };
+      const subElem = document.getElementById('anovaChartSub');
+      if (subElem) {
+        subElem.innerText = modeDescriptions[errorBarMode] || modeDescriptions.ci95;
+      }
+
       if (this.engines.anovaCanvas) {
-        Plots.renderBoxPlot(this.engines.anovaCanvas, res.groups, 'Multi-Cohort Comparison');
+        Plots.renderErrorBarPlot(this.engines.anovaCanvas, res.groups, {
+          mode: errorBarMode,
+          title: 'Multi-Cohort Comparison'
+        });
       }
     }
 

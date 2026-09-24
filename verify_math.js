@@ -262,5 +262,35 @@ assert(dHypo.q1 === 24 && dHypo.q3 === 30, `Quartiles Q1=24 and Q3=30 match expe
 assert(dHypo.iqr === 6, `IQR is Q3 - Q1 = 6 (got ${dHypo.iqr})`);
 assert(dHypo.lowerFence === 24 - 1.5 * 6 && dHypo.upperFence === 30 + 1.5 * 6, `Tukey fences correctly bounded at [${dHypo.lowerFence}, ${dHypo.upperFence}]`);
 
+console.log('--- Testing Multi-Group ANOVA Error Bar / Dispersion Modes ---');
+const anovaMulti = Anova.oneWay([
+  { name: 'Conservative', data: [12.2, 11.8, 12.5, 11.9, 12.1, 12.3, 11.7, 12.4] },
+  { name: 'Orthotic Helmet', data: [8.5, 8.2, 8.8, 8.4, 8.6, 8.1, 8.7, 8.5] },
+  { name: 'Endoscopic Strip', data: [4.1, 4.5, 4.2, 3.9, 4.3, 4.0, 4.4, 4.2] }
+]);
+assert(anovaMulti.groups.length === 3, `ANOVA contains 3 distinct cohorts for plotting`);
+
+anovaMulti.groups.forEach((g) => {
+  const s = g.stats;
+  assert(s && s.n === 8, `${g.name} has valid descriptive stats (n=${s.n})`);
+
+  // 1. 95% CI mode
+  assert(Array.isArray(s.ci95) && s.ci95.length === 2, `${g.name} has calculated 95% CI`);
+  assert(s.ci95[0] < s.mean && s.ci95[1] > s.mean, `${g.name} 95% CI bounds mean (${s.ci95[0].toFixed(2)} < ${s.mean.toFixed(2)} < ${s.ci95[1].toFixed(2)})`);
+
+  // 2. SEM mode
+  const semSpan = 2 * s.sem;
+  assert(s.sem > 0 && approx(s.sem, s.sd / Math.sqrt(s.n), 1e-3), `${g.name} SEM matches s / sqrt(n) = ${s.sem.toFixed(3)}`);
+
+  // 3. SD mode
+  const sdSpan = 2 * s.sd;
+  assert(sdSpan > semSpan, `${g.name} SD error span (${sdSpan.toFixed(2)}) strictly exceeds SEM span (${semSpan.toFixed(2)})`);
+
+  // 4. IQR mode
+  assert(s.iqr > 0 && approx(s.iqr, s.q3 - s.q1, 1e-3), `${g.name} IQR (${s.iqr.toFixed(2)}) equals Q3 - Q1`);
+  assert(s.median >= s.q1 && s.median <= s.q3, `${g.name} median (${s.median.toFixed(2)}) lies within Q1-Q3 box`);
+});
+
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);
+

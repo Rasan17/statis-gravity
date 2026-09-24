@@ -347,9 +347,21 @@
             </div>
 
             <div class="chart-container">
-              <div class="chart-header">
-                <span class="card-title">Multi-Cohort Variance &amp; Quartiles</span>
-                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="anovaCanvas">Save PNG</button>
+              <div class="chart-header" style="flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                  <span id="anovaChartTitle" class="card-title">Multi-Cohort Variance &amp; Dispersion</span>
+                  <span id="anovaChartSub" style="font-size: 0.72rem; color: var(--text-dim); display: block;">Error Bars: 95% Confidence Interval (Mean ± 95% CI)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                  <label for="anovaErrorBarMode" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Error Bars / Dispersion:</label>
+                  <select id="anovaErrorBarMode" class="form-control" onchange="if(window.sgApp?.runAnova)window.sgApp.runAnova();else if(window.app?.runAnova)window.app.runAnova();" style="width: auto; padding: 0.25rem 0.65rem; font-size: 0.75rem; height: 32px; background: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 6px; cursor: pointer;">
+                    <option value="ci95" selected>95% Confidence Interval (Mean ± 95% CI)</option>
+                    <option value="sem">Standard Error of Mean (Mean ± 1 SEM)</option>
+                    <option value="sd">Standard Deviation (Mean ± 1 SD)</option>
+                    <option value="iqr">Interquartile Range (Box &amp; Whiskers / Median ± IQR)</option>
+                  </select>
+                  <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="anovaCanvas">Save PNG</button>
+                </div>
               </div>
               <canvas id="anovaCanvas" class="chart-canvas"></canvas>
             </div>
@@ -913,6 +925,6 @@
     </div>
   </div>
 
-  <script src="js/statis-gravity.js?v=2.4.0"></script>
+  <script src="js/statis-gravity.js?v=2.5.0"></script>
 </body>
 </html>
