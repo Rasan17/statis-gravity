@@ -820,6 +820,50 @@ class StatisGravityApp {
       this.runBayesianSimulation({ prior: 0.0476, likelihood: 0.40, falsePositive: 0.10, sampleSize: 210, preset: 'steve' });
     });
 
+    // Double-Click Inline Number Editing Configuration
+    const editableConfigs = [
+      // Section 6: Bayesian
+      { span: 'bayesPriorVal', range: 'bayesPriorRange' },
+      { span: 'bayesStatusPriorVal', range: 'bayesPriorRange' },
+      { span: 'bayesSampleVal', range: 'bayesSampleRange' },
+      { span: 'bayesLikelihoodVal', range: 'bayesLikelihoodRange' },
+      { span: 'bayesStatusLikelihoodVal', range: 'bayesLikelihoodRange' },
+      { span: 'bayesFalsePosVal', range: 'bayesFalsePosRange' },
+      { span: 'bayesStatusFalsePosVal', range: 'bayesFalsePosRange' },
+
+      // Teaching: Sample Size Distribution
+      { span: 'teachingNVal', range: 'teachingNRange' },
+
+      // Teaching: CLT
+      { span: 'cltNVal', range: 'cltNRange' },
+
+      // Teaching: Student's t
+      { span: 'tConvNVal', range: 'tConvNRange' },
+
+      // Teaching: Overlap
+      { span: 'overlapDeltaVal', range: 'overlapDeltaRange' },
+      { span: 'overlapAlphaVal', range: 'overlapAlphaRange' },
+      { span: 'overlapSD1Val', range: 'overlapSD1Range' },
+      { span: 'overlapSEM1Val', range: 'overlapSEM1Range' },
+      { span: 'overlapN1Val', range: 'overlapN1Range' },
+      { span: 'overlapSD2Val', range: 'overlapSD2Range' },
+      { span: 'overlapSEM2Val', range: 'overlapSEM2Range' },
+      { span: 'overlapN2Val', range: 'overlapN2Range' },
+
+      // Teaching: Power Simulation
+      { span: 'powerSDVal', range: 'powerSDRange' },
+      { span: 'powerSEMVal', range: 'powerSEMRange' },
+      { span: 'powerNVal', range: 'powerNRange' },
+      { span: 'powerPowerVal', range: 'powerPowerRange' },
+      { span: 'powerBetaVal', range: 'powerBetaRange' },
+      { span: 'powerDeltaVal', range: 'powerDeltaRange' },
+      { span: 'powerAlphaVal', range: 'powerAlphaRange' }
+    ];
+
+    editableConfigs.forEach(cfg => {
+      this.setupEditableNumber(cfg.span, cfg.range, cfg.options);
+    });
+
     // Disclaimer Modal Dismissal
     document.getElementById('disclaimerDismissBtn')?.addEventListener('click', () => {
       document.getElementById('disclaimerModal')?.classList.add('hidden');
@@ -833,6 +877,102 @@ class StatisGravityApp {
       if (e.key === 'Escape') {
         document.getElementById('disclaimerModal')?.classList.add('hidden');
       }
+    });
+  }
+
+  setupEditableNumber(spanTarget, rangeTarget, options = {}) {
+    const spanEl = typeof spanTarget === 'string' ? document.getElementById(spanTarget) : spanTarget;
+    const rangeEl = typeof rangeTarget === 'string' ? document.getElementById(rangeTarget) : rangeTarget;
+    if (!spanEl || !rangeEl) return;
+
+    spanEl.classList.add('editable-number-badge');
+    if (!spanEl.title) {
+      spanEl.title = 'Double-click to edit value directly';
+    }
+
+    spanEl.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (spanEl.dataset.isEditing === 'true') return;
+      spanEl.dataset.isEditing = 'true';
+
+      // Read current numeric value from the linked range input
+      const currentVal = rangeEl.value;
+      const min = rangeEl.min !== '' ? rangeEl.min : (options.min !== undefined ? options.min : '');
+      const max = rangeEl.max !== '' ? rangeEl.max : (options.max !== undefined ? options.max : '');
+      const step = rangeEl.step !== '' ? rangeEl.step : (options.step !== undefined ? options.step : 'any');
+
+      // Create inline input
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.className = 'editable-number-input';
+      if (min !== '') input.min = min;
+      if (max !== '') input.max = max;
+      if (step !== '') input.step = step;
+      input.value = currentVal;
+
+      // Match styles with span
+      const computed = window.getComputedStyle(spanEl);
+      input.style.fontSize = computed.fontSize;
+      input.style.fontWeight = computed.fontWeight || '700';
+      input.style.color = computed.color || '#00d2ff';
+      input.style.textAlign = computed.textAlign === 'center' ? 'center' : 'right';
+      const initialWidth = Math.max(68, spanEl.offsetWidth + 18);
+      input.style.width = `${initialWidth}px`;
+
+      // Hide span and insert input right beside it
+      const prevDisplay = spanEl.style.display;
+      spanEl.style.display = 'none';
+      spanEl.parentNode.insertBefore(input, spanEl.nextSibling);
+
+      // Focus and select all
+      setTimeout(() => {
+        input.focus();
+        input.select();
+      }, 10);
+
+      let isFinished = false;
+      const finishEdit = (commit) => {
+        if (isFinished) return;
+        isFinished = true;
+
+        input.remove();
+        spanEl.style.display = prevDisplay;
+        spanEl.dataset.isEditing = 'false';
+
+        if (commit) {
+          const cleanedStr = input.value.toString().replace(/[^0-9.-]/g, '');
+          let val = parseFloat(cleanedStr);
+          if (!isNaN(val)) {
+            const minNum = parseFloat(min);
+            const maxNum = parseFloat(max);
+            if (!isNaN(minNum) && val < minNum) val = minNum;
+            if (!isNaN(maxNum) && val > maxNum) val = maxNum;
+
+            rangeEl.value = val;
+            rangeEl.dispatchEvent(new Event('input', { bubbles: true }));
+            rangeEl.dispatchEvent(new Event('change', { bubbles: true }));
+            if (typeof options.onCommit === 'function') {
+              options.onCommit(val);
+            }
+          }
+        }
+      };
+
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          finishEdit(true);
+        } else if (ev.key === 'Escape') {
+          ev.preventDefault();
+          finishEdit(false);
+        }
+      });
+
+      input.addEventListener('blur', () => {
+        finishEdit(true);
+      });
     });
   }
 

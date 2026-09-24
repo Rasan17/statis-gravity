@@ -414,3 +414,43 @@ textarea.form-control {
   }
 }
 
+/* ==========================================================================
+   Interactive Double-Click Editable Number Badges & Inputs
+   ========================================================================== */
+.editable-number-badge {
+  cursor: pointer !important;
+  border-bottom: 1.5px dashed currentColor;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: all var(--transition-fast, 0.15s ease);
+  display: inline-block;
+  user-select: none;
+  position: relative;
+}
+
+.editable-number-badge:hover {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 8px rgba(0, 210, 255, 0.25);
+}
+
+.editable-number-input {
+  display: inline-block;
+  background: rgba(15, 23, 42, 0.96) !important;
+  border: 1.5px solid var(--cyan-primary, #00d2ff) !important;
+  border-radius: 4px;
+  padding: 2px 6px;
+  line-height: 1.25;
+  outline: none !important;
+  font-family: inherit;
+  font-weight: 700;
+  box-shadow: 0 0 12px rgba(0, 210, 255, 0.45);
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+.editable-number-input:focus {
+  border-color: var(--cyan-primary, #00d2ff) !important;
+  box-shadow: 0 0 16px rgba(0, 210, 255, 0.65);
+}
+
+

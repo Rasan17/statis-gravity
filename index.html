@@ -991,7 +991,7 @@
               <div class="form-group" style="margin-bottom: 1rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
                   <label for="teachingNRange" class="form-label" style="margin: 0; font-weight: 600;">Sample Size (N):</label>
-                  <span id="teachingNVal" style="font-weight: 700; color: var(--cyan-primary);">500</span>
+                  <span id="teachingNVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: var(--cyan-primary);">500</span>
                 </div>
                 <input id="teachingNRange" type="range" min="50" max="3000" step="50" value="500" style="width: 100%; cursor: pointer;">
               </div>
@@ -1080,7 +1080,7 @@
             <div style="flex: 1; min-width: 200px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                 <label for="cltNRange" class="form-label" style="margin: 0; font-weight: 600;">Sample Size per Draw (n):</label>
-                <span id="cltNVal" style="font-weight: 700; color: var(--cyan-primary);">30</span>
+                <span id="cltNVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: var(--cyan-primary);">30</span>
               </div>
               <input id="cltNRange" type="range" min="2" max="100" step="1" value="30" style="width: 100%; cursor: pointer;">
               <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
@@ -1176,7 +1176,7 @@
               <div style="flex: 1; min-width: 260px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                   <label for="tConvNRange" class="form-label" style="margin: 0; font-weight: 600;">Sample Size (n) / Degrees of Freedom (ν = n - 1):</label>
-                  <span id="tConvNVal" style="font-weight: 700; color: #a855f7; font-size: 1.05rem;">n = 4 (ν = 3)</span>
+                  <span id="tConvNVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #a855f7; font-size: 1.05rem;">n = 4 (ν = 3)</span>
                 </div>
                 <input id="tConvNRange" type="range" min="2" max="150" step="1" value="4" style="width: 100%; cursor: pointer;">
                 <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
@@ -1289,7 +1289,7 @@
                 <div>
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                     <label for="overlapDeltaRange" class="form-label" style="margin: 0; font-weight: 600;">Mean Difference (Δ = μ₂ - μ₁):</label>
-                    <span id="overlapDeltaVal" style="font-weight: 700; color: #06b6d4;">2.00</span>
+                    <span id="overlapDeltaVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #06b6d4;">2.00</span>
                   </div>
                   <input id="overlapDeltaRange" type="range" min="0" max="6.0" step="0.1" value="2.0" style="width: 100%; cursor: pointer;">
                   <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
@@ -1304,7 +1304,7 @@
                 <div>
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                     <label for="overlapAlphaRange" class="form-label" style="margin: 0; font-weight: 600;">Significance Level (α):</label>
-                    <span id="overlapAlphaVal" style="font-weight: 700; color: #f59e0b;">α = 0.050 (z = 1.960)</span>
+                    <span id="overlapAlphaVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #f59e0b;">α = 0.050 (z = 1.960)</span>
                   </div>
                   <input id="overlapAlphaRange" type="range" min="0.001" max="0.200" step="0.005" value="0.050" style="width: 100%; cursor: pointer;">
                   <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
@@ -1342,7 +1342,7 @@
                   <div style="margin-bottom: 0.65rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
                       <label for="overlapSD1Range" class="form-label" style="margin: 0; font-size: 0.78rem; font-weight: 600;">Patient SD (σ₁):</label>
-                      <span id="overlapSD1Val" style="font-weight: 700; color: #06b6d4; font-size: 0.82rem;">2.50</span>
+                      <span id="overlapSD1Val" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #06b6d4; font-size: 0.82rem;">2.50</span>
                     </div>
                     <input id="overlapSD1Range" type="range" min="0.5" max="8.0" step="0.1" value="2.5" style="width: 100%; cursor: pointer;">
                   </div>
@@ -1351,7 +1351,7 @@
                   <div style="margin-bottom: 0.65rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
                       <label for="overlapSEM1Range" class="form-label" style="margin: 0; font-size: 0.78rem; font-weight: 600;">Standard Error (SEM₁):</label>
-                      <span id="overlapSEM1Val" style="font-weight: 700; color: #06b6d4; font-size: 0.82rem;">0.625</span>
+                      <span id="overlapSEM1Val" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #06b6d4; font-size: 0.82rem;">0.625</span>
                     </div>
                     <input id="overlapSEM1Range" type="range" min="0.05" max="3.00" step="0.025" value="0.625" style="width: 100%; cursor: pointer;">
                   </div>
@@ -1360,7 +1360,7 @@
                   <div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
                       <label for="overlapN1Range" class="form-label" style="margin: 0; font-size: 0.78rem; font-weight: 600;">Sample Size (n₁):</label>
-                      <span id="overlapN1Val" style="font-weight: 700; color: var(--text-main); font-size: 0.82rem;">n₁ = 16</span>
+                      <span id="overlapN1Val" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: var(--text-main); font-size: 0.82rem;">n₁ = 16</span>
                     </div>
                     <input id="overlapN1Range" type="range" min="3" max="200" step="1" value="16" style="width: 100%; cursor: pointer;">
                     <div style="font-size: 0.70rem; color: var(--text-muted); margin-top: 0.2rem;">Formula: SEM₁ = SD₁ / √n₁</div>
@@ -1378,7 +1378,7 @@
                   <div style="margin-bottom: 0.65rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
                       <label for="overlapSD2Range" class="form-label" style="margin: 0; font-size: 0.78rem; font-weight: 600;">Patient SD (σ₂):</label>
-                      <span id="overlapSD2Val" style="font-weight: 700; color: #a855f7; font-size: 0.82rem;">2.50</span>
+                      <span id="overlapSD2Val" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #a855f7; font-size: 0.82rem;">2.50</span>
                     </div>
                     <input id="overlapSD2Range" type="range" min="0.5" max="8.0" step="0.1" value="2.5" style="width: 100%; cursor: pointer;">
                   </div>
@@ -1387,7 +1387,7 @@
                   <div style="margin-bottom: 0.65rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
                       <label for="overlapSEM2Range" class="form-label" style="margin: 0; font-size: 0.78rem; font-weight: 600;">Standard Error (SEM₂):</label>
-                      <span id="overlapSEM2Val" style="font-weight: 700; color: #a855f7; font-size: 0.82rem;">0.625</span>
+                      <span id="overlapSEM2Val" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #a855f7; font-size: 0.82rem;">0.625</span>
                     </div>
                     <input id="overlapSEM2Range" type="range" min="0.05" max="3.00" step="0.025" value="0.625" style="width: 100%; cursor: pointer;">
                   </div>
@@ -1396,7 +1396,7 @@
                   <div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
                       <label for="overlapN2Range" class="form-label" style="margin: 0; font-size: 0.78rem; font-weight: 600;">Sample Size (n₂):</label>
-                      <span id="overlapN2Val" style="font-weight: 700; color: var(--text-main); font-size: 0.82rem;">n₂ = 16</span>
+                      <span id="overlapN2Val" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: var(--text-main); font-size: 0.82rem;">n₂ = 16</span>
                     </div>
                     <input id="overlapN2Range" type="range" min="3" max="200" step="1" value="16" style="width: 100%; cursor: pointer;">
                     <div style="font-size: 0.70rem; color: var(--text-muted); margin-top: 0.2rem;">Formula: SEM₂ = SD₂ / √n₂</div>
@@ -1534,7 +1534,7 @@
                 <div class="form-group" style="margin-bottom: 0.85rem;">
                   <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
                     <label for="powerSDRange">Patient Standard Deviation (SD, σ):</label>
-                    <span id="powerSDVal" style="font-weight: 700; color: #06b6d4;">4.00</span>
+                    <span id="powerSDVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #06b6d4;">4.00</span>
                   </div>
                   <input type="range" id="powerSDRange" min="0.5" max="10.0" step="0.1" value="4.00" style="width: 100%;">
                   <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Biological heterogeneity / measurement noise. Higher SD requires more subjects.</span>
@@ -1544,7 +1544,7 @@
                 <div class="form-group" style="margin-bottom: 0.85rem;">
                   <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
                     <label for="powerSEMRange">Standard Error of the Mean (SEM):</label>
-                    <span id="powerSEMVal" style="font-weight: 700; color: #06b6d4;">0.500</span>
+                    <span id="powerSEMVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #06b6d4;">0.500</span>
                   </div>
                   <input type="range" id="powerSEMRange" min="0.05" max="3.0" step="0.01" value="0.500" style="width: 100%;">
                   <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Estimation precision (SEM = SD / √n). Shrinking SEM separates curves and skyrockets Power.</span>
@@ -1554,7 +1554,7 @@
                 <div class="form-group" style="margin-bottom: 0;">
                   <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
                     <label for="powerNRange">Sample Size per Group (n):</label>
-                    <span id="powerNVal" style="font-weight: 700; color: #06b6d4;">n = 64 (N = 128)</span>
+                    <span id="powerNVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #06b6d4;">n = 64 (N = 128)</span>
                   </div>
                   <input type="range" id="powerNRange" min="4" max="250" step="1" value="64" style="width: 100%;">
                   <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Formula: n = (SD / SEM)² | Total trial size N = 2n subjects</span>
@@ -1572,7 +1572,7 @@
                 <div class="form-group" style="margin-bottom: 0.85rem;">
                   <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
                     <label for="powerPowerRange">Statistical Power (1 − β):</label>
-                    <span id="powerPowerVal" style="font-weight: 700; color: #10b981;">80.2%</span>
+                    <span id="powerPowerVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #10b981;">80.2%</span>
                   </div>
                   <input type="range" id="powerPowerRange" min="0.50" max="0.99" step="0.01" value="0.80" style="width: 100%;">
                   <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Probability of detecting a true effect (True Positive Rate). Regulatory standard: ≥ 80%.</span>
@@ -1582,7 +1582,7 @@
                 <div class="form-group" style="margin-bottom: 0.85rem;">
                   <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
                     <label for="powerBetaRange">Type II Error Rate (Beta, β):</label>
-                    <span id="powerBetaVal" style="font-weight: 700; color: #f59e0b;">19.8%</span>
+                    <span id="powerBetaVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #f59e0b;">19.8%</span>
                   </div>
                   <input type="range" id="powerBetaRange" min="0.01" max="0.50" step="0.01" value="0.20" style="width: 100%;">
                   <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Risk of missing a true difference (False Negative Rate: β = 1 − Power).</span>
@@ -1593,7 +1593,7 @@
                   <div class="form-group" style="margin-bottom: 0;">
                     <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
                       <label for="powerDeltaRange">Mean Diff (Δ):</label>
-                      <span id="powerDeltaVal" style="font-weight: 700; color: #a855f7;">2.00</span>
+                      <span id="powerDeltaVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #a855f7;">2.00</span>
                     </div>
                     <input type="range" id="powerDeltaRange" min="0.5" max="6.0" step="0.1" value="2.00" style="width: 100%;">
                     <span id="powerCohensDSub" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Cohen's d = 0.50</span>
@@ -1601,7 +1601,7 @@
                   <div class="form-group" style="margin-bottom: 0;">
                     <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
                       <label for="powerAlphaRange">Alpha (α):</label>
-                      <span id="powerAlphaVal" style="font-weight: 700; color: #ef4444;">0.050</span>
+                      <span id="powerAlphaVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #ef4444;">0.050</span>
                     </div>
                     <input type="range" id="powerAlphaRange" min="0.001" max="0.10" step="0.005" value="0.050" style="width: 100%;">
                     <span id="powerZCritSub" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">z_crit = 1.960</span>
@@ -1732,7 +1732,7 @@
                 <div class="form-group" style="margin-bottom: 0.85rem;">
                   <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
                     <label for="bayesPriorRange">Prior Probability P(H):</label>
-                    <span id="bayesPriorVal" style="font-weight: 700; color: #10b981;">4.8%</span>
+                    <span id="bayesPriorVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #10b981;">4.8%</span>
                   </div>
                   <input type="range" id="bayesPriorRange" min="0.1" max="99.0" step="0.1" value="4.8" style="width: 100%;">
                   <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Initial degree of belief before observing evidence (Steve: 1 librarian per 20 farmers = 4.76%).</span>
@@ -1742,7 +1742,7 @@
                 <div class="form-group" style="margin-bottom: 0;">
                   <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
                     <label for="bayesSampleRange">Representative Population Sample (N):</label>
-                    <span id="bayesSampleVal" style="font-weight: 700; color: #06b6d4;">N = 210 people</span>
+                    <span id="bayesSampleVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #06b6d4;">N = 210 people</span>
                   </div>
                   <input type="range" id="bayesSampleRange" min="50" max="2000" step="10" value="210" style="width: 100%;">
                   <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Representative count (e.g. 10 librarians + 200 farmers = 210). Framing as counts drops error rate to 0%.</span>
@@ -1760,7 +1760,7 @@
                 <div class="form-group" style="margin-bottom: 0.85rem;">
                   <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
                     <label for="bayesLikelihoodRange">Likelihood P(E|H) (True Positive Rate):</label>
-                    <span id="bayesLikelihoodVal" style="font-weight: 700; color: #10b981;">40.0%</span>
+                    <span id="bayesLikelihoodVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #10b981;">40.0%</span>
                   </div>
                   <input type="range" id="bayesLikelihoodRange" min="1.0" max="100.0" step="1.0" value="40.0" style="width: 100%;">
                   <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Probability of evidence if H is true (e.g. 40% of librarians fit meek/tidy description).</span>
@@ -1770,7 +1770,7 @@
                 <div class="form-group" style="margin-bottom: 0;">
                   <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
                     <label for="bayesFalsePosRange">False Positive Rate P(E|¬H) (False Alarm):</label>
-                    <span id="bayesFalsePosVal" style="font-weight: 700; color: #f59e0b;">10.0%</span>
+                    <span id="bayesFalsePosVal" class="editable-number-badge" title="Double-click to edit value directly" style="font-weight: 700; color: #f59e0b;">10.0%</span>
                   </div>
                   <input type="range" id="bayesFalsePosRange" min="0.5" max="100.0" step="0.5" value="10.0" style="width: 100%;">
                   <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Probability of evidence if H is false (e.g. 10% of farmers fit meek/tidy description).</span>
@@ -1783,17 +1783,17 @@
             <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
               <div class="metric-card" style="border-top: 3px solid #10b981;">
                 <div class="metric-label">Prior Probability P(H)</div>
-                <div id="bayesStatusPriorVal" class="metric-value" style="color: #10b981;">4.8%</div>
+                <div id="bayesStatusPriorVal" class="metric-value editable-number-badge" title="Double-click to edit value directly" style="color: #10b981;">4.8%</div>
                 <div id="bayesStatusPriorSub" class="metric-sub">Prior Odds: 1 : 20.0</div>
               </div>
               <div class="metric-card" style="border-top: 3px solid #10b981;">
                 <div class="metric-label">Likelihood P(E|H)</div>
-                <div id="bayesStatusLikelihoodVal" class="metric-value" style="color: #10b981;">40.0%</div>
+                <div id="bayesStatusLikelihoodVal" class="metric-value editable-number-badge" title="Double-click to edit value directly" style="color: #10b981;">40.0%</div>
                 <div id="bayesStatusLikelihoodSub" class="metric-sub">True Positive Probability</div>
               </div>
               <div class="metric-card" style="border-top: 3px solid #f59e0b;">
                 <div class="metric-label">False Alarm P(E|¬H)</div>
-                <div id="bayesStatusFalsePosVal" class="metric-value" style="color: #f59e0b;">10.0%</div>
+                <div id="bayesStatusFalsePosVal" class="metric-value editable-number-badge" title="Double-click to edit value directly" style="color: #f59e0b;">10.0%</div>
                 <div id="bayesStatusFalsePosSub" class="metric-sub">False Positive Probability</div>
               </div>
               <div class="metric-card">
@@ -1883,6 +1883,6 @@
     </div>
   </div>
 
-  <script src="js/statis-gravity.js?v=2.9.3"></script>
+  <script src="js/statis-gravity.js?v=2.9.4"></script>
 </body>
 </html>
