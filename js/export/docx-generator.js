@@ -866,7 +866,7 @@ export const DocxReports = {
   createTeachingDocx(data) {
     const d = new DocxBuilder();
     d.addTitle('STATIS-GRAVITY CLINICAL BIOSTATISTICS REPORT')
-      .addSubTitle('Module: Teaching & Central Limit Theorem Simulation')
+      .addSubTitle('Module: Teaching, Distributions, CLT & Student\'s t Convergence')
       .addAttributionHeader()
       .addDisclaimerBox();
 
@@ -877,6 +877,9 @@ export const DocxReports = {
     d.addParagraph(`CLT Simulation Parent Population: ${data.cltParentName || 'Uniform Distribution'}`);
     d.addParagraph(`CLT Sample Size per Draw (n): ${data.cltN || 30}`);
     d.addParagraph(`CLT Total Iterations (k): ${data.cltK || 1000} sample means`);
+    if (data.tConv) {
+      d.addParagraph(`Student's t Simulation: Sample Size n = ${data.tConv.sampleSize} (Degrees of Freedom ν = ${data.tConv.df})`);
+    }
 
     d.addHeading1('2. Statistical Outcome & Empirical Convergence Metrics');
     d.addHeading2('Computer-Generated Distribution Metrics');
@@ -905,29 +908,43 @@ export const DocxReports = {
       );
     }
 
+    if (data.tConv) {
+      d.addHeading2('Student\'s t Convergence to Standard Normal N(0, 1) Results');
+      d.addTable(
+        ['Student\'s t Parameter', `t-Distribution (ν = ${data.tConv.df})`, 'Standard Normal N(0, 1)', 'Methodological Consequence'],
+        [
+          ['Two-Tailed Critical Value (α=0.05)', `t_crit = ${data.tConv.tCrit?.toFixed(3)}`, 'z_crit = 1.960', `Deviation: ${data.tConv.critDiffPct >= 0 ? '+' : ''}${data.tConv.critDiffPct?.toFixed(1)}% wider cutoff`],
+          ['Peak Density f(0)', `f_t(0) = ${data.tConv.tPeak?.toFixed(4)}`, 'φ(0) = 0.3989', `Peak discrepancy: ${data.tConv.peakDiffPct?.toFixed(1)}%`],
+          ['Tail Probability P(|X| > 1.960)', `${(data.tConv.tailProb * 100).toFixed(1)}%`, '5.00%', `Type I false positive risk if using z=1.96: ${(data.tConv.tailProb * 100).toFixed(1)}%`],
+          ['Excess Kurtosis (Fat Tails)', `${data.tConv.excessKurtosis === Infinity ? '∞ (Fat Tails)' : data.tConv.excessKurtosis?.toFixed(2)}`, '0.00 (Mesokurtic)', data.tConv.df <= 4 ? '4th moment undefined' : 'Heavy tail factor: 6/(ν-4)'],
+          ['Max Discrepancy sup |f_t - φ|', `${data.tConv.maxDiscrepancy?.toFixed(4)}`, '0.0000', 'Uniform convergence metric']
+        ]
+      );
+    }
+
     d.addHeading1('3. Clinical & Statistical Interpretation');
     d.addCalloutBox(
       'Pedagogical Synthesis & Clinical Trial Relevance',
-      data.reportText || 'The Central Limit Theorem demonstrates that the distribution of sample means approaches a normal Gaussian distribution regardless of parent population shape, provided sample size n is sufficiently large (n ≥ 30).',
+      data.reportText || 'The Central Limit Theorem and Student\'s t convergence demonstrate the mathematical foundations of parametric testing in clinical trials.',
       'F0FDF4',
       '16A34A'
     );
 
     d.addHeading1('4. Reason This Particular Test Was Chosen');
     d.addBullet('Foundation of Inferential Biostatistics: Parametric hypothesis tests (Student t-test, ANOVA, ordinary least squares regression) mathematically assume normally distributed errors or sample means. The Central Limit Theorem provides the mathematical justification for deploying these tests in clinical trials with n ≥ 30 even when raw clinical metrics (e.g. ICU stay, recovery hours) are skewed.');
-    d.addBullet('Protection Against Inappropriate Testing: For small cohorts (n < 30) drawn from non-normal distributions (e.g. exponential survival times or bimodal biomarkers), the sampling distribution has not converged to Gaussian. In such scenarios, non-parametric rank-based tests (Mann-Whitney U, Kruskal-Wallis, Wilcoxon signed-rank) must be chosen to avoid inflated Type I error rates.');
+    d.addBullet('Gosset\'s Student\'s t Adjustment: In small clinical cohorts (n < 30), estimating population variance σ² using sample variance s² introduces substantial stochastic instability into the test statistic denominator. Using Gaussian critical values (z = 1.96) severely inflates the Type I error rate (e.g. to 14.5% at n = 4). Student\'s t distribution compensates for this extra uncertainty by thickening the tails and demanding a higher critical threshold (t = 3.182 at n = 4).');
+    d.addBullet('The n ≥ 31 Clinical Threshold: As demonstrated by the simulation, when sample size reaches n ≥ 31 (degrees of freedom ν ≥ 30), the critical t cutoff drops to 2.042 (only 4.2% wider than 1.960), and tail probability converges close to 5.0%. This mathematical threshold explains why sample sizes of 30 or greater historically permit Gaussian approximation in medical trial protocols.');
 
     d.addHeading1('5. Background Statistical Knowledge & Medical Research Context');
-    d.addParagraph('The Central Limit Theorem (CLT) is among the most profound discoveries in probability theory.');
     d.addParagraph('Mathematical Formulations:');
     d.addBullet('Classical Lindberg-Lévy Central Limit Theorem: Let X₁, X₂, ..., X_n be independent and identically distributed (i.i.d.) random variables with mean μ and finite variance σ². Then as n → ∞: √n (X̄_n - μ) / σ → N(0, 1).');
-    d.addBullet('Standard Error of the Mean: SE = σ / √n. Quadrupling the patient enrollment reduces the margin of estimation error by exactly half (1/2).');
-    d.addBullet('Variance of the Sample Mean: Var(X̄) = Var(∑ X_i / n) = (1/n²) · nσ² = σ²/n.');
+    d.addBullet('Student\'s t Distribution Density: f(t; ν) = [ Γ((ν+1)/2) / (√(πν) Γ(ν/2)) ] · [ 1 + t²/ν ]^{-(ν+1)/2}. As ν → ∞, [ 1 + t²/ν ]^{-(ν+1)/2} → exp(-t²/2), converging to Standard Normal N(0, 1).');
+    d.addBullet('Standard Error of the Mean: SE = σ / √n. Quadrupling patient enrollment cuts the estimation uncertainty in half.');
     d.addParagraph('Key Academic References:');
+    d.addBullet('Student [Gosset WS] (1908). The probable error of a mean. Biometrika, 6(1): 1–25.');
     d.addBullet('Laplace PS (1810). Mémoire sur les approximations des formules qui sont fonctions de très grands nombres et sur leur application aux probabilités. Mémoires de l\'Académie Royale des Sciences de Paris.');
     d.addBullet('Gauss CF (1809). Theoria motus corporum coelestium in sectionibus conicis solem ambientium. Hamburg: Perthes et Besser.');
     d.addBullet('Altman DG, Bland JM (1995). Statistics Notes: The normal distribution. BMJ, 310(6975): 298–299.');
-    d.addBullet('Student [Gosset WS] (1908). The probable error of a mean. Biometrika, 6(1): 1–25.');
 
     return d;
   }

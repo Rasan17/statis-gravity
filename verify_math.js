@@ -418,7 +418,8 @@ const bTeach = DocxReports.createTeachingDocx({
     normalityP: 0.421,
     isNormal: true
   },
-  reportText: 'CLT simulation summary text'
+  tConv: Teaching.tConvergence.getMetrics(4),
+  reportText: 'CLT and t-distribution convergence summary text'
 });
 const bufTeach = bTeach.generateUint8Array();
 assert(isZip(bufTeach), `Teaching DOCX is a valid PKZIP archive (${bufTeach.length} bytes)`);
@@ -466,6 +467,36 @@ assert(approx(cltSummary.theoreticalSE, 0.3333, 1e-3), `Theoretical SE is ~0.333
 assert(approx(cltSummary.observedMean, 2.00, 0.10), `Observed grand mean converges to theoretical mean ~2.00, got ${cltSummary.observedMean.toFixed(3)}`);
 assert(approx(cltSummary.observedSE, 0.3333, 0.05), `Observed SE converges to theoretical SE ~0.3333, got ${cltSummary.observedSE.toFixed(3)}`);
 assert(Math.abs(cltSummary.skewness) < 0.50, `Sampling distribution skewness is close to theoretical skewness (2/sqrt(n) ~ 0.33), got ${cltSummary.skewness.toFixed(3)}`);
+
+console.log('--- Testing Student\'s t-Distribution Convergence to Normal N(0, 1) ---');
+// Critical value calculations
+assert(approx(Teaching.tConvergence.getCriticalValue(1), 12.7062, 1e-3), 't_crit for df=1 is 12.7062');
+assert(approx(Teaching.tConvergence.getCriticalValue(2), 4.3027, 1e-3), 't_crit for df=2 is 4.3027');
+assert(approx(Teaching.tConvergence.getCriticalValue(4), 2.7764, 1e-3), 't_crit for df=4 is 2.7764');
+assert(approx(Teaching.tConvergence.getCriticalValue(10), 2.2281, 1e-3), 't_crit for df=10 is 2.2281');
+assert(approx(Teaching.tConvergence.getCriticalValue(30), 2.0423, 1e-3), 't_crit for df=30 is ~2.0423');
+assert(approx(Teaching.tConvergence.getCriticalValue(120), 1.980, 0.005), 't_crit for df=120 is ~1.980');
+assert(approx(Teaching.tConvergence.getCriticalValue(500), 1.960, 1e-3), 't_crit for large df converges to 1.960');
+
+// Convergence metrics for small sample (n=4, df=3)
+const mSmall = Teaching.tConvergence.getMetrics(4);
+assert(mSmall.df === 3, 'Sample size n=4 yields df=3');
+assert(mSmall.tPeak < 0.38 && mSmall.tPeak > 0.36, `Small df peak density is flatter than normal, got ${mSmall.tPeak.toFixed(4)}`);
+assert(mSmall.tailProb > 0.12, `Small df tail probability is heavy/inflated (>12%), got ${(mSmall.tailProb*100).toFixed(1)}%`);
+assert(mSmall.excessKurtosis === Infinity, 'df=3 excess kurtosis is infinite');
+
+// Convergence metrics for parametric threshold (n=31, df=30)
+const mThreshold = Teaching.tConvergence.getMetrics(31);
+assert(mThreshold.df === 30, 'Sample size n=31 yields df=30');
+assert(approx(mThreshold.tPeak, 0.3956, 1e-3), `df=30 peak density is within 1% of normal 0.3989, got ${mThreshold.tPeak.toFixed(4)}`);
+assert(approx(mThreshold.tCrit, 2.042, 0.005), `df=30 critical value is 2.042 (within 4.2% of 1.960), got ${mThreshold.tCrit.toFixed(3)}`);
+assert(approx(mThreshold.tailProb, 0.059, 0.005), `df=30 tail probability has converged close to 5.0%, got ${(mThreshold.tailProb*100).toFixed(1)}%`);
+assert(approx(mThreshold.excessKurtosis, 0.23, 0.02), `df=30 excess kurtosis is near zero (6/26 = 0.23), got ${mThreshold.excessKurtosis.toFixed(2)}`);
+
+// Convergence metrics for large trial (n=121, df=120)
+const mLarge = Teaching.tConvergence.getMetrics(121);
+assert(approx(mLarge.tCrit, 1.980, 0.005), `Large trial df=120 t_crit is practically identical to 1.960, got ${mLarge.tCrit.toFixed(3)}`);
+assert(approx(mLarge.tailProb, 0.050, 0.005), `Large trial df=120 tail probability matches normal 5.0%, got ${(mLarge.tailProb*100).toFixed(1)}%`);
 
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);

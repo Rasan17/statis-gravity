@@ -1829,6 +1829,83 @@
           lastSample: this.lastSample
         };
       }
+    },
+
+    /**
+     * Student's t-Distribution Approximation to Normal Distribution Simulation
+     */
+    tConvergence: {
+      sampleSize: 4,
+
+      /**
+       * Compute two-tailed critical value for Student's t distribution at alpha = 0.05
+       * Uses analytic Cornish-Fisher expansion with exact fallbacks for small df
+       */
+      getCriticalValue(df, alpha = 0.05) {
+        if (df <= 0) return NaN;
+        if (df === 1) return 12.7062;
+        if (df === 2) return 4.3027;
+        if (df === 3) return 3.1824;
+        if (df === 4) return 2.7764;
+        if (df >= 500) return 1.95996;
+
+        const z = 1.95996398454;
+        const nu = df;
+        const z2 = z * z, z3 = z2 * z, z5 = z3 * z2, z7 = z5 * z2, z9 = z7 * z2;
+        const a = (z3 + z) / (4 * nu);
+        const b = (5 * z5 + 16 * z3 + 3 * z) / (96 * nu * nu);
+        const c = (3 * z7 + 19 * z5 + 17 * z3 - 15 * z) / (384 * Math.pow(nu, 3));
+        const d = (79 * z9 + 776 * z7 + 1482 * z5 - 1920 * z3 - 945 * z) / (92160 * Math.pow(nu, 4));
+        return z + a + b + c + d;
+      },
+
+      /**
+       * Compute full convergence metrics comparing t(df) to Standard Normal N(0, 1)
+       */
+      getMetrics(sampleSize = 4) {
+        const n = Math.max(2, Math.round(sampleSize));
+        const df = n - 1;
+        const tPeak = Distributions.tPDF(0, df);
+        const normPeak = 1.0 / Math.sqrt(2 * Math.PI); // ~0.398942
+        const peakDiffPct = ((tPeak - normPeak) / normPeak) * 100;
+
+        const tCrit = this.getCriticalValue(df, 0.05);
+        const zCrit = 1.95996;
+        const critDiffPct = ((tCrit - zCrit) / zCrit) * 100;
+
+        const tailProb = Distributions.tPValue(zCrit, df); // Actual probability mass beyond +/- 1.96
+        const normTailProb = 0.05; // Exactly 5% for N(0, 1)
+
+        const excessKurtosis = df > 4 ? 6 / (df - 4) : Infinity;
+        const maxDiscrepancy = Math.abs(normPeak - tPeak);
+
+        let clinicalNote = '';
+        if (df <= 4) {
+          clinicalNote = `Extremely fat tails (excess kurtosis ${df <= 4 ? 'undefined / infinite' : excessKurtosis.toFixed(2)}). Critical t cutoff (${tCrit.toFixed(3)}) is +${critDiffPct.toFixed(1)}% wider than Gaussian z = 1.960. Testing at z = 1.96 would cause a Type I error inflation to ${(tailProb * 100).toFixed(1)}% (nearly 3x higher than intended 5%)!`;
+        } else if (df < 30) {
+          clinicalNote = `Moderate tail thickening (kurtosis = ${excessKurtosis.toFixed(2)}). Critical t (${tCrit.toFixed(3)}) is +${critDiffPct.toFixed(1)}% wider than Gaussian z = 1.960. Gosset's t-test is mandatory for valid inference.`;
+        } else if (df < 60) {
+          clinicalNote = `Approaching Gaussian equivalence. Critical t (${tCrit.toFixed(3)}) is within +${critDiffPct.toFixed(1)}% of z = 1.960. The normal approximation is clinically robust for sample sizes n ≥ 31.`;
+        } else {
+          clinicalNote = `Virtually identical to Standard Normal N(0, 1). Critical t (${tCrit.toFixed(3)}) deviates by only +${critDiffPct.toFixed(2)}% from z = 1.960, and tail probability is ${(tailProb * 100).toFixed(2)}% vs 5.00%.`;
+        }
+
+        return {
+          sampleSize: n,
+          df,
+          tPeak,
+          normPeak,
+          peakDiffPct,
+          tCrit,
+          zCrit,
+          critDiffPct,
+          tailProb,
+          normTailProb,
+          excessKurtosis,
+          maxDiscrepancy,
+          clinicalNote
+        };
+      }
     }
   };
 
@@ -2700,7 +2777,7 @@ const DocxReports = {
   createTeachingDocx(data) {
     const d = new DocxBuilder();
     d.addTitle('STATIS-GRAVITY CLINICAL BIOSTATISTICS REPORT')
-      .addSubTitle('Module: Teaching & Central Limit Theorem Simulation')
+      .addSubTitle('Module: Teaching, Distributions, CLT & Student\'s t Convergence')
       .addAttributionHeader()
       .addDisclaimerBox();
 
@@ -2711,6 +2788,9 @@ const DocxReports = {
     d.addParagraph(`CLT Simulation Parent Population: ${data.cltParentName || 'Uniform Distribution'}`);
     d.addParagraph(`CLT Sample Size per Draw (n): ${data.cltN || 30}`);
     d.addParagraph(`CLT Total Iterations (k): ${data.cltK || 1000} sample means`);
+    if (data.tConv) {
+      d.addParagraph(`Student's t Simulation: Sample Size n = ${data.tConv.sampleSize} (Degrees of Freedom ν = ${data.tConv.df})`);
+    }
 
     d.addHeading1('2. Statistical Outcome & Empirical Convergence Metrics');
     d.addHeading2('Computer-Generated Distribution Metrics');
@@ -2739,29 +2819,43 @@ const DocxReports = {
       );
     }
 
+    if (data.tConv) {
+      d.addHeading2('Student\'s t Convergence to Standard Normal N(0, 1) Results');
+      d.addTable(
+        ['Student\'s t Parameter', `t-Distribution (ν = ${data.tConv.df})`, 'Standard Normal N(0, 1)', 'Methodological Consequence'],
+        [
+          ['Two-Tailed Critical Value (α=0.05)', `t_crit = ${data.tConv.tCrit?.toFixed(3)}`, 'z_crit = 1.960', `Deviation: ${data.tConv.critDiffPct >= 0 ? '+' : ''}${data.tConv.critDiffPct?.toFixed(1)}% wider cutoff`],
+          ['Peak Density f(0)', `f_t(0) = ${data.tConv.tPeak?.toFixed(4)}`, 'φ(0) = 0.3989', `Peak discrepancy: ${data.tConv.peakDiffPct?.toFixed(1)}%`],
+          ['Tail Probability P(|X| > 1.960)', `${(data.tConv.tailProb * 100).toFixed(1)}%`, '5.00%', `Type I false positive risk if using z=1.96: ${(data.tConv.tailProb * 100).toFixed(1)}%`],
+          ['Excess Kurtosis (Fat Tails)', `${data.tConv.excessKurtosis === Infinity ? '∞ (Fat Tails)' : data.tConv.excessKurtosis?.toFixed(2)}`, '0.00 (Mesokurtic)', data.tConv.df <= 4 ? '4th moment undefined' : 'Heavy tail factor: 6/(ν-4)'],
+          ['Max Discrepancy sup |f_t - φ|', `${data.tConv.maxDiscrepancy?.toFixed(4)}`, '0.0000', 'Uniform convergence metric']
+        ]
+      );
+    }
+
     d.addHeading1('3. Clinical & Statistical Interpretation');
     d.addCalloutBox(
       'Pedagogical Synthesis & Clinical Trial Relevance',
-      data.reportText || 'The Central Limit Theorem demonstrates that the distribution of sample means approaches a normal Gaussian distribution regardless of parent population shape, provided sample size n is sufficiently large (n ≥ 30).',
+      data.reportText || 'The Central Limit Theorem and Student\'s t convergence demonstrate the mathematical foundations of parametric testing in clinical trials.',
       'F0FDF4',
       '16A34A'
     );
 
     d.addHeading1('4. Reason This Particular Test Was Chosen');
     d.addBullet('Foundation of Inferential Biostatistics: Parametric hypothesis tests (Student t-test, ANOVA, ordinary least squares regression) mathematically assume normally distributed errors or sample means. The Central Limit Theorem provides the mathematical justification for deploying these tests in clinical trials with n ≥ 30 even when raw clinical metrics (e.g. ICU stay, recovery hours) are skewed.');
-    d.addBullet('Protection Against Inappropriate Testing: For small cohorts (n < 30) drawn from non-normal distributions (e.g. exponential survival times or bimodal biomarkers), the sampling distribution has not converged to Gaussian. In such scenarios, non-parametric rank-based tests (Mann-Whitney U, Kruskal-Wallis, Wilcoxon signed-rank) must be chosen to avoid inflated Type I error rates.');
+    d.addBullet('Gosset\'s Student\'s t Adjustment: In small clinical cohorts (n < 30), estimating population variance σ² using sample variance s² introduces substantial stochastic instability into the test statistic denominator. Using Gaussian critical values (z = 1.96) severely inflates the Type I error rate (e.g. to 14.5% at n = 4). Student\'s t distribution compensates for this extra uncertainty by thickening the tails and demanding a higher critical threshold (t = 3.182 at n = 4).');
+    d.addBullet('The n ≥ 31 Clinical Threshold: As demonstrated by the simulation, when sample size reaches n ≥ 31 (degrees of freedom ν ≥ 30), the critical t cutoff drops to 2.042 (only 4.2% wider than 1.960), and tail probability converges close to 5.0%. This mathematical threshold explains why sample sizes of 30 or greater historically permit Gaussian approximation in medical trial protocols.');
 
     d.addHeading1('5. Background Statistical Knowledge & Medical Research Context');
-    d.addParagraph('The Central Limit Theorem (CLT) is among the most profound discoveries in probability theory.');
     d.addParagraph('Mathematical Formulations:');
     d.addBullet('Classical Lindberg-Lévy Central Limit Theorem: Let X₁, X₂, ..., X_n be independent and identically distributed (i.i.d.) random variables with mean μ and finite variance σ². Then as n → ∞: √n (X̄_n - μ) / σ → N(0, 1).');
-    d.addBullet('Standard Error of the Mean: SE = σ / √n. Quadrupling the patient enrollment reduces the margin of estimation error by exactly half (1/2).');
-    d.addBullet('Variance of the Sample Mean: Var(X̄) = Var(∑ X_i / n) = (1/n²) · nσ² = σ²/n.');
+    d.addBullet('Student\'s t Distribution Density: f(t; ν) = [ Γ((ν+1)/2) / (√(πν) Γ(ν/2)) ] · [ 1 + t²/ν ]^{-(ν+1)/2}. As ν → ∞, [ 1 + t²/ν ]^{-(ν+1)/2} → exp(-t²/2), converging to Standard Normal N(0, 1).');
+    d.addBullet('Standard Error of the Mean: SE = σ / √n. Quadrupling patient enrollment cuts the estimation uncertainty in half.');
     d.addParagraph('Key Academic References:');
+    d.addBullet('Student [Gosset WS] (1908). The probable error of a mean. Biometrika, 6(1): 1–25.');
     d.addBullet('Laplace PS (1810). Mémoire sur les approximations des formules qui sont fonctions de très grands nombres et sur leur application aux probabilités. Mémoires de l\'Académie Royale des Sciences de Paris.');
     d.addBullet('Gauss CF (1809). Theoria motus corporum coelestium in sectionibus conicis solem ambientium. Hamburg: Perthes et Besser.');
     d.addBullet('Altman DG, Bland JM (1995). Statistics Notes: The normal distribution. BMJ, 310(6975): 298–299.');
-    d.addBullet('Student [Gosset WS] (1908). The probable error of a mean. Biometrika, 6(1): 1–25.');
 
     return d;
   }
@@ -4289,6 +4383,190 @@ const DocxReports = {
         ctx.fillStyle = '#f59e0b';
         ctx.fillText(`— Observed x̄̄ = ${cltData.observedMean.toFixed(2)} (SE: ${cltData.observedSE.toFixed(3)})`, b.x + b.width - 10, b.y + 66);
       }
+    },
+
+    /**
+     * Renders Student's t-Distribution Convergence to Standard Normal N(0, 1)
+     */
+    renderTConvergence(engine, metrics, options = {}) {
+      engine.lastRender = () => this.renderTConvergence(engine, metrics, options);
+      engine.lastRenderFn = engine.lastRender;
+      engine.clear();
+      const b = engine.getPlotBounds();
+      const ctx = engine.ctx;
+      const pal = engine.palette;
+
+      if (!metrics) return;
+
+      const df = metrics.df;
+      const showTailArea = options.showTailArea !== false;
+      const title = options.title || `Student's t(ν = ${df}) Convergence to Standard Normal N(0, 1)`;
+
+      const minX = -4.5;
+      const maxX = 4.5;
+      const spanX = maxX - minX;
+      const yMax = 0.44; // Peak of N(0, 1) is 0.39894
+
+      const toX = (val) => b.x + ((val - minX) / spanX) * b.width;
+      const toY = (d) => b.y + b.height - (Math.max(0, d) / yMax) * b.height;
+
+      // Generate grid & axes ticks
+      const xTicks = [];
+      for (let x = -4; x <= 4; x += 1) {
+        xTicks.push({ norm: (x - minX) / spanX, label: `${x > 0 ? '+' : ''}${x}` });
+      }
+      const yTicks = [
+        { norm: 0, label: '0.00' },
+        { norm: 0.1 / yMax, label: '0.10' },
+        { norm: 0.2 / yMax, label: '0.20' },
+        { norm: 0.3 / yMax, label: '0.30' },
+        { norm: 0.4 / yMax, label: '0.40' }
+      ];
+
+      engine.drawAxes({
+        xTicks,
+        yTicks,
+        title,
+        xLabel: 'Standardized Value (t / z)',
+        yLabel: 'Probability Density f(x)'
+      });
+
+      const steps = 240;
+      const pointsNorm = [];
+      const pointsT = [];
+
+      for (let i = 0; i <= steps; i++) {
+        const x = minX + (i / steps) * spanX;
+        const normD = (1.0 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * x * x);
+        const tD = Teaching.pdf.studentsT(x, df, 0, 1);
+        pointsNorm.push({ x, y: normD });
+        pointsT.push({ x, y: tD });
+      }
+
+      // 1. Shaded Tail Area (|x| >= 1.960) under Student's t curve
+      if (showTailArea) {
+        const zCrit = 1.95996;
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.22)';
+
+        // Left Tail [-4.5, -1.960]
+        ctx.beginPath();
+        ctx.moveTo(toX(minX), toY(0));
+        for (const pt of pointsT) {
+          if (pt.x <= -zCrit) {
+            ctx.lineTo(toX(pt.x), toY(pt.y));
+          }
+        }
+        const tAtLeftCrit = Teaching.pdf.studentsT(-zCrit, df, 0, 1);
+        ctx.lineTo(toX(-zCrit), toY(tAtLeftCrit));
+        ctx.lineTo(toX(-zCrit), toY(0));
+        ctx.closePath();
+        ctx.fill();
+
+        // Right Tail [1.960, 4.5]
+        ctx.beginPath();
+        ctx.moveTo(toX(zCrit), toY(0));
+        const tAtRightCrit = Teaching.pdf.studentsT(zCrit, df, 0, 1);
+        ctx.lineTo(toX(zCrit), toY(tAtRightCrit));
+        for (const pt of pointsT) {
+          if (pt.x >= zCrit) {
+            ctx.lineTo(toX(pt.x), toY(pt.y));
+          }
+        }
+        ctx.lineTo(toX(maxX), toY(0));
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // 2. Render Standard Normal Reference Curve N(0, 1) [Emerald/Cyan dashed line]
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2.2;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      for (let i = 0; i < pointsNorm.length; i++) {
+        const pt = pointsNorm[i];
+        if (i === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+        else ctx.lineTo(toX(pt.x), toY(pt.y));
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 3. Render Student's t(ν) Curve [Vibrant Violet solid line]
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      for (let i = 0; i < pointsT.length; i++) {
+        const pt = pointsT[i];
+        if (i === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+        else ctx.lineTo(toX(pt.x), toY(pt.y));
+      }
+      ctx.stroke();
+
+      // 4. Mark Critical Values Lines
+      const zCrit = 1.95996;
+      const tCrit = metrics.tCrit;
+
+      [-zCrit, zCrit].forEach(zVal => {
+        const xPix = toX(zVal);
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(xPix, toY(0));
+        ctx.lineTo(xPix, toY(0.18));
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+
+      if (tCrit <= 4.4) {
+        [-tCrit, tCrit].forEach(tVal => {
+          const xPix = toX(tVal);
+          ctx.strokeStyle = '#c084fc';
+          ctx.lineWidth = 1.8;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath();
+          ctx.moveTo(xPix, toY(0));
+          ctx.lineTo(xPix, toY(0.24));
+          ctx.stroke();
+          ctx.setLineDash([]);
+        });
+      }
+
+      // 5. Annotations & Peak Height Indicator
+      const normPeakY = toY(metrics.normPeak);
+      const tPeakY = toY(metrics.tPeak);
+      const midX = toX(0);
+
+      if (Math.abs(metrics.peakDiffPct) > 1.5) {
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(midX, tPeakY);
+        ctx.lineTo(midX, normPeakY);
+        ctx.stroke();
+
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = `600 10px ${engine.options.fontFamily}`;
+        ctx.textAlign = 'left';
+        ctx.fillText(`Δ Peak: ${metrics.peakDiffPct.toFixed(1)}%`, midX + 8, (normPeakY + tPeakY) / 2 + 4);
+      }
+
+      // 6. Legend
+      ctx.textAlign = 'right';
+      ctx.font = `500 11px ${engine.options.fontFamily}`;
+
+      ctx.fillStyle = '#10b981';
+      ctx.fillText('— — Standard Normal N(0, 1) [Peak: 0.3989]', b.x + b.width - 10, b.y + 15);
+
+      ctx.fillStyle = '#a855f7';
+      ctx.fillText(`—— Student's t (ν = ${df}) [Peak: ${metrics.tPeak.toFixed(4)}]`, b.x + b.width - 10, b.y + 32);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`┆ 95% Cutoffs: z = ±1.960 vs t = ±${tCrit.toFixed(3)} (${metrics.critDiffPct >= 0 ? '+' : ''}${metrics.critDiffPct.toFixed(1)}%)`, b.x + b.width - 10, b.y + 49);
+
+      if (showTailArea) {
+        ctx.fillStyle = '#ef4444';
+        ctx.fillText(`░░ Fat Tail Risk: P(|T| > 1.96) = ${(metrics.tailProb * 100).toFixed(1)}% vs 5.0%`, b.x + b.width - 10, b.y + 66);
+      }
     }
   };
 
@@ -4351,7 +4629,7 @@ const DocxReports = {
     }
 
     initEngines() {
-      ['descCanvas', 'descBoxCanvas', 'descViolinCanvas', 'hypoCanvas', 'anovaCanvas', 'corrCanvas', 'rocCanvas', 'teachingDistCanvas', 'teachingCltParentCanvas', 'teachingCltSamplingCanvas'].forEach(id => {
+      ['descCanvas', 'descBoxCanvas', 'descViolinCanvas', 'hypoCanvas', 'anovaCanvas', 'corrCanvas', 'rocCanvas', 'teachingDistCanvas', 'teachingCltParentCanvas', 'teachingCltSamplingCanvas', 'teachingTCanvas'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
           this.engines[id] = new ChartEngine(el, { theme: this.theme });
@@ -4649,6 +4927,36 @@ const DocxReports = {
       document.getElementById('cltResetBtn')?.addEventListener('click', () => {
         Teaching.clt.reset();
         this.updateCltUI(Teaching.clt.getSummary());
+      });
+
+      // Student's t Convergence Controls
+      document.getElementById('tConvNRange')?.addEventListener('input', (e) => {
+        this.runTConvergence(parseInt(e.target.value));
+      });
+
+      document.querySelectorAll('.btn-t-preset').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const n = parseInt(e.currentTarget.dataset.n);
+          if (n) this.runTConvergence(n);
+        });
+      });
+
+      document.getElementById('tConvAnimateBtn')?.addEventListener('click', () => {
+        this.animateTConvergence();
+      });
+
+      document.getElementById('tConvResetBtn')?.addEventListener('click', () => {
+        if (this.tConvAnimationTimer) {
+          clearInterval(this.tConvAnimationTimer);
+          this.tConvAnimationTimer = null;
+          const btn = document.getElementById('tConvAnimateBtn');
+          if (btn) btn.innerText = '▶ Animate Convergence';
+        }
+        this.runTConvergence(4);
+      });
+
+      document.getElementById('tConvShowTailArea')?.addEventListener('change', () => {
+        this.runTConvergence();
       });
 
       // Disclaimer Modal Dismissal
@@ -5561,6 +5869,7 @@ const DocxReports = {
             normalityP: clt.normality?.pValue,
             isNormal: clt.normality?.isNormal
           },
+          tConv: res.tConv || Teaching.tConvergence.getMetrics(4),
           reportText: document.getElementById('teachingReportText')?.innerText
         };
       }
@@ -5574,6 +5883,7 @@ const DocxReports = {
       this.renderTeachingParams();
       this.runTeachingDistribution();
       this.updateCltUI(Teaching.clt.getSummary());
+      this.runTConvergence(4);
     }
 
     renderTeachingParams() {
@@ -6002,6 +6312,108 @@ const DocxReports = {
     runTeaching() {
       this.runTeachingDistribution();
       this.updateCltUI(Teaching.clt.getSummary());
+      this.runTConvergence();
+    }
+
+    runTConvergence(sampleSize = null) {
+      const rangeEl = document.getElementById('tConvNRange');
+      if (sampleSize !== null && rangeEl) {
+        rangeEl.value = sampleSize;
+      }
+      const n = parseInt(rangeEl?.value) || 4;
+      const valEl = document.getElementById('tConvNVal');
+      if (valEl) {
+        valEl.innerText = `n = ${n} (ν = ${n - 1})`;
+      }
+
+      const metrics = Teaching.tConvergence.getMetrics(n);
+
+      // Update UI Cards
+      const dfEl = document.getElementById('tConvDf');
+      const dfSubEl = document.getElementById('tConvDfSub');
+      if (dfEl) dfEl.innerText = metrics.df;
+      if (dfSubEl) dfSubEl.innerText = `Sample size n = ${metrics.sampleSize}`;
+
+      const critEl = document.getElementById('tConvCrit');
+      const critSubEl = document.getElementById('tConvCritSub');
+      if (critEl) critEl.innerText = metrics.tCrit.toFixed(3);
+      if (critSubEl) critSubEl.innerText = `vs z = 1.960 (${metrics.critDiffPct >= 0 ? '+' : ''}${metrics.critDiffPct.toFixed(1)}%)`;
+
+      const peakEl = document.getElementById('tConvPeak');
+      const peakSubEl = document.getElementById('tConvPeakSub');
+      if (peakEl) peakEl.innerText = metrics.tPeak.toFixed(4);
+      if (peakSubEl) peakSubEl.innerText = `Normal: 0.3989 (${metrics.peakDiffPct.toFixed(1)}%)`;
+
+      const tailEl = document.getElementById('tConvTailProb');
+      const tailSubEl = document.getElementById('tConvTailProbSub');
+      if (tailEl) {
+        tailEl.innerText = `${(metrics.tailProb * 100).toFixed(1)}%`;
+        tailEl.style.color = metrics.df < 30 ? '#ef4444' : '#22c55e';
+      }
+      if (tailSubEl) tailSubEl.innerText = metrics.df < 30 ? 'Normal: 5.0% (Type I Risk)' : 'Normal: 5.0% (Matched)';
+
+      const maxDiffEl = document.getElementById('tConvMaxDiff');
+      if (maxDiffEl) maxDiffEl.innerText = metrics.maxDiscrepancy.toFixed(4);
+
+      const kurtEl = document.getElementById('tConvKurt');
+      const kurtSubEl = document.getElementById('tConvKurtSub');
+      if (kurtEl) {
+        kurtEl.innerText = metrics.excessKurtosis === Infinity ? '∞' : metrics.excessKurtosis.toFixed(2);
+      }
+      if (kurtSubEl) {
+        kurtSubEl.innerText = metrics.df <= 4 ? 'Fat-tailed (ν ≤ 4)' : `Excess Kurtosis: 6/(ν-4)`;
+      }
+
+      const pedagogyEl = document.getElementById('tConvPedagogyText');
+      if (pedagogyEl) pedagogyEl.innerText = metrics.clinicalNote;
+
+      const chartTitleEl = document.getElementById('tConvChartTitle');
+      if (chartTitleEl) {
+        chartTitleEl.innerText = `Student's t(ν = ${metrics.df}) Density Curve vs Standard Normal N(0, 1)`;
+      }
+
+      const showTailArea = document.getElementById('tConvShowTailArea')?.checked !== false;
+
+      // Render Canvas
+      if (this.engines['teachingTCanvas']) {
+        Plots.renderTConvergence(this.engines['teachingTCanvas'], metrics, {
+          showTailArea,
+          title: `Student's t(ν = ${metrics.df}) vs Standard Normal N(0, 1)`
+        });
+      }
+
+      // Cache
+      if (!this.results.teaching) this.results.teaching = {};
+      this.results.teaching.tConv = metrics;
+    }
+
+    animateTConvergence() {
+      const btn = document.getElementById('tConvAnimateBtn');
+      if (this.tConvAnimationTimer) {
+        clearInterval(this.tConvAnimationTimer);
+        this.tConvAnimationTimer = null;
+        if (btn) btn.innerText = '▶ Animate Convergence';
+        return;
+      }
+
+      const frames = [2, 3, 4, 5, 7, 10, 15, 20, 25, 31, 45, 61, 80, 100, 121, 150];
+      let currentIndex = 0;
+      const currentN = parseInt(document.getElementById('tConvNRange')?.value) || 4;
+      const startIdx = frames.findIndex(f => f >= currentN);
+      if (startIdx >= 0 && startIdx < frames.length - 1) currentIndex = startIdx;
+
+      if (btn) btn.innerText = '⏸ Pause Animation';
+
+      this.tConvAnimationTimer = setInterval(() => {
+        currentIndex++;
+        if (currentIndex >= frames.length) {
+          clearInterval(this.tConvAnimationTimer);
+          this.tConvAnimationTimer = null;
+          if (btn) btn.innerText = '▶ Replay Animation';
+          return;
+        }
+        this.runTConvergence(frames[currentIndex]);
+      }, 450);
     }
   }
 

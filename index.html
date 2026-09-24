@@ -1148,16 +1148,122 @@
             </div>
           </div>
 
+          </div>
+
+          <!-- Section 3: Student's t to Normal Approximation Simulation -->
+          <div style="margin-top: 2rem; border-top: 1px dashed var(--border-subtle); padding-top: 1.5rem;">
+            <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem; padding: 0 0 1rem 0;">
+              <div>
+                <h2 class="card-title">Student's t-Distribution Convergence to Standard Normal N(0, 1)</h2>
+                <p class="card-subtitle">Demonstrating how heavier Student's t tails merge into the Standard Gaussian curve as sample size n increases</p>
+              </div>
+              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button id="tConvAnimateBtn" class="btn btn-primary btn-sm" title="Animate the transition from small n=2 to large n=120">▶ Animate Convergence</button>
+                <button id="tConvResetBtn" class="btn btn-secondary btn-sm" title="Reset to small sample size n=4">↺ Reset (n=4)</button>
+              </div>
+            </div>
+
+            <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 8px; padding: 0.85rem 1.15rem; margin-bottom: 1.25rem; font-size: 0.88rem; line-height: 1.55; color: var(--text-main);">
+              <strong style="color: #a855f7;">William Sealy Gosset's 1908 Discovery ("Student"):</strong>
+              When estimating the population mean μ using the sample standard deviation <em>s</em> instead of true σ, small samples introduce extra stochastic uncertainty. This creates <strong>heavy/fat tails</strong> in the <em>t</em>-distribution. As sample size <em>n</em> grows (and degrees of freedom <em>ν = n - 1 → ∞</em>), Slutsky's theorem guarantees that <em>s → σ</em> and the <em>t</em>-distribution becomes mathematically indistinguishable from <strong>N(0, 1)</strong>.
+            </div>
+
+            <!-- Controls Bar -->
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; background: var(--bg-surface-elevated); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-subtle); margin-bottom: 1.25rem;">
+              <div style="flex: 1; min-width: 260px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                  <label for="tConvNRange" class="form-label" style="margin: 0; font-weight: 600;">Sample Size (n) / Degrees of Freedom (ν = n - 1):</label>
+                  <span id="tConvNVal" style="font-weight: 700; color: #a855f7; font-size: 1.05rem;">n = 4 (ν = 3)</span>
+                </div>
+                <input id="tConvNRange" type="range" min="2" max="150" step="1" value="4" style="width: 100%; cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">
+                  <span>n=2 (Extreme Tails)</span>
+                  <span>n=10 (Phase I)</span>
+                  <span style="color: #22c55e; font-weight: 600;">n=31 (Classic Threshold ν=30)</span>
+                  <span>n=61</span>
+                  <span>n=150 (Identical)</span>
+                </div>
+              </div>
+
+              <!-- Quick Presets -->
+              <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center;">
+                <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-right: 0.25rem;">Presets:</span>
+                <button class="btn btn-secondary btn-sm btn-t-preset" data-n="3" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">n=3 (ν=2)</button>
+                <button class="btn btn-secondary btn-sm btn-t-preset" data-n="5" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">n=5 (ν=4)</button>
+                <button class="btn btn-secondary btn-sm btn-t-preset" data-n="11" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">n=11 (ν=10)</button>
+                <button class="btn btn-secondary btn-sm btn-t-preset" data-n="31" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; border-color: #22c55e; color: #22c55e; font-weight: 600;">n=31 (ν=30)</button>
+                <button class="btn btn-secondary btn-sm btn-t-preset" data-n="61" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">n=61 (ν=60)</button>
+                <button class="btn btn-secondary btn-sm btn-t-preset" data-n="121" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">n=121 (ν=120)</button>
+              </div>
+            </div>
+
+            <!-- Metric Cards -->
+            <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); margin-bottom: 1.25rem;">
+              <div class="metric-card">
+                <div class="metric-label">Degrees of Freedom (ν)</div>
+                <div id="tConvDf" class="metric-value">3</div>
+                <div id="tConvDfSub" class="metric-sub">Sample size n = 4</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Two-Tailed t_crit (α=0.05)</div>
+                <div id="tConvCrit" class="metric-value" style="color: #a855f7;">3.182</div>
+                <div id="tConvCritSub" class="metric-sub">vs z = 1.960 (+62.3%)</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Peak Density f(0)</div>
+                <div id="tConvPeak" class="metric-value">0.3676</div>
+                <div id="tConvPeakSub" class="metric-sub">Normal: 0.3989 (-7.8%)</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Tail Risk P(|T|>1.96)</div>
+                <div id="tConvTailProb" class="metric-value" style="color: #ef4444;">14.5%</div>
+                <div id="tConvTailProbSub" class="metric-sub">Normal: 5.0% (Type I Risk)</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Max Discrepancy</div>
+                <div id="tConvMaxDiff" class="metric-value">0.0313</div>
+                <div class="metric-sub">sup |f_t(x) - φ(x)|</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Excess Kurtosis</div>
+                <div id="tConvKurt" class="metric-value">∞</div>
+                <div id="tConvKurtSub" class="metric-sub">Fat-tailed (ν ≤ 4)</div>
+              </div>
+            </div>
+
+            <!-- Convergence Canvas Chart -->
+            <div class="chart-container" style="margin-bottom: 1.25rem;">
+              <div class="chart-header">
+                <span id="tConvChartTitle" class="card-title">Student's t(ν=3) Density Curve vs Standard Normal N(0, 1)</span>
+                <div style="display: flex; gap: 0.75rem; align-items: center;">
+                  <label style="font-size: 0.78rem; display: flex; align-items: center; gap: 0.3rem; cursor: pointer; color: var(--text-muted);">
+                    <input type="checkbox" id="tConvShowTailArea" checked> Highlight Tail Excess Area
+                  </label>
+                  <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="teachingTCanvas">Save PNG</button>
+                </div>
+              </div>
+              <canvas id="teachingTCanvas" class="chart-canvas" height="300"></canvas>
+            </div>
+
+            <!-- Pedagogical Context Callout -->
+            <div style="background: rgba(168, 85, 247, 0.04); border-left: 4px solid #a855f7; padding: 0.85rem 1.1rem; border-radius: 0 8px 8px 0; font-size: 0.88rem; line-height: 1.55; margin-bottom: 1rem;">
+              <strong style="color: #a855f7; display: block; margin-bottom: 0.25rem;">Why This Matters in Clinical Research:</strong>
+              <p id="tConvPedagogyText" style="margin: 0; color: var(--text-main);">
+                When conducting clinical trials with small cohorts (e.g. pilot neurosurgical studies with n &lt; 30), using the Gaussian critical value z = 1.960 instead of Gosset's t-critical cutoff leads to serious Type I error inflation (false positives). For n = 4, testing at z = 1.96 yields an actual false-positive rate of 14.5% rather than the intended 5.0%. Once sample size reaches n ≥ 31 (ν ≥ 30), t_crit drops to 2.042 (only 4.2% wider than 1.960), making the normal approximation clinically acceptable.
+              </p>
+            </div>
+          </div>
+
           <!-- Clinical Reporting & Pedagogical Narrative Box -->
-          <div class="report-box">
+          <div class="report-box" style="margin-top: 1.5rem;">
             <div class="report-title">
-              <span>Teaching Report: Central Limit Theorem &amp; Clinical Trial Methodology</span>
+              <span>Teaching Report: Distributions, CLT &amp; Student's t Convergence</span>
               <div style="display: flex; gap: 0.5rem; align-items: center;">
                 <button id="teachingCopyReportBtn" class="btn btn-secondary btn-sm btn-copy-report" data-report-id="teachingReportText">Copy</button>
                 <button class="btn btn-primary btn-sm btn-export-docx" data-tab="teaching" title="Export full teaching report, outcomes, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
               </div>
             </div>
-            <p id="teachingReportText" class="report-text">Select a distribution above or run the Central Limit Theorem simulation to generate educational outcomes.</p>
+            <p id="teachingReportText" class="report-text">Select a distribution above or run the Central Limit Theorem and Student's t simulations to generate educational outcomes.</p>
           </div>
         </div>
       </section>

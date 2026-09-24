@@ -1518,6 +1518,199 @@ export const Plots = {
       ctx.fillStyle = '#f59e0b';
       ctx.fillText(`— Observed x̄̄ = ${cltData.observedMean.toFixed(2)} (SE: ${cltData.observedSE.toFixed(3)})`, b.x + b.width - 10, b.y + 66);
     }
+  },
+
+  /**
+   * Renders Student's t-Distribution Convergence to Standard Normal N(0, 1)
+   */
+  renderTConvergence(engine, metrics, options = {}) {
+    engine.lastRenderFn = () => this.renderTConvergence(engine, metrics, options);
+    engine.clear();
+    const b = engine.getPlotBounds();
+    const ctx = engine.ctx;
+    const pal = engine.palette;
+
+    if (!metrics) return;
+
+    const df = metrics.df;
+    const showTailArea = options.showTailArea !== false;
+    const title = options.title || `Student's t(ν = ${df}) Convergence to Standard Normal N(0, 1)`;
+
+    const minX = -4.5;
+    const maxX = 4.5;
+    const spanX = maxX - minX;
+    const yMax = 0.44; // Peak of N(0, 1) is 0.39894
+
+    const toX = (val) => b.x + ((val - minX) / spanX) * b.width;
+    const toY = (d) => b.y + b.height - (Math.max(0, d) / yMax) * b.height;
+
+    // Generate grid & axes ticks
+    const xTicks = [];
+    for (let x = -4; x <= 4; x += 1) {
+      xTicks.push({ norm: (x - minX) / spanX, label: `${x > 0 ? '+' : ''}${x}` });
+    }
+    const yTicks = [
+      { norm: 0, label: '0.00' },
+      { norm: 0.1 / yMax, label: '0.10' },
+      { norm: 0.2 / yMax, label: '0.20' },
+      { norm: 0.3 / yMax, label: '0.30' },
+      { norm: 0.4 / yMax, label: '0.40' }
+    ];
+
+    engine.drawAxes({
+      xTicks,
+      yTicks,
+      title,
+      xLabel: 'Standardized Value (t / z)',
+      yLabel: 'Probability Density f(x)'
+    });
+
+    const steps = 240;
+    const pointsNorm = [];
+    const pointsT = [];
+
+    for (let i = 0; i <= steps; i++) {
+      const x = minX + (i / steps) * spanX;
+      // Normal density: (1 / sqrt(2pi)) * exp(-0.5 * x^2)
+      const normD = (1.0 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * x * x);
+      // Student t density
+      const tD = Teaching.pdf.studentsT(x, df, 0, 1);
+      pointsNorm.push({ x, y: normD });
+      pointsT.push({ x, y: tD });
+    }
+
+    // 1. Shaded Tail Area (|x| >= 1.960) under Student's t curve
+    if (showTailArea) {
+      const zCrit = 1.95996;
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.22)'; // Amber/Red glow for fat tail risk
+
+      // Left Tail [-4.5, -1.960]
+      ctx.beginPath();
+      ctx.moveTo(toX(minX), toY(0));
+      for (const pt of pointsT) {
+        if (pt.x <= -zCrit) {
+          ctx.lineTo(toX(pt.x), toY(pt.y));
+        }
+      }
+      const tAtLeftCrit = Teaching.pdf.studentsT(-zCrit, df, 0, 1);
+      ctx.lineTo(toX(-zCrit), toY(tAtLeftCrit));
+      ctx.lineTo(toX(-zCrit), toY(0));
+      ctx.closePath();
+      ctx.fill();
+
+      // Right Tail [1.960, 4.5]
+      ctx.beginPath();
+      ctx.moveTo(toX(zCrit), toY(0));
+      const tAtRightCrit = Teaching.pdf.studentsT(zCrit, df, 0, 1);
+      ctx.lineTo(toX(zCrit), toY(tAtRightCrit));
+      for (const pt of pointsT) {
+        if (pt.x >= zCrit) {
+          ctx.lineTo(toX(pt.x), toY(pt.y));
+        }
+      }
+      ctx.lineTo(toX(maxX), toY(0));
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 2. Render Standard Normal Reference Curve N(0, 1) [Emerald/Cyan dashed line]
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 2.2;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    for (let i = 0; i < pointsNorm.length; i++) {
+      const pt = pointsNorm[i];
+      if (i === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+      else ctx.lineTo(toX(pt.x), toY(pt.y));
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 3. Render Student's t(ν) Curve [Vibrant Violet solid line]
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 2.8;
+    ctx.beginPath();
+    for (let i = 0; i < pointsT.length; i++) {
+      const pt = pointsT[i];
+      if (i === 0) ctx.moveTo(toX(pt.x), toY(pt.y));
+      else ctx.lineTo(toX(pt.x), toY(pt.y));
+    }
+    ctx.stroke();
+
+    // 4. Mark Critical Values Lines
+    const zCrit = 1.95996;
+    const tCrit = metrics.tCrit;
+
+    // Draw Gaussian +/- 1.96 lines
+    [-zCrit, zCrit].forEach(zVal => {
+      const xPix = toX(zVal);
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(xPix, toY(0));
+      ctx.lineTo(xPix, toY(0.18));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+
+    // Draw Student's t +/- tCrit lines if within bounds
+    if (tCrit <= 4.4) {
+      [-tCrit, tCrit].forEach(tVal => {
+        const xPix = toX(tVal);
+        ctx.strokeStyle = '#c084fc';
+        ctx.lineWidth = 1.8;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(xPix, toY(0));
+        ctx.lineTo(xPix, toY(0.24));
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+    }
+
+    // 5. Annotations & Peak Height Indicator
+    const normPeakY = toY(metrics.normPeak);
+    const tPeakY = toY(metrics.tPeak);
+    const midX = toX(0);
+
+    // Peak difference indicator line at x=0
+    if (Math.abs(metrics.peakDiffPct) > 1.5) {
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(midX, tPeakY);
+      ctx.lineTo(midX, normPeakY);
+      ctx.stroke();
+
+      // Peak label
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = `600 10px ${engine.options.fontFamily}`;
+      ctx.textAlign = 'left';
+      ctx.fillText(`Δ Peak: ${metrics.peakDiffPct.toFixed(1)}%`, midX + 8, (normPeakY + tPeakY) / 2 + 4);
+    }
+
+    // 6. Legend
+    ctx.textAlign = 'right';
+    ctx.font = `500 11px ${engine.options.fontFamily}`;
+
+    // Normal line
+    ctx.fillStyle = '#10b981';
+    ctx.fillText('— — Standard Normal N(0, 1) [Peak: 0.3989]', b.x + b.width - 10, b.y + 15);
+
+    // Student t line
+    ctx.fillStyle = '#a855f7';
+    ctx.fillText(`—— Student's t (ν = ${df}) [Peak: ${metrics.tPeak.toFixed(4)}]`, b.x + b.width - 10, b.y + 32);
+
+    // Critical values
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText(`┆ 95% Cutoffs: z = ±1.960 vs t = ±${tCrit.toFixed(3)} (${metrics.critDiffPct >= 0 ? '+' : ''}${metrics.critDiffPct.toFixed(1)}%)`, b.x + b.width - 10, b.y + 49);
+
+    // Tail risk
+    if (showTailArea) {
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText(`░░ Fat Tail Risk: P(|T| > 1.96) = ${(metrics.tailProb * 100).toFixed(1)}% vs 5.0%`, b.x + b.width - 10, b.y + 66);
+    }
   }
 };
 

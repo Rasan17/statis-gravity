@@ -85,7 +85,8 @@ class StatisGravityApp {
       'rocCanvas',
       'teachingDistCanvas',
       'teachingCltParentCanvas',
-      'teachingCltSamplingCanvas'
+      'teachingCltSamplingCanvas',
+      'teachingTCanvas'
     ];
 
     canvasIds.forEach(id => {
@@ -384,6 +385,36 @@ class StatisGravityApp {
     document.getElementById('cltResetBtn')?.addEventListener('click', () => {
       Teaching.clt.reset();
       this.updateCltUI(Teaching.clt.getSummary());
+    });
+
+    // Student's t Convergence Controls
+    document.getElementById('tConvNRange')?.addEventListener('input', (e) => {
+      this.runTConvergence(parseInt(e.target.value));
+    });
+
+    document.querySelectorAll('.btn-t-preset').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const n = parseInt(e.currentTarget.dataset.n);
+        if (n) this.runTConvergence(n);
+      });
+    });
+
+    document.getElementById('tConvAnimateBtn')?.addEventListener('click', () => {
+      this.animateTConvergence();
+    });
+
+    document.getElementById('tConvResetBtn')?.addEventListener('click', () => {
+      if (this.tConvAnimationTimer) {
+        clearInterval(this.tConvAnimationTimer);
+        this.tConvAnimationTimer = null;
+        const btn = document.getElementById('tConvAnimateBtn');
+        if (btn) btn.innerText = '▶ Animate Convergence';
+      }
+      this.runTConvergence(4);
+    });
+
+    document.getElementById('tConvShowTailArea')?.addEventListener('change', () => {
+      this.runTConvergence();
     });
 
     // Disclaimer Modal Dismissal
@@ -1255,6 +1286,7 @@ window.addEventListener('DOMContentLoaded', () => {
           normalityP: clt.normality?.pValue,
           isNormal: clt.normality?.isNormal
         },
+        tConv: res.tConv || Teaching.tConvergence.getMetrics(4),
         reportText: document.getElementById('teachingReportText')?.innerText
       };
     }
@@ -1268,6 +1300,7 @@ window.addEventListener('DOMContentLoaded', () => {
     this.renderTeachingParams();
     this.runTeachingDistribution();
     this.updateCltUI(Teaching.clt.getSummary());
+    this.runTConvergence(4);
   }
 
   renderTeachingParams() {
@@ -1696,5 +1729,107 @@ window.addEventListener('DOMContentLoaded', () => {
   runTeaching() {
     this.runTeachingDistribution();
     this.updateCltUI(Teaching.clt.getSummary());
+    this.runTConvergence();
+  }
+
+  runTConvergence(sampleSize = null) {
+    const rangeEl = document.getElementById('tConvNRange');
+    if (sampleSize !== null && rangeEl) {
+      rangeEl.value = sampleSize;
+    }
+    const n = parseInt(rangeEl?.value) || 4;
+    const valEl = document.getElementById('tConvNVal');
+    if (valEl) {
+      valEl.innerText = `n = ${n} (ν = ${n - 1})`;
+    }
+
+    const metrics = Teaching.tConvergence.getMetrics(n);
+
+    // Update UI Cards
+    const dfEl = document.getElementById('tConvDf');
+    const dfSubEl = document.getElementById('tConvDfSub');
+    if (dfEl) dfEl.innerText = metrics.df;
+    if (dfSubEl) dfSubEl.innerText = `Sample size n = ${metrics.sampleSize}`;
+
+    const critEl = document.getElementById('tConvCrit');
+    const critSubEl = document.getElementById('tConvCritSub');
+    if (critEl) critEl.innerText = metrics.tCrit.toFixed(3);
+    if (critSubEl) critSubEl.innerText = `vs z = 1.960 (${metrics.critDiffPct >= 0 ? '+' : ''}${metrics.critDiffPct.toFixed(1)}%)`;
+
+    const peakEl = document.getElementById('tConvPeak');
+    const peakSubEl = document.getElementById('tConvPeakSub');
+    if (peakEl) peakEl.innerText = metrics.tPeak.toFixed(4);
+    if (peakSubEl) peakSubEl.innerText = `Normal: 0.3989 (${metrics.peakDiffPct.toFixed(1)}%)`;
+
+    const tailEl = document.getElementById('tConvTailProb');
+    const tailSubEl = document.getElementById('tConvTailProbSub');
+    if (tailEl) {
+      tailEl.innerText = `${(metrics.tailProb * 100).toFixed(1)}%`;
+      tailEl.style.color = metrics.df < 30 ? '#ef4444' : '#22c55e';
+    }
+    if (tailSubEl) tailSubEl.innerText = metrics.df < 30 ? 'Normal: 5.0% (Type I Risk)' : 'Normal: 5.0% (Matched)';
+
+    const maxDiffEl = document.getElementById('tConvMaxDiff');
+    if (maxDiffEl) maxDiffEl.innerText = metrics.maxDiscrepancy.toFixed(4);
+
+    const kurtEl = document.getElementById('tConvKurt');
+    const kurtSubEl = document.getElementById('tConvKurtSub');
+    if (kurtEl) {
+      kurtEl.innerText = metrics.excessKurtosis === Infinity ? '∞' : metrics.excessKurtosis.toFixed(2);
+    }
+    if (kurtSubEl) {
+      kurtSubEl.innerText = metrics.df <= 4 ? 'Fat-tailed (ν ≤ 4)' : `Excess Kurtosis: 6/(ν-4)`;
+    }
+
+    const pedagogyEl = document.getElementById('tConvPedagogyText');
+    if (pedagogyEl) pedagogyEl.innerText = metrics.clinicalNote;
+
+    const chartTitleEl = document.getElementById('tConvChartTitle');
+    if (chartTitleEl) {
+      chartTitleEl.innerText = `Student's t(ν = ${metrics.df}) Density Curve vs Standard Normal N(0, 1)`;
+    }
+
+    const showTailArea = document.getElementById('tConvShowTailArea')?.checked !== false;
+
+    // Render Canvas
+    if (this.engines['teachingTCanvas']) {
+      Plots.renderTConvergence(this.engines['teachingTCanvas'], metrics, {
+        showTailArea,
+        title: `Student's t(ν = ${metrics.df}) vs Standard Normal N(0, 1)`
+      });
+    }
+
+    // Cache
+    if (!this.results.teaching) this.results.teaching = {};
+    this.results.teaching.tConv = metrics;
+  }
+
+  animateTConvergence() {
+    const btn = document.getElementById('tConvAnimateBtn');
+    if (this.tConvAnimationTimer) {
+      clearInterval(this.tConvAnimationTimer);
+      this.tConvAnimationTimer = null;
+      if (btn) btn.innerText = '▶ Animate Convergence';
+      return;
+    }
+
+    const frames = [2, 3, 4, 5, 7, 10, 15, 20, 25, 31, 45, 61, 80, 100, 121, 150];
+    let currentIndex = 0;
+    const currentN = parseInt(document.getElementById('tConvNRange')?.value) || 4;
+    const startIdx = frames.findIndex(f => f >= currentN);
+    if (startIdx >= 0 && startIdx < frames.length - 1) currentIndex = startIdx;
+
+    if (btn) btn.innerText = '⏸ Pause Animation';
+
+    this.tConvAnimationTimer = setInterval(() => {
+      currentIndex++;
+      if (currentIndex >= frames.length) {
+        clearInterval(this.tConvAnimationTimer);
+        this.tConvAnimationTimer = null;
+        if (btn) btn.innerText = '▶ Replay Animation';
+        return;
+      }
+      this.runTConvergence(frames[currentIndex]);
+    }, 450);
   }
 

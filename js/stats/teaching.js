@@ -421,5 +421,82 @@ export const Teaching = {
         lastSample: this.lastSample
       };
     }
+  },
+
+  /**
+   * Student's t-Distribution Approximation to Normal Distribution Simulation
+   */
+  tConvergence: {
+    sampleSize: 4,
+
+    /**
+     * Compute two-tailed critical value for Student's t distribution at alpha = 0.05
+     * Uses analytic Cornish-Fisher expansion with exact fallbacks for small df
+     */
+    getCriticalValue(df, alpha = 0.05) {
+      if (df <= 0) return NaN;
+      if (df === 1) return 12.7062;
+      if (df === 2) return 4.3027;
+      if (df === 3) return 3.1824;
+      if (df === 4) return 2.7764;
+      if (df >= 500) return 1.95996;
+
+      const z = 1.95996398454;
+      const nu = df;
+      const z2 = z * z, z3 = z2 * z, z5 = z3 * z2, z7 = z5 * z2, z9 = z7 * z2;
+      const a = (z3 + z) / (4 * nu);
+      const b = (5 * z5 + 16 * z3 + 3 * z) / (96 * nu * nu);
+      const c = (3 * z7 + 19 * z5 + 17 * z3 - 15 * z) / (384 * Math.pow(nu, 3));
+      const d = (79 * z9 + 776 * z7 + 1482 * z5 - 1920 * z3 - 945 * z) / (92160 * Math.pow(nu, 4));
+      return z + a + b + c + d;
+    },
+
+    /**
+     * Compute full convergence metrics comparing t(df) to Standard Normal N(0, 1)
+     */
+    getMetrics(sampleSize = 4) {
+      const n = Math.max(2, Math.round(sampleSize));
+      const df = n - 1;
+      const tPeak = Distributions.tPDF(0, df);
+      const normPeak = 1.0 / Math.sqrt(2 * Math.PI); // ~0.398942
+      const peakDiffPct = ((tPeak - normPeak) / normPeak) * 100;
+
+      const tCrit = this.getCriticalValue(df, 0.05);
+      const zCrit = 1.95996;
+      const critDiffPct = ((tCrit - zCrit) / zCrit) * 100;
+
+      const tailProb = Distributions.tPValue(zCrit, df); // Actual probability mass beyond +/- 1.96
+      const normTailProb = 0.05; // Exactly 5% for N(0, 1)
+
+      const excessKurtosis = df > 4 ? 6 / (df - 4) : Infinity;
+      const maxDiscrepancy = Math.abs(normPeak - tPeak);
+
+      let clinicalNote = '';
+      if (df <= 4) {
+        clinicalNote = `Extremely fat tails (excess kurtosis ${df <= 4 ? 'undefined / infinite' : excessKurtosis.toFixed(2)}). Critical t cutoff (${tCrit.toFixed(3)}) is +${critDiffPct.toFixed(1)}% wider than Gaussian z = 1.960. Testing at z = 1.96 would cause a Type I error inflation to ${(tailProb * 100).toFixed(1)}% (nearly 3x higher than intended 5%)!`;
+      } else if (df < 30) {
+        clinicalNote = `Moderate tail thickening (kurtosis = ${excessKurtosis.toFixed(2)}). Critical t (${tCrit.toFixed(3)}) is +${critDiffPct.toFixed(1)}% wider than Gaussian z = 1.960. Gosset's t-test is mandatory for valid inference.`;
+      } else if (df < 60) {
+        clinicalNote = `Approaching Gaussian equivalence. Critical t (${tCrit.toFixed(3)}) is within +${critDiffPct.toFixed(1)}% of z = 1.960. The normal approximation is clinically robust for sample sizes n ≥ 31.`;
+      } else {
+        clinicalNote = `Virtually identical to Standard Normal N(0, 1). Critical t (${tCrit.toFixed(3)}) deviates by only +${critDiffPct.toFixed(2)}% from z = 1.960, and tail probability is ${(tailProb * 100).toFixed(2)}% vs 5.00%.`;
+      }
+
+      return {
+        sampleSize: n,
+        df,
+        tPeak,
+        normPeak,
+        peakDiffPct,
+        tCrit,
+        zCrit,
+        critDiffPct,
+        tailProb,
+        normTailProb,
+        excessKurtosis,
+        maxDiscrepancy,
+        clinicalNote
+      };
+    }
   }
 };
