@@ -1818,12 +1818,14 @@
         ctx.fillStyle = pal.textBold;
         ctx.fillText(`M = ${g.mean.toFixed(2)}`, centerX + capWidth / 2 + 8, meanY);
 
-        ctx.font = `500 10px ${engine.options.fontFamily || '-apple-system, sans-serif'}`;
+        ctx.font = `600 10px ${engine.options.fontFamily || '-apple-system, sans-serif'}`;
         ctx.fillStyle = pal.textMuted || pal.text;
-        ctx.fillText(g.subLabel, centerX + capWidth / 2 + 8, meanY + 14);
+        ctx.fillText(g.subLabel, centerX + capWidth / 2 + 8, meanY + 13);
 
+        ctx.font = `500 9px ${engine.options.fontFamily || '-apple-system, sans-serif'}`;
         ctx.fillStyle = pal.textDim || pal.textMuted || pal.text;
-        ctx.fillText(`n = ${s.n}`, centerX + capWidth / 2 + 8, meanY + 27);
+        ctx.fillText(`Span: ${(g.upper - g.lower).toFixed(2)}`, centerX + capWidth / 2 + 8, meanY + 25);
+        ctx.fillText(`n = ${s.n}`, centerX + capWidth / 2 + 8, meanY + 36);
 
         ctx.textAlign = 'right';
         ctx.font = `500 9px ${engine.options.fontFamily || '-apple-system, sans-serif'}`;
@@ -2262,6 +2264,8 @@
   // ==========================================
   class AppController {
     constructor() {
+      window.sgApp = this;
+      window.app = this;
       this.theme = localStorage.getItem('sg_theme') || 'dark';
       this.engines = {};
       this.init();
@@ -2902,8 +2906,12 @@
 
   // Start the application when DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => new AppController());
+    document.addEventListener('DOMContentLoaded', () => {
+      window.sgApp = new AppController();
+      window.app = window.sgApp;
+    });
   } else {
-    new AppController();
+    window.sgApp = new AppController();
+    window.app = window.sgApp;
   }
 })();

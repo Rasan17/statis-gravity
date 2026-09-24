@@ -626,5 +626,6 @@ class StatisGravityApp {
 
 // Instantiate on DOM load
 window.addEventListener('DOMContentLoaded', () => {
-  new StatisGravityApp();
+  window.sgApp = new StatisGravityApp();
+  window.app = window.sgApp;
 });

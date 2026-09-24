@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Statis-Gravity | Clinical Biostatistics & Visualization Suite</title>
   <meta name="description" content="State-of-the-art interactive clinical biostatistics, hypothesis testing, ANOVA, ROC analysis, risk metrics, and publication-ready medical reporting suite.">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/components.css">
 </head>
@@ -266,7 +269,7 @@
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                   <label for="hypoErrorBarMode" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Error Bars / Dispersion:</label>
-                  <select id="hypoErrorBarMode" class="form-control" style="width: auto; padding: 0.25rem 0.65rem; font-size: 0.75rem; height: 32px; background: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 6px;">
+                  <select id="hypoErrorBarMode" class="form-control" onchange="if(window.sgApp?.runHypo)window.sgApp.runHypo();else if(window.app?.runHypothesis)window.app.runHypothesis();" style="width: auto; padding: 0.25rem 0.65rem; font-size: 0.75rem; height: 32px; background: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 6px; cursor: pointer;">
                     <option value="ci95" selected>95% Confidence Interval (Mean ± 95% CI)</option>
                     <option value="sem">Standard Error of Mean (Mean ± 1 SEM)</option>
                     <option value="sd">Standard Deviation (Mean ± 1 SD)</option>
@@ -737,6 +740,6 @@
     </footer>
   </div>
 
-  <script src="js/statis-gravity.js"></script>
+  <script src="js/statis-gravity.js?v=2.2.0"></script>
 </body>
 </html>

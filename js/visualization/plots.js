@@ -465,13 +465,17 @@ export const Plots = {
       ctx.fillText(`M = ${g.mean.toFixed(2)}`, centerX + capWidth / 2 + 8, meanY);
 
       // Sub-label for dispersion / error metric
-      ctx.font = `500 10px ${engine.options.fontFamily || 'sans-serif'}`;
+      ctx.font = `600 10px ${engine.options.fontFamily || 'sans-serif'}`;
       ctx.fillStyle = pal.textMuted || pal.text;
-      ctx.fillText(g.subLabel, centerX + capWidth / 2 + 8, meanY + 14);
+      ctx.fillText(g.subLabel, centerX + capWidth / 2 + 8, meanY + 13);
+
+      // Explicit error bar height / total span
+      ctx.font = `500 9px ${engine.options.fontFamily || 'sans-serif'}`;
+      ctx.fillStyle = pal.textDim || pal.textMuted || pal.text;
+      ctx.fillText(`Span: ${(g.upper - g.lower).toFixed(2)}`, centerX + capWidth / 2 + 8, meanY + 25);
 
       // Sample size n
-      ctx.fillStyle = pal.textDim || pal.textMuted || pal.text;
-      ctx.fillText(`n = ${s.n}`, centerX + capWidth / 2 + 8, meanY + 27);
+      ctx.fillText(`n = ${s.n}`, centerX + capWidth / 2 + 8, meanY + 36);
 
       // Top cap value
       ctx.textAlign = 'right';
