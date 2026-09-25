@@ -134,13 +134,75 @@ class StatisGravityApp {
 
     // 2. Hypothesis Testing Events
     document.getElementById('hypoComputeBtn')?.addEventListener('click', () => this.runHypothesis());
+    document.getElementById('hypoTestType')?.addEventListener('change', () => this.runHypothesis());
+    document.getElementById('hypoErrorBarMode')?.addEventListener('change', () => this.runHypothesis());
+
+    const pairedCb = document.getElementById('hypoIsPaired');
+    pairedCb?.addEventListener('change', (e) => {
+      const isPaired = e.target.checked;
+      const modeBadge = document.getElementById('hypoDesignModeBadge');
+      if (modeBadge) {
+        modeBadge.innerText = isPaired 
+          ? 'Paired / Dependent Samples (Pre vs. Post / Matched)' 
+          : 'Independent Cohorts (Two Separate Groups)';
+        modeBadge.className = `badge ${isPaired ? 'badge-sig' : 'badge-neutral'}`;
+      }
+      const sampleBtn = document.getElementById('hypoSampleBtn');
+      if (sampleBtn) {
+        sampleBtn.innerText = isPaired ? 'Load Pre/Post ICP' : 'Load Independent Cohorts';
+      }
+      const nameAInput = document.getElementById('hypoNameA');
+      const nameBInput = document.getElementById('hypoNameB');
+      if (nameAInput && nameBInput) {
+        if (isPaired && (nameAInput.value === 'Cohort 1 (Control)' || nameAInput.value === 'Standard Resection' || nameAInput.value === 'Group A')) {
+          nameAInput.value = 'Pre-Infusion';
+          nameBInput.value = 'Post-Infusion';
+        } else if (!isPaired && (nameAInput.value === 'Pre-Infusion' || nameAInput.value === 'Pre-Intervention')) {
+          nameAInput.value = 'Standard Resection';
+          nameBInput.value = 'Supramarginal Resection';
+        }
+      }
+      if (document.getElementById('hypoGroupA')?.value && document.getElementById('hypoGroupB')?.value) {
+        this.runHypothesis();
+      }
+    });
+
     document.getElementById('hypoSampleBtn')?.addEventListener('click', () => {
-      document.getElementById('hypoGroupA').value = DataParser.samples.icpDynamics.groupA.data.join(', ');
-      document.getElementById('hypoGroupB').value = DataParser.samples.icpDynamics.groupB.data.join(', ');
+      const isPaired = document.getElementById('hypoIsPaired')?.checked || false;
+      if (isPaired) {
+        document.getElementById('hypoNameA').value = 'Pre-Infusion';
+        document.getElementById('hypoNameB').value = 'Post-Infusion';
+        const s = DataParser.samples.icpDynamics;
+        const ga = s.groupA.data || s.groupA;
+        const gb = s.groupB.data || s.groupB;
+        document.getElementById('hypoGroupA').value = ga.join(', ');
+        document.getElementById('hypoGroupB').value = gb.join(', ');
+      } else {
+        document.getElementById('hypoNameA').value = 'Standard Resection';
+        document.getElementById('hypoNameB').value = 'Supramarginal Resection';
+        document.getElementById('hypoGroupA').value = [14.2, 15.1, 13.8, 16.5, 14.9, 15.8, 17.2, 13.5, 15.0, 14.6, 16.1, 14.8, 15.4, 16.0].join(', ');
+        document.getElementById('hypoGroupB').value = [22.4, 28.1, 18.9, 31.5, 24.0, 19.8, 35.2, 26.7, 21.3, 29.4, 33.1, 20.5].join(', ');
+      }
       this.runHypothesis();
     });
-    document.getElementById('hypoErrorBarMode')?.addEventListener('change', () => {
-      this.runHypothesis();
+
+    const designModal = document.getElementById('hypoDesignModal');
+    document.getElementById('hypoDesignInfoBtn')?.addEventListener('click', () => {
+      if (designModal) designModal.style.display = 'flex';
+    });
+    document.getElementById('hypoDesignModalClose')?.addEventListener('click', () => {
+      if (designModal) designModal.style.display = 'none';
+    });
+    document.getElementById('hypoDesignModalSetIndependent')?.addEventListener('click', () => {
+      if (pairedCb) { pairedCb.checked = false; pairedCb.dispatchEvent(new Event('change')); }
+      if (designModal) designModal.style.display = 'none';
+    });
+    document.getElementById('hypoDesignModalSetPaired')?.addEventListener('click', () => {
+      if (pairedCb) { pairedCb.checked = true; pairedCb.dispatchEvent(new Event('change')); }
+      if (designModal) designModal.style.display = 'none';
+    });
+    designModal?.addEventListener('click', (e) => {
+      if (e.target === designModal) designModal.style.display = 'none';
     });
 
     // 3. ANOVA Events
@@ -1166,42 +1228,175 @@ class StatisGravityApp {
     const rawB = document.getElementById('hypoGroupB')?.value || '';
     const nameA = document.getElementById('hypoNameA')?.value || 'Group A';
     const nameB = document.getElementById('hypoNameB')?.value || 'Group B';
-    const testType = document.getElementById('hypoTestType')?.value || 'welch';
+    const selectedTest = document.getElementById('hypoTestType')?.value || 'auto';
+    const isPaired = document.getElementById('hypoIsPaired')?.checked || false;
 
-    const dataA = DataParser.parseSeries(rawA);
-    const dataB = DataParser.parseSeries(rawB);
+    const a = DataParser.parseSeries(rawA);
+    const b = DataParser.parseSeries(rawB);
+
+    // Evaluate statistical assumptions
+    const assumptions = Hypothesis.evaluateAssumptions(a, b, isPaired);
+    if (assumptions.error) {
+      alert(assumptions.error);
+      return;
+    }
+
+    let testToRun = selectedTest;
+    if (selectedTest === 'auto') {
+      testToRun = assumptions.recommendedTest;
+    }
 
     let res;
-    if (testType === 'student') {
-      res = Hypothesis.independentTTest(dataA, dataB);
-    } else if (testType === 'welch') {
-      res = Hypothesis.welchTTest(dataA, dataB);
-    } else if (testType === 'paired') {
-      res = Hypothesis.pairedTTest(dataA, dataB);
-    } else {
-      res = Hypothesis.mannWhitneyUTest(dataA, dataB);
-    }
+    if (testToRun === 'student') res = Hypothesis.independentTTest(a, b);
+    else if (testToRun === 'welch') res = Hypothesis.welchTTest(a, b);
+    else if (testToRun === 'paired') res = Hypothesis.pairedTTest(a, b);
+    else if (testToRun === 'wilcoxon') res = Hypothesis.wilcoxonSignedRank(a, b);
+    else res = Hypothesis.mannWhitneyUTest(a, b);
 
     if (res.error) {
       alert(res.error);
       return;
     }
 
-    res.groupA = Object.assign(res.groupA || Descriptive.calculate(dataA), { name: nameA });
-    res.groupB = Object.assign(res.groupB || Descriptive.calculate(dataB), { name: nameB });
+    res.groupA = Object.assign(res.groupA || Descriptive.calculate(a), { name: nameA });
+    res.groupB = Object.assign(res.groupB || Descriptive.calculate(b), { name: nameB });
+    res.assumptions = assumptions;
+    res.isPaired = isPaired;
+    res.selectedTest = selectedTest;
+    res.actualTest = testToRun;
 
-    document.getElementById('hypoStat').innerText = (res.statistic || res.zScore || 0).toFixed(2);
+    document.getElementById('hypoStat').innerText = (res.statistic !== undefined ? res.statistic : (res.zScore || 0)).toFixed(2);
     document.getElementById('hypoPVal').innerText = Exporter.formatP(res.pValue);
-    document.getElementById('hypoPValBadge').className = `badge ${res.isSignificant ? 'badge-sig' : 'badge-ns'}`;
-    document.getElementById('hypoPValBadge').innerText = res.isSignificant ? 'Significant (p < .05)' : 'Not Significant (ns)';
-    document.getElementById('hypoEffect').innerText = (res.cohensD !== undefined ? res.cohensD.toFixed(2) : (res.rankBiserial || 0).toFixed(2));
-    document.getElementById('hypoDiff').innerText = res.meanDiff !== undefined ? res.meanDiff.toFixed(2) : 'N/A';
+    const badge = document.getElementById('hypoPValBadge');
+    if (badge) {
+      badge.className = `badge ${res.isSignificant ? 'badge-sig' : 'badge-ns'}`;
+      badge.innerText = res.isSignificant ? 'Significant (p < .05)' : 'Not Significant (ns)';
+    }
+    document.getElementById('hypoEffect').innerText = (res.cohensD !== undefined ? res.cohensD.toFixed(2) : (res.rankBiserial !== undefined ? res.rankBiserial.toFixed(2) : '0.00'));
+    document.getElementById('hypoDiff').innerText = res.meanDiff !== undefined ? ((res.meanDiff >= 0 ? '+' : '') + res.meanDiff.toFixed(2)) : (res.medianDiff !== undefined ? ((res.medianDiff >= 0 ? '+' : '') + res.medianDiff.toFixed(2)) : 'N/A');
 
-    // Clinical Report Box
-    const reportText = Exporter.formatTTestReport(res);
-    document.getElementById('hypoReportText').innerText = reportText;
+    // Update Assumptions & Decision Engine Panel
+    const recBadge = document.getElementById('hypoRecommendationBadge');
+    if (recBadge) {
+      recBadge.innerText = `Recommended: ${assumptions.recommendedTestName}`;
+      recBadge.className = 'badge badge-sig';
+    }
 
-    // Render Dispersion Plot (95% CI, SEM, SD, or IQR Box & Whiskers)
+    const decisionTextEl = document.getElementById('hypoDecisionText');
+    if (decisionTextEl) {
+      let decisionHtml = `<strong>Recommended Test:</strong> ${assumptions.recommendedTestName}<br>`;
+      decisionHtml += `<span>${assumptions.rationale}</span>`;
+      if (selectedTest !== 'auto') {
+        if (selectedTest === assumptions.recommendedTest) {
+          decisionHtml += `<div style="margin-top: 0.35rem; color: var(--emerald-primary); font-weight: 600;">✓ Manual test selection (${res.testName}) perfectly matches the statistical recommendation.</div>`;
+        } else {
+          decisionHtml += `<div style="margin-top: 0.35rem; color: var(--amber-primary); font-weight: 600;">⚠️ Advisory Note: Executed test (${res.testName}) was manually selected, differing from the assumption-recommended test (${assumptions.recommendedTestName}).</div>`;
+        }
+      } else {
+        decisionHtml += `<div style="margin-top: 0.35rem; color: var(--cyan-primary); font-weight: 600;">⚡ Automatically executed: ${res.testName}</div>`;
+      }
+      decisionTextEl.innerHTML = decisionHtml;
+    }
+
+    // Update Normality Diagnostics
+    const normBadge = document.getElementById('hypoNormalityBadge');
+    const normDetails = document.getElementById('hypoNormalityDetails');
+    if (isPaired) {
+      if (normBadge) {
+        normBadge.className = `badge ${assumptions.normality.isNormal ? 'badge-sig' : 'badge-ns'}`;
+        normBadge.innerText = assumptions.normality.isNormal ? 'Normal Differences (Parametric)' : 'Non-Normal Differences (Non-Parametric)';
+      }
+      if (normDetails) {
+        normDetails.innerHTML = `
+          <strong>Paired Differences (&Delta; = Post &minus; Pre, n = ${assumptions.n}):</strong><br>
+          Mean &Delta; = ${assumptions.statsDiff.mean.toFixed(2)}, SD = ${assumptions.statsDiff.sd.toFixed(2)}<br>
+          Skewness = ${assumptions.statsDiff.skewness.toFixed(2)} (${assumptions.statsDiff.skewnessInterpretation})<br>
+          Excess Kurtosis = ${assumptions.statsDiff.kurtosis.toFixed(2)} (${assumptions.statsDiff.kurtosisInterpretation})<br>
+          Jarque-Bera Test: JB = ${assumptions.normality.statistic.toFixed(2)}, p = ${Exporter.formatP(assumptions.normality.pValue)}<br>
+          <span style="font-weight: 600; color: ${assumptions.normality.isNormal ? 'var(--emerald-primary)' : 'var(--amber-primary)'};">${assumptions.normality.interpretation}</span>
+        `;
+      }
+    } else {
+      if (normBadge) {
+        normBadge.className = `badge ${assumptions.normality.isParametric ? 'badge-sig' : 'badge-ns'}`;
+        normBadge.innerText = assumptions.normality.isParametric ? 'Both Cohorts Normal (Parametric)' : 'Normality Violated (Non-Parametric)';
+      }
+      if (normDetails) {
+        normDetails.innerHTML = `
+          <strong>${nameA} (n = ${assumptions.statsA.n}):</strong> Skew = ${assumptions.statsA.skewness.toFixed(2)}, Kurt = ${assumptions.statsA.kurtosis.toFixed(2)}, JB = ${assumptions.normality.jbA.statistic.toFixed(2)} (${Exporter.formatP(assumptions.normality.jbA.pValue)}) [${assumptions.normality.normA ? 'Normal' : 'Skewed'}]<br>
+          <strong>${nameB} (n = ${assumptions.statsB.n}):</strong> Skew = ${assumptions.statsB.skewness.toFixed(2)}, Kurt = ${assumptions.statsB.kurtosis.toFixed(2)}, JB = ${assumptions.normality.jbB.statistic.toFixed(2)} (${Exporter.formatP(assumptions.normality.jbB.pValue)}) [${assumptions.normality.normB ? 'Normal' : 'Skewed'}]<br>
+          <span style="font-weight: 600; color: ${assumptions.normality.isParametric ? 'var(--emerald-primary)' : 'var(--amber-primary)'};">${assumptions.normality.interpretation}</span>
+        `;
+      }
+    }
+
+    // Update Variance Equality Diagnostics
+    const varBadge = document.getElementById('hypoVarianceBadge');
+    const varDetails = document.getElementById('hypoVarianceDetails');
+    if (isPaired) {
+      if (varBadge) {
+        varBadge.className = 'badge badge-neutral';
+        varBadge.innerText = 'N/A (Paired Design)';
+      }
+      if (varDetails) {
+        varDetails.innerHTML = `
+          <strong>Paired Repeated Measures:</strong><br>
+          Between-cohort homoscedasticity is not required for paired analysis because the evaluation is performed on within-subject difference scores (&Delta;<sub>i</sub> = Post<sub>i</sub> &minus; Pre<sub>i</sub>), removing inter-subject variance. Sphericity is naturally satisfied with 2 repeated measures.
+        `;
+      }
+    } else {
+      const eq = assumptions.varianceEquality.equalVariance;
+      if (varBadge) {
+        varBadge.className = `badge ${eq ? 'badge-sig' : 'badge-ns'}`;
+        varBadge.innerText = eq ? 'Equal Variances (Homoscedastic)' : 'Unequal Variances (Heteroscedastic)';
+      }
+      if (varDetails) {
+        varDetails.innerHTML = `
+          <strong>F-Test of Equal Variances:</strong><br>
+          ${nameA} Variance s₁² = ${assumptions.statsA.variance.toFixed(2)} | ${nameB} Variance s₂² = ${assumptions.statsB.variance.toFixed(2)}<br>
+          Variance Ratio F(${assumptions.varianceEquality.df1}, ${assumptions.varianceEquality.df2}) = ${assumptions.varianceEquality.fStat.toFixed(2)}, p = ${Exporter.formatP(assumptions.varianceEquality.pValue)}<br>
+          <span style="font-weight: 600; color: ${eq ? 'var(--emerald-primary)' : 'var(--amber-primary)'};">${assumptions.varianceEquality.interpretation}</span>
+        `;
+      }
+    }
+
+    // Update Pipeline Flow Badges
+    const flowDesign = document.getElementById('hypoFlowDesign');
+    const flowNorm = document.getElementById('hypoFlowNorm');
+    const flowVar = document.getElementById('hypoFlowVar');
+    const flowTest = document.getElementById('hypoFlowTest');
+    if (flowDesign) flowDesign.innerText = isPaired ? 'Paired Samples' : 'Independent Samples';
+    if (flowNorm) flowNorm.innerText = (isPaired ? assumptions.normality.isNormal : assumptions.normality.isParametric) ? 'Parametric (Normal)' : 'Non-Parametric';
+    if (flowVar) flowVar.innerText = isPaired ? 'Within-Subject' : (assumptions.varianceEquality.equalVariance ? 'Equal Variance' : 'Unequal Variance');
+    if (flowTest) {
+      flowTest.innerText = res.testName;
+      flowTest.className = `badge ${res.isSignificant ? 'badge-sig' : 'badge-neutral'}`;
+    }
+
+    // Comprehensive Clinical / Publication APA Narrative
+    let report = `A ${res.testName} was conducted to compare ${nameA} and ${nameB}.\n\n`;
+    report += `Diagnostic Assumption Testing:\n`;
+    if (isPaired) {
+      report += `• Sample Design: Paired / repeated measures (n = ${assumptions.n} paired pairs).\n`;
+      report += `• Normality of Within-Subject Differences: Jarque-Bera JB = ${assumptions.normality.statistic.toFixed(2)}, ${Exporter.formatP(assumptions.normality.pValue)} (Skewness = ${assumptions.normality.skewness.toFixed(2)}, Kurtosis = ${assumptions.normality.kurtosis.toFixed(2)}). The difference distribution was determined to be ${assumptions.normality.isNormal ? 'normally distributed' : 'non-normally distributed'}.\n`;
+      report += `• Homoscedasticity: Not applicable for paired design (within-subject differencing removes inter-subject variance).\n`;
+    } else {
+      report += `• Sample Design: Independent two-cohort comparison (${nameA}: n = ${assumptions.statsA.n}; ${nameB}: n = ${assumptions.statsB.n}).\n`;
+      report += `• Normality Assessment: ${nameA} (JB = ${assumptions.normality.jbA.statistic.toFixed(2)}, ${Exporter.formatP(assumptions.normality.jbA.pValue)}, Skew = ${assumptions.statsA.skewness.toFixed(2)}); ${nameB} (JB = ${assumptions.normality.jbB.statistic.toFixed(2)}, ${Exporter.formatP(assumptions.normality.jbB.pValue)}, Skew = ${assumptions.statsB.skewness.toFixed(2)}). Distribution: ${assumptions.normality.isParametric ? 'Parametric (Normal)' : 'Non-Parametric (Skewed/Deviated)'}.\n`;
+      report += `• Equality of Variances: F-test F(${assumptions.varianceEquality.df1}, ${assumptions.varianceEquality.df2}) = ${assumptions.varianceEquality.fStat.toFixed(2)}, ${Exporter.formatP(assumptions.varianceEquality.pValue)}, confirming ${assumptions.varianceEquality.equalVariance ? 'equal variances (homoscedasticity)' : 'unequal variances (heteroscedasticity)'}.\n`;
+    }
+    report += `• Decision Rationale: ${assumptions.rationale}\n\n`;
+    report += `Inferential Test Results:\n`;
+    const statLabel = res.testName.includes('Mann-Whitney') ? 'U' : (res.testName.includes('Wilcoxon') ? 'W' : 't');
+    const dfLabel = res.df !== undefined ? `(${res.df.toFixed(1)})` : '';
+    const effectLabel = res.cohensD !== undefined ? `Cohen's d = ${res.cohensD.toFixed(2)}` : `Rank-Biserial r = ${(res.rankBiserial || 0).toFixed(2)}`;
+    report += `There was a ${res.isSignificant ? 'statistically significant' : 'non-significant'} difference between ${nameA} (M = ${res.groupA.mean.toFixed(2)}, SD = ${res.groupA.sd.toFixed(2)}) and ${nameB} (M = ${res.groupB.mean.toFixed(2)}, SD = ${res.groupB.sd.toFixed(2)}): ${statLabel}${dfLabel} = ${(res.statistic !== undefined ? res.statistic : res.zScore || 0).toFixed(2)}, ${Exporter.formatP(res.pValue)}, ${effectLabel}.`;
+    if (res.ci95) {
+      report += ` 95% Confidence Interval: [${res.ci95[0].toFixed(2)}, ${res.ci95[1].toFixed(2)}].`;
+    }
+
+    document.getElementById('hypoReportText').innerText = report;
+
     const errorBarMode = document.getElementById('hypoErrorBarMode')?.value || 'ci95';
     const modeDescriptions = {
       ci95: 'Error Bars: 95% Confidence Interval (Mean ± 95% CI)',
@@ -1223,7 +1418,7 @@ class StatisGravityApp {
         title: `${nameA} vs ${nameB}`
       });
     }
-    this.results = this.results || {}; this.results.hypothesis = res;
+    this.results = this.results || {}; this.results.hypothesis = Object.assign(res, { assumptions, nameA, nameB, isPaired });
   }
 
   runAnova() {

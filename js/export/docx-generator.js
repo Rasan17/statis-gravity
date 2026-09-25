@@ -473,11 +473,41 @@ export const DocxReports = {
       ]
     );
 
+    if (data.assumptions) {
+      d.addHeading2('Diagnostic Assessment of Statistical Assumptions');
+      if (data.assumptions.isPaired) {
+        d.addParagraph(`Sample Design: Paired / Repeated Measures (n = ${data.assumptions.n} matched observations).`);
+        d.addTable(
+          ['Assumption Evaluated', 'Test / Metric', 'Calculated Statistic', 'p-Value', 'Verdict / Interpretation'],
+          [
+            ['Normality of Differences (Δ)', 'Jarque-Bera Test', `JB = ${data.assumptions.normality.statistic.toFixed(2)} (Skew: ${data.assumptions.normality.skewness.toFixed(2)}, Kurt: ${data.assumptions.normality.kurtosis.toFixed(2)})`, `${data.assumptions.normality.pValue < 0.001 ? 'p < .001' : 'p = ' + data.assumptions.normality.pValue.toFixed(4)}`, data.assumptions.normality.isNormal ? 'Normal Distribution (Parametric Valid)' : 'Non-Normal (Non-Parametric Recommended)'],
+            ['Homogeneity of Variance', 'Within-Subject Differencing', 'N/A (Between-cohort variance removed by design)', 'N/A', 'Homoscedasticity assumption satisfied by pairing']
+          ]
+        );
+      } else {
+        d.addParagraph(`Sample Design: Independent Two-Cohort Comparison (${data.nameA}: n = ${data.assumptions.statsA.n}, ${data.nameB}: n = ${data.assumptions.statsB.n}).`);
+        d.addTable(
+          ['Assumption Evaluated', 'Target Cohort / Test', 'Calculated Statistic', 'p-Value', 'Verdict / Interpretation'],
+          [
+            ['Normality (Cohort 1)', `${data.nameA} (Jarque-Bera)`, `JB = ${data.assumptions.normality.jbA.statistic.toFixed(2)} (Skew: ${data.assumptions.statsA.skewness.toFixed(2)})`, `${data.assumptions.normality.jbA.pValue < 0.001 ? 'p < .001' : 'p = ' + data.assumptions.normality.jbA.pValue.toFixed(4)}`, data.assumptions.normality.normA ? 'Normal Distribution' : 'Skewed / Non-Normal'],
+            ['Normality (Cohort 2)', `${data.nameB} (Jarque-Bera)`, `JB = ${data.assumptions.normality.jbB.statistic.toFixed(2)} (Skew: ${data.assumptions.statsB.skewness.toFixed(2)})`, `${data.assumptions.normality.jbB.pValue < 0.001 ? 'p < .001' : 'p = ' + data.assumptions.normality.jbB.pValue.toFixed(4)}`, data.assumptions.normality.normB ? 'Normal Distribution' : 'Skewed / Non-Normal'],
+            ['Homogeneity of Variance', 'F-Test of Variances', `F(${data.assumptions.varianceEquality.df1}, ${data.assumptions.varianceEquality.df2}) = ${data.assumptions.varianceEquality.fStat.toFixed(2)} (s₁²=${data.assumptions.statsA.variance.toFixed(2)}, s₂²=${data.assumptions.statsB.variance.toFixed(2)})`, `${data.assumptions.varianceEquality.pValue < 0.001 ? 'p < .001' : 'p = ' + data.assumptions.varianceEquality.pValue.toFixed(4)}`, data.assumptions.varianceEquality.equalVariance ? 'Equal Variances (Homoscedastic)' : 'Unequal Variances (Heteroscedastic)']
+          ]
+        );
+      }
+      d.addCalloutBox(
+        'Automated Test Recommendation Decision Engine',
+        `Recommended Test: ${data.assumptions.recommendedTestName}\nDecision Rationale: ${data.assumptions.rationale}`,
+        'E0F2FE',
+        '0284C7'
+      );
+    }
+
     d.addHeading2('Comparative Inferential Test Results');
     d.addTable(
       ['Inferential Parameter', 'Calculated Value', 'Clinical Interpretation / Benchmark'],
       [
-        ['Test Statistic', `${data.testName.includes('Mann-Whitney') ? 'U = ' : 't = '}${data.statistic.toFixed(3)}`, 'Standardized difference between cohort locations'],
+        ['Test Statistic', `${data.testName.includes('Mann-Whitney') ? 'U = ' : (data.testName.includes('Wilcoxon') ? 'W = ' : 't = ')}${(data.statistic !== undefined ? data.statistic : data.zScore || 0).toFixed(3)}`, 'Standardized difference between cohort locations'],
         ['Degrees of Freedom (df)', `${data.df ? data.df.toFixed(2) : 'N/A (Rank test)'}`, 'Satterthwaite adjustment for unequal cohort variances'],
         ['p-Value (Two-Tailed)', `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + data.pValue.toFixed(4)}`, data.isSignificant ? 'Statistically Significant (p < 0.05)' : 'Not Significant (p ≥ 0.05)'],
         ['Mean Difference (ΔM)', `${data.meanDiff !== undefined ? (data.meanDiff >= 0 ? '+' : '') + data.meanDiff.toFixed(2) : 'N/A'}`, `Observed clinical point difference (${data.nameA} - ${data.nameB})`],

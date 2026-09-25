@@ -268,6 +268,13 @@ export const Hypothesis = {
     const z = sigmaW === 0 ? 0 : (W - meanW) / sigmaW;
     const pValue = Distributions.normalPValue(z);
 
+    // Matched-pairs rank-biserial correlation effect size: r = (W+ - W-) / (W+ + W-)
+    const totalRankSum = wPlus + wMinus;
+    const rankBiserial = totalRankSum === 0 ? 0 : (wPlus - wMinus) / totalRankSum;
+
+    const rawDiffs = diffs.map(d => d.diff);
+    const diffStats = Descriptive.calculate(rawDiffs);
+
     return {
       testName: 'Wilcoxon Signed-Rank Test',
       n,
@@ -276,7 +283,170 @@ export const Hypothesis = {
       statistic: W,
       zScore: z,
       pValue,
+      rankBiserial,
+      meanDiff: diffStats.mean,
+      medianDiff: diffStats.median,
+      sdDiff: diffStats.sd,
+      seDiff: diffStats.sem,
+      ci95: diffStats.ci95,
       isSignificant: pValue < 0.05
     };
+  },
+
+  /**
+   * Evaluates statistical assumptions (Normality & Equality of Variances)
+   * and recommends the optimal test depending on sample design (paired vs independent).
+   */
+  evaluateAssumptions(groupA, groupB, isPaired = false) {
+    const a = Descriptive.cleanData(groupA);
+    const b = Descriptive.cleanData(groupB);
+
+    if (isPaired) {
+      const len = Math.min(a.length, b.length);
+      if (len < 2) {
+        return {
+          error: 'Paired comparison requires at least 2 valid paired data points.',
+          isPaired: true
+        };
+      }
+      const unequalLengths = a.length !== b.length;
+      const diffs = [];
+      for (let i = 0; i < len; i++) {
+        diffs.push(b[i] - a[i]);
+      }
+      const statsDiff = Descriptive.calculate(diffs);
+      const statsA = Descriptive.calculate(a.slice(0, len));
+      const statsB = Descriptive.calculate(b.slice(0, len));
+
+      const jbDiff = statsDiff.normality || { isNormal: true, pValue: 1.0, statistic: 0 };
+      const skewAlert = Math.abs(statsDiff.skewness) > 1.0;
+      const kurtAlert = Math.abs(statsDiff.kurtosis) > 1.5;
+      const isNormal = len >= 10 ? jbDiff.isNormal : (!skewAlert && !kurtAlert);
+
+      const recommendedTest = isNormal ? 'paired' : 'wilcoxon';
+      const recommendedTestName = isNormal 
+        ? "Paired Samples Student's t-test (Parametric)" 
+        : "Wilcoxon Signed-Rank Test (Non-parametric)";
+
+      let rationale = `Paired / repeated measures design (${len} paired observations). `;
+      if (isNormal) {
+        rationale += `Within-subject differences (Δ = Post - Pre) conform to normality (Jarque-Bera p = ${jbDiff.pValue > 0.001 ? jbDiff.pValue.toFixed(3) : '< .001'}, Skewness = ${statsDiff.skewness.toFixed(2)}). The parametric Paired Samples t-test is recommended.`;
+      } else {
+        rationale += `Within-subject differences (Δ) deviate significantly from normality (Jarque-Bera p = ${jbDiff.pValue > 0.001 ? jbDiff.pValue.toFixed(3) : '< .001'}, Skewness = ${statsDiff.skewness.toFixed(2)}, Excess Kurtosis = ${statsDiff.kurtosis.toFixed(2)}). The non-parametric Wilcoxon Signed-Rank test is recommended.`;
+      }
+
+      return {
+        isPaired: true,
+        unequalLengths,
+        n: len,
+        nA: a.length,
+        nB: b.length,
+        statsA,
+        statsB,
+        statsDiff,
+        normality: {
+          isNormal,
+          testName: 'Jarque-Bera Test of Paired Differences (Δ)',
+          statistic: jbDiff.statistic,
+          pValue: jbDiff.pValue,
+          skewness: statsDiff.skewness,
+          kurtosis: statsDiff.kurtosis,
+          interpretation: isNormal ? 'Normal Distribution (Parametric suitable)' : 'Non-Normal Distribution (Non-parametric recommended)'
+        },
+        varianceEquality: {
+          applicable: false,
+          note: 'Not required for paired repeated measures (within-subject differencing removes inter-subject variance).'
+        },
+        recommendedTest,
+        recommendedTestName,
+        rationale
+      };
+    } else {
+      if (a.length < 2 || b.length < 2) {
+        return {
+          error: 'Independent comparison requires at least 2 observations in each cohort.',
+          isPaired: false
+        };
+      }
+      const statsA = Descriptive.calculate(a);
+      const statsB = Descriptive.calculate(b);
+
+      const jbA = statsA.normality || { isNormal: true, pValue: 1.0, statistic: 0 };
+      const jbB = statsB.normality || { isNormal: true, pValue: 1.0, statistic: 0 };
+      const normA = statsA.n >= 10 ? jbA.isNormal : (Math.abs(statsA.skewness) <= 1.0 && Math.abs(statsA.kurtosis) <= 1.5);
+      const normB = statsB.n >= 10 ? jbB.isNormal : (Math.abs(statsB.skewness) <= 1.0 && Math.abs(statsB.kurtosis) <= 1.5);
+      const isParametric = normA && normB;
+
+      const vA = statsA.variance;
+      const vB = statsB.variance;
+      let fStat = 1.0;
+      let df1 = statsA.n - 1;
+      let df2 = statsB.n - 1;
+      let varPVal = 1.0;
+
+      if (vA > 0 && vB > 0) {
+        if (vA >= vB) {
+          fStat = vA / vB;
+          df1 = statsA.n - 1;
+          df2 = statsB.n - 1;
+        } else {
+          fStat = vB / vA;
+          df1 = statsB.n - 1;
+          df2 = statsA.n - 1;
+        }
+        varPVal = Math.min(1.0, 2 * Distributions.fPValue(fStat, df1, df2));
+      }
+      const equalVariance = varPVal > 0.05;
+
+      let recommendedTest;
+      let recommendedTestName;
+      let rationale = `Independent two-cohort design (n₁ = ${statsA.n}, n₂ = ${statsB.n}). `;
+
+      if (isParametric) {
+        if (equalVariance) {
+          recommendedTest = 'student';
+          recommendedTestName = "Student's t-test (Equal Variances)";
+          rationale += `Both cohorts conform to normal distributions (Group 1 p = ${jbA.pValue > 0.001 ? jbA.pValue.toFixed(3) : '< .001'}, Group 2 p = ${jbB.pValue > 0.001 ? jbB.pValue.toFixed(3) : '< .001'}) and variance homogeneity is preserved (F(${df1}, ${df2}) = ${fStat.toFixed(2)}, p = ${varPVal > 0.001 ? varPVal.toFixed(3) : '< .001'}). Standard Student's t-test is appropriate.`;
+        } else {
+          recommendedTest = 'welch';
+          recommendedTestName = "Welch's t-test (Unequal Variances - Recommended)";
+          rationale += `Both cohorts conform to normal distributions, but variance homogeneity is violated (Heteroscedasticity: F(${df1}, ${df2}) = ${fStat.toFixed(2)}, p = ${varPVal > 0.001 ? varPVal.toFixed(3) : '< .001'}). Welch's t-test with Satterthwaite degrees of freedom is required to control Type I error rates.`;
+        }
+      } else {
+        recommendedTest = 'mannwhitney';
+        recommendedTestName = 'Mann-Whitney U Test (Non-parametric)';
+        rationale += `Deviation from normality detected (${!normA ? 'Group 1 non-normal (p = ' + (jbA.pValue > 0.001 ? jbA.pValue.toFixed(3) : '< .001') + ')' : ''}${!normA && !normB ? '; ' : ''}${!normB ? 'Group 2 non-normal (p = ' + (jbB.pValue > 0.001 ? jbB.pValue.toFixed(3) : '< .001') + ')' : ''}). Non-parametric rank-sum comparison via Mann-Whitney U test is recommended.`;
+      }
+
+      return {
+        isPaired: false,
+        nA: statsA.n,
+        nB: statsB.n,
+        statsA,
+        statsB,
+        normality: {
+          isParametric,
+          normA,
+          normB,
+          jbA,
+          jbB,
+          interpretation: isParametric ? 'Both Cohorts Normal (Parametric suitable)' : 'Normality Violated (Non-parametric recommended)'
+        },
+        varianceEquality: {
+          applicable: true,
+          equalVariance,
+          fStat,
+          df1,
+          df2,
+          pValue: varPVal,
+          varA: vA,
+          varB: vB,
+          interpretation: equalVariance ? 'Homoscedastic (Equal Variances, p > .05)' : 'Heteroscedastic (Unequal Variances, p ≤ .05)'
+        },
+        recommendedTest,
+        recommendedTestName,
+        rationale
+      };
+    }
   }
 };

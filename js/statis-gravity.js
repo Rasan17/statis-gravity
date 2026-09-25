@@ -514,7 +514,7 @@
       const rankBiserial = 1 - (2 * U) / (n1 * n2);
 
       return {
-        testName: 'Mann-Whitney U Test',
+        testName: 'Mann-Whitney U Test (Wilcoxon Rank-Sum)',
         n1, n2,
         rankSumA, rankSumB,
         u1, u2,
@@ -524,6 +524,222 @@
         rankBiserial,
         isSignificant: pValue < 0.05
       };
+    },
+
+    wilcoxonSignedRank(groupPre, groupPost) {
+      const a = Descriptive.cleanData(groupPre);
+      const b = Descriptive.cleanData(groupPost);
+      const len = Math.min(a.length, b.length);
+      if (len < 3) return { error: 'Wilcoxon signed-rank requires at least 3 paired observations.' };
+
+      const diffs = [];
+      for (let i = 0; i < len; i++) {
+        const d = b[i] - a[i];
+        if (d !== 0) diffs.push({ diff: d, absDiff: Math.abs(d) });
+      }
+
+      const n = diffs.length;
+      if (n < 3) return { error: 'Insufficient non-zero differences for Wilcoxon test.' };
+
+      diffs.sort((x, y) => x.absDiff - y.absDiff);
+
+      let i = 0;
+      while (i < n) {
+        let j = i;
+        while (j < n - 1 && diffs[j + 1].absDiff === diffs[i].absDiff) j++;
+        const rank = (i + 1 + j + 1) / 2;
+        for (let k = i; k <= j; k++) diffs[k].rank = rank;
+        i = j + 1;
+      }
+
+      let wPlus = 0;
+      let wMinus = 0;
+      for (const d of diffs) {
+        if (d.diff > 0) wPlus += d.rank;
+        else wMinus += d.rank;
+      }
+
+      const W = Math.min(wPlus, wMinus);
+      const meanW = (n * (n + 1)) / 4;
+      const sigmaW = Math.sqrt((n * (n + 1) * (2 * n + 1)) / 24);
+      const z = sigmaW === 0 ? 0 : (W - meanW) / sigmaW;
+      const pValue = Distributions.normalPValue(z);
+
+      const totalRankSum = wPlus + wMinus;
+      const rankBiserial = totalRankSum === 0 ? 0 : (wPlus - wMinus) / totalRankSum;
+
+      const rawDiffs = diffs.map(d => d.diff);
+      const diffStats = Descriptive.calculate(rawDiffs);
+
+      return {
+        testName: 'Wilcoxon Signed-Rank Test',
+        n,
+        wPlus,
+        wMinus,
+        statistic: W,
+        zScore: z,
+        pValue,
+        rankBiserial,
+        meanDiff: diffStats.mean,
+        medianDiff: diffStats.median,
+        sdDiff: diffStats.sd,
+        seDiff: diffStats.sem,
+        ci95: diffStats.ci95,
+        isSignificant: pValue < 0.05
+      };
+    },
+
+    evaluateAssumptions(groupA, groupB, isPaired = false) {
+      const a = Descriptive.cleanData(groupA);
+      const b = Descriptive.cleanData(groupB);
+
+      if (isPaired) {
+        const len = Math.min(a.length, b.length);
+        if (len < 2) {
+          return {
+            error: 'Paired comparison requires at least 2 valid paired data points.',
+            isPaired: true
+          };
+        }
+        const unequalLengths = a.length !== b.length;
+        const diffs = [];
+        for (let i = 0; i < len; i++) {
+          diffs.push(b[i] - a[i]);
+        }
+        const statsDiff = Descriptive.calculate(diffs);
+        const statsA = Descriptive.calculate(a.slice(0, len));
+        const statsB = Descriptive.calculate(b.slice(0, len));
+
+        const jbDiff = statsDiff.normality || { isNormal: true, pValue: 1.0, statistic: 0 };
+        const skewAlert = Math.abs(statsDiff.skewness) > 1.0;
+        const kurtAlert = Math.abs(statsDiff.kurtosis) > 1.5;
+        const isNormal = len >= 10 ? jbDiff.isNormal : (!skewAlert && !kurtAlert);
+
+        const recommendedTest = isNormal ? 'paired' : 'wilcoxon';
+        const recommendedTestName = isNormal 
+          ? "Paired Samples Student's t-test (Parametric)" 
+          : "Wilcoxon Signed-Rank Test (Non-parametric)";
+
+        let rationale = `Paired / repeated measures design (${len} paired observations). `;
+        if (isNormal) {
+          rationale += `Within-subject differences (Δ = Post - Pre) conform to normality (Jarque-Bera p = ${jbDiff.pValue > 0.001 ? jbDiff.pValue.toFixed(3) : '< .001'}, Skewness = ${statsDiff.skewness.toFixed(2)}). The parametric Paired Samples t-test is recommended.`;
+        } else {
+          rationale += `Within-subject differences (Δ) deviate significantly from normality (Jarque-Bera p = ${jbDiff.pValue > 0.001 ? jbDiff.pValue.toFixed(3) : '< .001'}, Skewness = ${statsDiff.skewness.toFixed(2)}, Excess Kurtosis = ${statsDiff.kurtosis.toFixed(2)}). The non-parametric Wilcoxon Signed-Rank test is recommended.`;
+        }
+
+        return {
+          isPaired: true,
+          unequalLengths,
+          n: len,
+          nA: a.length,
+          nB: b.length,
+          statsA,
+          statsB,
+          statsDiff,
+          normality: {
+            isNormal,
+            testName: 'Jarque-Bera Test of Paired Differences (Δ)',
+            statistic: jbDiff.statistic,
+            pValue: jbDiff.pValue,
+            skewness: statsDiff.skewness,
+            kurtosis: statsDiff.kurtosis,
+            interpretation: isNormal ? 'Normal Distribution (Parametric suitable)' : 'Non-Normal Distribution (Non-parametric recommended)'
+          },
+          varianceEquality: {
+            applicable: false,
+            note: 'Not required for paired repeated measures (within-subject differencing removes inter-subject variance).'
+          },
+          recommendedTest,
+          recommendedTestName,
+          rationale
+        };
+      } else {
+        if (a.length < 2 || b.length < 2) {
+          return {
+            error: 'Independent comparison requires at least 2 observations in each cohort.',
+            isPaired: false
+          };
+        }
+        const statsA = Descriptive.calculate(a);
+        const statsB = Descriptive.calculate(b);
+
+        const jbA = statsA.normality || { isNormal: true, pValue: 1.0, statistic: 0 };
+        const jbB = statsB.normality || { isNormal: true, pValue: 1.0, statistic: 0 };
+        const normA = statsA.n >= 10 ? jbA.isNormal : (Math.abs(statsA.skewness) <= 1.0 && Math.abs(statsA.kurtosis) <= 1.5);
+        const normB = statsB.n >= 10 ? jbB.isNormal : (Math.abs(statsB.skewness) <= 1.0 && Math.abs(statsB.kurtosis) <= 1.5);
+        const isParametric = normA && normB;
+
+        const vA = statsA.variance;
+        const vB = statsB.variance;
+        let fStat = 1.0;
+        let df1 = statsA.n - 1;
+        let df2 = statsB.n - 1;
+        let varPVal = 1.0;
+
+        if (vA > 0 && vB > 0) {
+          if (vA >= vB) {
+            fStat = vA / vB;
+            df1 = statsA.n - 1;
+            df2 = statsB.n - 1;
+          } else {
+            fStat = vB / vA;
+            df1 = statsB.n - 1;
+            df2 = statsA.n - 1;
+          }
+          varPVal = Math.min(1.0, 2 * Distributions.fPValue(fStat, df1, df2));
+        }
+        const equalVariance = varPVal > 0.05;
+
+        let recommendedTest;
+        let recommendedTestName;
+        let rationale = `Independent two-cohort design (n₁ = ${statsA.n}, n₂ = ${statsB.n}). `;
+
+        if (isParametric) {
+          if (equalVariance) {
+            recommendedTest = 'student';
+            recommendedTestName = "Student's t-test (Equal Variances)";
+            rationale += `Both cohorts conform to normal distributions (Group 1 p = ${jbA.pValue > 0.001 ? jbA.pValue.toFixed(3) : '< .001'}, Group 2 p = ${jbB.pValue > 0.001 ? jbB.pValue.toFixed(3) : '< .001'}) and variance homogeneity is preserved (F(${df1}, ${df2}) = ${fStat.toFixed(2)}, p = ${varPVal > 0.001 ? varPVal.toFixed(3) : '< .001'}). Standard Student's t-test is appropriate.`;
+          } else {
+            recommendedTest = 'welch';
+            recommendedTestName = "Welch's t-test (Unequal Variances - Recommended)";
+            rationale += `Both cohorts conform to normal distributions, but variance homogeneity is violated (Heteroscedasticity: F(${df1}, ${df2}) = ${fStat.toFixed(2)}, p = ${varPVal > 0.001 ? varPVal.toFixed(3) : '< .001'}). Welch's t-test with Satterthwaite degrees of freedom is required to control Type I error rates.`;
+          }
+        } else {
+          recommendedTest = 'mannwhitney';
+          recommendedTestName = 'Mann-Whitney U Test (Non-parametric)';
+          rationale += `Deviation from normality detected (${!normA ? 'Group 1 non-normal (p = ' + (jbA.pValue > 0.001 ? jbA.pValue.toFixed(3) : '< .001') + ')' : ''}${!normA && !normB ? '; ' : ''}${!normB ? 'Group 2 non-normal (p = ' + (jbB.pValue > 0.001 ? jbB.pValue.toFixed(3) : '< .001') + ')' : ''}). Non-parametric rank-sum comparison via Mann-Whitney U test is recommended.`;
+        }
+
+        return {
+          isPaired: false,
+          nA: statsA.n,
+          nB: statsB.n,
+          statsA,
+          statsB,
+          normality: {
+            isParametric,
+            normA,
+            normB,
+            jbA,
+            jbB,
+            interpretation: isParametric ? 'Both Cohorts Normal (Parametric suitable)' : 'Normality Violated (Non-parametric recommended)'
+          },
+          varianceEquality: {
+            applicable: true,
+            equalVariance,
+            fStat,
+            df1,
+            df2,
+            pValue: varPVal,
+            varA: vA,
+            varB: vB,
+            interpretation: equalVariance ? 'Homoscedastic (Equal Variances, p > .05)' : 'Heteroscedastic (Unequal Variances, p ≤ .05)'
+          },
+          recommendedTest,
+          recommendedTestName,
+          rationale
+        };
+      }
     }
   };
 
@@ -1437,6 +1653,10 @@
       icpDynamics: {
         groupA: [10.2, 11.5, 9.8, 12.1, 10.9, 13.4, 11.0, 9.5, 12.8, 10.4, 11.7, 10.0],
         groupB: [18.5, 21.0, 19.2, 23.4, 20.1, 25.6, 22.0, 19.8, 24.5, 20.3, 21.8, 19.5]
+      },
+      tumorResection: {
+        groupA: [14.2, 15.1, 13.8, 16.5, 14.9, 15.8, 17.2, 13.5, 15.0, 14.6, 16.1, 14.8, 15.4, 16.0],
+        groupB: [22.4, 28.1, 18.9, 31.5, 24.0, 19.8, 35.2, 26.7, 21.3, 29.4, 33.1, 20.5]
       },
       drainOutputSkewed: [12, 14, 15, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 38, 62],
       cranialAsymmetry: [
@@ -2800,11 +3020,41 @@ const DocxReports = {
       ]
     );
 
+    if (data.assumptions) {
+      d.addHeading2('Diagnostic Assessment of Statistical Assumptions');
+      if (data.assumptions.isPaired) {
+        d.addParagraph(`Sample Design: Paired / Repeated Measures (n = ${data.assumptions.n} matched observations).`);
+        d.addTable(
+          ['Assumption Evaluated', 'Test / Metric', 'Calculated Statistic', 'p-Value', 'Verdict / Interpretation'],
+          [
+            ['Normality of Differences (Δ)', 'Jarque-Bera Test', `JB = ${data.assumptions.normality.statistic.toFixed(2)} (Skew: ${data.assumptions.normality.skewness.toFixed(2)}, Kurt: ${data.assumptions.normality.kurtosis.toFixed(2)})`, `${data.assumptions.normality.pValue < 0.001 ? 'p < .001' : 'p = ' + data.assumptions.normality.pValue.toFixed(4)}`, data.assumptions.normality.isNormal ? 'Normal Distribution (Parametric Valid)' : 'Non-Normal (Non-Parametric Recommended)'],
+            ['Homogeneity of Variance', 'Within-Subject Differencing', 'N/A (Between-cohort variance removed by design)', 'N/A', 'Homoscedasticity assumption satisfied by pairing']
+          ]
+        );
+      } else {
+        d.addParagraph(`Sample Design: Independent Two-Cohort Comparison (${data.nameA}: n = ${data.assumptions.statsA.n}, ${data.nameB}: n = ${data.assumptions.statsB.n}).`);
+        d.addTable(
+          ['Assumption Evaluated', 'Target Cohort / Test', 'Calculated Statistic', 'p-Value', 'Verdict / Interpretation'],
+          [
+            ['Normality (Cohort 1)', `${data.nameA} (Jarque-Bera)`, `JB = ${data.assumptions.normality.jbA.statistic.toFixed(2)} (Skew: ${data.assumptions.statsA.skewness.toFixed(2)})`, `${data.assumptions.normality.jbA.pValue < 0.001 ? 'p < .001' : 'p = ' + data.assumptions.normality.jbA.pValue.toFixed(4)}`, data.assumptions.normality.normA ? 'Normal Distribution' : 'Skewed / Non-Normal'],
+            ['Normality (Cohort 2)', `${data.nameB} (Jarque-Bera)`, `JB = ${data.assumptions.normality.jbB.statistic.toFixed(2)} (Skew: ${data.assumptions.statsB.skewness.toFixed(2)})`, `${data.assumptions.normality.jbB.pValue < 0.001 ? 'p < .001' : 'p = ' + data.assumptions.normality.jbB.pValue.toFixed(4)}`, data.assumptions.normality.normB ? 'Normal Distribution' : 'Skewed / Non-Normal'],
+            ['Homogeneity of Variance', 'F-Test of Variances', `F(${data.assumptions.varianceEquality.df1}, ${data.assumptions.varianceEquality.df2}) = ${data.assumptions.varianceEquality.fStat.toFixed(2)} (s₁²=${data.assumptions.statsA.variance.toFixed(2)}, s₂²=${data.assumptions.statsB.variance.toFixed(2)})`, `${data.assumptions.varianceEquality.pValue < 0.001 ? 'p < .001' : 'p = ' + data.assumptions.varianceEquality.pValue.toFixed(4)}`, data.assumptions.varianceEquality.equalVariance ? 'Equal Variances (Homoscedastic)' : 'Unequal Variances (Heteroscedastic)']
+          ]
+        );
+      }
+      d.addCalloutBox(
+        'Automated Test Recommendation Decision Engine',
+        `Recommended Test: ${data.assumptions.recommendedTestName}\nDecision Rationale: ${data.assumptions.rationale}`,
+        'E0F2FE',
+        '0284C7'
+      );
+    }
+
     d.addHeading2('Comparative Inferential Test Results');
     d.addTable(
       ['Inferential Parameter', 'Calculated Value', 'Clinical Interpretation / Benchmark'],
       [
-        ['Test Statistic', `${data.testName.includes('Mann-Whitney') ? 'U = ' : 't = '}${data.statistic.toFixed(3)}`, 'Standardized difference between cohort locations'],
+        ['Test Statistic', `${data.testName.includes('Mann-Whitney') ? 'U = ' : (data.testName.includes('Wilcoxon') ? 'W = ' : 't = ')}${(data.statistic !== undefined ? data.statistic : data.zScore || 0).toFixed(3)}`, 'Standardized difference between cohort locations'],
         ['Degrees of Freedom (df)', `${data.df ? data.df.toFixed(2) : 'N/A (Rank test)'}`, 'Satterthwaite adjustment for unequal cohort variances'],
         ['p-Value (Two-Tailed)', `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + data.pValue.toFixed(4)}`, data.isSignificant ? 'Statistically Significant (p < 0.05)' : 'Not Significant (p ≥ 0.05)'],
         ['Mean Difference (ΔM)', `${data.meanDiff !== undefined ? (data.meanDiff >= 0 ? '+' : '') + data.meanDiff.toFixed(2) : 'N/A'}`, `Observed clinical point difference (${data.nameA} - ${data.nameB})`],
@@ -6904,13 +7154,76 @@ const DocxReports = {
 
       // 2. Hypothesis
       document.getElementById('hypoComputeBtn')?.addEventListener('click', () => this.runHypo());
+      document.getElementById('hypoTestType')?.addEventListener('change', () => this.runHypo());
+      document.getElementById('hypoErrorBarMode')?.addEventListener('change', () => this.runHypo());
+
+      const pairedCb = document.getElementById('hypoIsPaired');
+      pairedCb?.addEventListener('change', (e) => {
+        const isPaired = e.target.checked;
+        const modeBadge = document.getElementById('hypoDesignModeBadge');
+        if (modeBadge) {
+          modeBadge.innerText = isPaired 
+            ? 'Paired / Dependent Samples (Pre vs. Post / Matched)' 
+            : 'Independent Cohorts (Two Separate Groups)';
+          modeBadge.className = `badge ${isPaired ? 'badge-sig' : 'badge-neutral'}`;
+        }
+        const sampleBtn = document.getElementById('hypoSampleBtn');
+        if (sampleBtn) {
+          sampleBtn.innerText = isPaired ? 'Load Pre/Post ICP' : 'Load Independent Cohorts';
+        }
+        const nameAInput = document.getElementById('hypoNameA');
+        const nameBInput = document.getElementById('hypoNameB');
+        if (nameAInput && nameBInput) {
+          if (isPaired && (nameAInput.value === 'Cohort 1 (Control)' || nameAInput.value === 'Standard Resection' || nameAInput.value === 'Group A')) {
+            nameAInput.value = 'Pre-Infusion';
+            nameBInput.value = 'Post-Infusion';
+          } else if (!isPaired && (nameAInput.value === 'Pre-Infusion' || nameAInput.value === 'Pre-Intervention')) {
+            nameAInput.value = 'Standard Resection';
+            nameBInput.value = 'Supramarginal Resection';
+          }
+        }
+        if (document.getElementById('hypoGroupA')?.value && document.getElementById('hypoGroupB')?.value) {
+          this.runHypo();
+        }
+      });
+
       document.getElementById('hypoSampleBtn')?.addEventListener('click', () => {
-        document.getElementById('hypoGroupA').value = DataParser.samples.icpDynamics.groupA.join(', ');
-        document.getElementById('hypoGroupB').value = DataParser.samples.icpDynamics.groupB.join(', ');
+        const isPaired = document.getElementById('hypoIsPaired')?.checked || false;
+        if (isPaired) {
+          document.getElementById('hypoNameA').value = 'Pre-Infusion';
+          document.getElementById('hypoNameB').value = 'Post-Infusion';
+          document.getElementById('hypoGroupA').value = DataParser.samples.icpDynamics.groupA.join(', ');
+          document.getElementById('hypoGroupB').value = DataParser.samples.icpDynamics.groupB.join(', ');
+        } else {
+          document.getElementById('hypoNameA').value = 'Standard Resection';
+          document.getElementById('hypoNameB').value = 'Supramarginal Resection';
+          const s = DataParser.samples.tumorResection || {
+            groupA: [14.2, 15.1, 13.8, 16.5, 14.9, 15.8, 17.2, 13.5, 15.0, 14.6, 16.1, 14.8, 15.4, 16.0],
+            groupB: [22.4, 28.1, 18.9, 31.5, 24.0, 19.8, 35.2, 26.7, 21.3, 29.4, 33.1, 20.5]
+          };
+          document.getElementById('hypoGroupA').value = s.groupA.join(', ');
+          document.getElementById('hypoGroupB').value = s.groupB.join(', ');
+        }
         this.runHypo();
       });
-      document.getElementById('hypoErrorBarMode')?.addEventListener('change', () => {
-        this.runHypo();
+
+      const designModal = document.getElementById('hypoDesignModal');
+      document.getElementById('hypoDesignInfoBtn')?.addEventListener('click', () => {
+        if (designModal) designModal.style.display = 'flex';
+      });
+      document.getElementById('hypoDesignModalClose')?.addEventListener('click', () => {
+        if (designModal) designModal.style.display = 'none';
+      });
+      document.getElementById('hypoDesignModalSetIndependent')?.addEventListener('click', () => {
+        if (pairedCb) { pairedCb.checked = false; pairedCb.dispatchEvent(new Event('change')); }
+        if (designModal) designModal.style.display = 'none';
+      });
+      document.getElementById('hypoDesignModalSetPaired')?.addEventListener('click', () => {
+        if (pairedCb) { pairedCb.checked = true; pairedCb.dispatchEvent(new Event('change')); }
+        if (designModal) designModal.style.display = 'none';
+      });
+      designModal?.addEventListener('click', (e) => {
+        if (e.target === designModal) designModal.style.display = 'none';
       });
 
       // 3. ANOVA
@@ -7935,15 +8248,30 @@ const DocxReports = {
       const rawB = document.getElementById('hypoGroupB')?.value || '';
       const nameA = document.getElementById('hypoNameA')?.value || 'Group A';
       const nameB = document.getElementById('hypoNameB')?.value || 'Group B';
-      const test = document.getElementById('hypoTestType')?.value || 'welch';
+      const selectedTest = document.getElementById('hypoTestType')?.value || 'auto';
+      const isPaired = document.getElementById('hypoIsPaired')?.checked || false;
 
       const a = DataParser.parseSeries(rawA);
       const b = DataParser.parseSeries(rawB);
 
+      // Evaluate statistical assumptions first
+      const assumptions = Hypothesis.evaluateAssumptions(a, b, isPaired);
+      if (assumptions.error) {
+        alert(assumptions.error);
+        return;
+      }
+
+      // Determine test to execute
+      let testToRun = selectedTest;
+      if (selectedTest === 'auto') {
+        testToRun = assumptions.recommendedTest;
+      }
+
       let res;
-      if (test === 'student') res = Hypothesis.independentTTest(a, b);
-      else if (test === 'welch') res = Hypothesis.welchTTest(a, b);
-      else if (test === 'paired') res = Hypothesis.pairedTTest(a, b);
+      if (testToRun === 'student') res = Hypothesis.independentTTest(a, b);
+      else if (testToRun === 'welch') res = Hypothesis.welchTTest(a, b);
+      else if (testToRun === 'paired') res = Hypothesis.pairedTTest(a, b);
+      else if (testToRun === 'wilcoxon') res = Hypothesis.wilcoxonSignedRank(a, b);
       else res = Hypothesis.mannWhitneyUTest(a, b);
 
       if (res.error) {
@@ -7953,16 +8281,142 @@ const DocxReports = {
 
       res.groupA = Object.assign(res.groupA || Descriptive.calculate(a), { name: nameA });
       res.groupB = Object.assign(res.groupB || Descriptive.calculate(b), { name: nameB });
+      res.assumptions = assumptions;
+      res.isPaired = isPaired;
+      res.selectedTest = selectedTest;
+      res.actualTest = testToRun;
 
-      document.getElementById('hypoStat').innerText = (res.statistic || res.zScore || 0).toFixed(2);
+      // Update primary metric cards
+      document.getElementById('hypoStat').innerText = (res.statistic !== undefined ? res.statistic : (res.zScore || 0)).toFixed(2);
       document.getElementById('hypoPVal').innerText = Exporter.formatP(res.pValue);
       const badge = document.getElementById('hypoPValBadge');
-      badge.className = `badge ${res.isSignificant ? 'badge-sig' : 'badge-ns'}`;
-      badge.innerText = res.isSignificant ? 'Significant (p < .05)' : 'Not Significant (ns)';
-      document.getElementById('hypoEffect').innerText = (res.cohensD !== undefined ? res.cohensD.toFixed(2) : (res.rankBiserial || 0).toFixed(2));
-      document.getElementById('hypoDiff').innerText = res.meanDiff !== undefined ? res.meanDiff.toFixed(2) : 'N/A';
+      if (badge) {
+        badge.className = `badge ${res.isSignificant ? 'badge-sig' : 'badge-ns'}`;
+        badge.innerText = res.isSignificant ? 'Significant (p < .05)' : 'Not Significant (ns)';
+      }
+      document.getElementById('hypoEffect').innerText = (res.cohensD !== undefined ? res.cohensD.toFixed(2) : (res.rankBiserial !== undefined ? res.rankBiserial.toFixed(2) : '0.00'));
+      document.getElementById('hypoDiff').innerText = res.meanDiff !== undefined ? ((res.meanDiff >= 0 ? '+' : '') + res.meanDiff.toFixed(2)) : (res.medianDiff !== undefined ? ((res.medianDiff >= 0 ? '+' : '') + res.medianDiff.toFixed(2)) : 'N/A');
 
-      const report = `A ${res.testName} demonstrated a ${res.isSignificant ? 'statistically significant' : 'non-significant'} difference between ${nameA} (M = ${res.groupA.mean.toFixed(2)}, SD = ${res.groupA.sd.toFixed(2)}) and ${nameB} (M = ${res.groupB.mean.toFixed(2)}, SD = ${res.groupB.sd.toFixed(2)}), ${Exporter.formatP(res.pValue)}, Cohen's d = ${(res.cohensD || 0).toFixed(2)}.`;
+      // Update Assumptions & Decision Engine Panel
+      const recBadge = document.getElementById('hypoRecommendationBadge');
+      if (recBadge) {
+        recBadge.innerText = `Recommended: ${assumptions.recommendedTestName}`;
+        recBadge.className = 'badge badge-sig';
+      }
+
+      const decisionTextEl = document.getElementById('hypoDecisionText');
+      if (decisionTextEl) {
+        let decisionHtml = `<strong>Recommended Test:</strong> ${assumptions.recommendedTestName}<br>`;
+        decisionHtml += `<span>${assumptions.rationale}</span>`;
+        if (selectedTest !== 'auto') {
+          if (selectedTest === assumptions.recommendedTest) {
+            decisionHtml += `<div style="margin-top: 0.35rem; color: var(--emerald-primary); font-weight: 600;">✓ Manual test selection (${res.testName}) perfectly matches the statistical recommendation.</div>`;
+          } else {
+            decisionHtml += `<div style="margin-top: 0.35rem; color: var(--amber-primary); font-weight: 600;">⚠️ Advisory Note: Executed test (${res.testName}) was manually selected, differing from the assumption-recommended test (${assumptions.recommendedTestName}).</div>`;
+          }
+        } else {
+          decisionHtml += `<div style="margin-top: 0.35rem; color: var(--cyan-primary); font-weight: 600;">⚡ Automatically executed: ${res.testName}</div>`;
+        }
+        decisionTextEl.innerHTML = decisionHtml;
+      }
+
+      // Update Normality Diagnostics
+      const normBadge = document.getElementById('hypoNormalityBadge');
+      const normDetails = document.getElementById('hypoNormalityDetails');
+      if (isPaired) {
+        if (normBadge) {
+          normBadge.className = `badge ${assumptions.normality.isNormal ? 'badge-sig' : 'badge-ns'}`;
+          normBadge.innerText = assumptions.normality.isNormal ? 'Normal Differences (Parametric)' : 'Non-Normal Differences (Non-Parametric)';
+        }
+        if (normDetails) {
+          normDetails.innerHTML = `
+            <strong>Paired Differences (&Delta; = Post &minus; Pre, n = ${assumptions.n}):</strong><br>
+            Mean &Delta; = ${assumptions.statsDiff.mean.toFixed(2)}, SD = ${assumptions.statsDiff.sd.toFixed(2)}<br>
+            Skewness = ${assumptions.statsDiff.skewness.toFixed(2)} (${assumptions.statsDiff.skewnessInterpretation})<br>
+            Excess Kurtosis = ${assumptions.statsDiff.kurtosis.toFixed(2)} (${assumptions.statsDiff.kurtosisInterpretation})<br>
+            Jarque-Bera Test: JB = ${assumptions.normality.statistic.toFixed(2)}, p = ${Exporter.formatP(assumptions.normality.pValue)}<br>
+            <span style="font-weight: 600; color: ${assumptions.normality.isNormal ? 'var(--emerald-primary)' : 'var(--amber-primary)'};">${assumptions.normality.interpretation}</span>
+          `;
+        }
+      } else {
+        if (normBadge) {
+          normBadge.className = `badge ${assumptions.normality.isParametric ? 'badge-sig' : 'badge-ns'}`;
+          normBadge.innerText = assumptions.normality.isParametric ? 'Both Cohorts Normal (Parametric)' : 'Normality Violated (Non-Parametric)';
+        }
+        if (normDetails) {
+          normDetails.innerHTML = `
+            <strong>${nameA} (n = ${assumptions.statsA.n}):</strong> Skew = ${assumptions.statsA.skewness.toFixed(2)}, Kurt = ${assumptions.statsA.kurtosis.toFixed(2)}, JB = ${assumptions.normality.jbA.statistic.toFixed(2)} (${Exporter.formatP(assumptions.normality.jbA.pValue)}) [${assumptions.normality.normA ? 'Normal' : 'Skewed'}]<br>
+            <strong>${nameB} (n = ${assumptions.statsB.n}):</strong> Skew = ${assumptions.statsB.skewness.toFixed(2)}, Kurt = ${assumptions.statsB.kurtosis.toFixed(2)}, JB = ${assumptions.normality.jbB.statistic.toFixed(2)} (${Exporter.formatP(assumptions.normality.jbB.pValue)}) [${assumptions.normality.normB ? 'Normal' : 'Skewed'}]<br>
+            <span style="font-weight: 600; color: ${assumptions.normality.isParametric ? 'var(--emerald-primary)' : 'var(--amber-primary)'};">${assumptions.normality.interpretation}</span>
+          `;
+        }
+      }
+
+      // Update Variance Equality Diagnostics
+      const varBadge = document.getElementById('hypoVarianceBadge');
+      const varDetails = document.getElementById('hypoVarianceDetails');
+      if (isPaired) {
+        if (varBadge) {
+          varBadge.className = 'badge badge-neutral';
+          varBadge.innerText = 'N/A (Paired Design)';
+        }
+        if (varDetails) {
+          varDetails.innerHTML = `
+            <strong>Paired Repeated Measures:</strong><br>
+            Between-cohort homoscedasticity is not required for paired analysis because the evaluation is performed on within-subject difference scores (&Delta;<sub>i</sub> = Post<sub>i</sub> &minus; Pre<sub>i</sub>), removing inter-subject variance. Sphericity is naturally satisfied with 2 repeated measures.
+          `;
+        }
+      } else {
+        const eq = assumptions.varianceEquality.equalVariance;
+        if (varBadge) {
+          varBadge.className = `badge ${eq ? 'badge-sig' : 'badge-ns'}`;
+          varBadge.innerText = eq ? 'Equal Variances (Homoscedastic)' : 'Unequal Variances (Heteroscedastic)';
+        }
+        if (varDetails) {
+          varDetails.innerHTML = `
+            <strong>F-Test of Equal Variances:</strong><br>
+            ${nameA} Variance s₁² = ${assumptions.statsA.variance.toFixed(2)} | ${nameB} Variance s₂² = ${assumptions.statsB.variance.toFixed(2)}<br>
+            Variance Ratio F(${assumptions.varianceEquality.df1}, ${assumptions.varianceEquality.df2}) = ${assumptions.varianceEquality.fStat.toFixed(2)}, p = ${Exporter.formatP(assumptions.varianceEquality.pValue)}<br>
+            <span style="font-weight: 600; color: ${eq ? 'var(--emerald-primary)' : 'var(--amber-primary)'};">${assumptions.varianceEquality.interpretation}</span>
+          `;
+        }
+      }
+
+      // Update Pipeline Flow Badges
+      const flowDesign = document.getElementById('hypoFlowDesign');
+      const flowNorm = document.getElementById('hypoFlowNorm');
+      const flowVar = document.getElementById('hypoFlowVar');
+      const flowTest = document.getElementById('hypoFlowTest');
+      if (flowDesign) flowDesign.innerText = isPaired ? 'Paired Samples' : 'Independent Samples';
+      if (flowNorm) flowNorm.innerText = (isPaired ? assumptions.normality.isNormal : assumptions.normality.isParametric) ? 'Parametric (Normal)' : 'Non-Parametric';
+      if (flowVar) flowVar.innerText = isPaired ? 'Within-Subject' : (assumptions.varianceEquality.equalVariance ? 'Equal Variance' : 'Unequal Variance');
+      if (flowTest) {
+        flowTest.innerText = res.testName;
+        flowTest.className = `badge ${res.isSignificant ? 'badge-sig' : 'badge-neutral'}`;
+      }
+
+      // Comprehensive Clinical / Publication APA Narrative
+      let report = `A ${res.testName} was conducted to compare ${nameA} and ${nameB}.\n\n`;
+      report += `Diagnostic Assumption Testing:\n`;
+      if (isPaired) {
+        report += `• Sample Design: Paired / repeated measures (n = ${assumptions.n} paired pairs).\n`;
+        report += `• Normality of Within-Subject Differences: Jarque-Bera JB = ${assumptions.normality.statistic.toFixed(2)}, ${Exporter.formatP(assumptions.normality.pValue)} (Skewness = ${assumptions.normality.skewness.toFixed(2)}, Kurtosis = ${assumptions.normality.kurtosis.toFixed(2)}). The difference distribution was determined to be ${assumptions.normality.isNormal ? 'normally distributed' : 'non-normally distributed'}.\n`;
+        report += `• Homoscedasticity: Not applicable for paired design (within-subject differencing removes inter-subject variance).\n`;
+      } else {
+        report += `• Sample Design: Independent two-cohort comparison (${nameA}: n = ${assumptions.statsA.n}; ${nameB}: n = ${assumptions.statsB.n}).\n`;
+        report += `• Normality Assessment: ${nameA} (JB = ${assumptions.normality.jbA.statistic.toFixed(2)}, ${Exporter.formatP(assumptions.normality.jbA.pValue)}, Skew = ${assumptions.statsA.skewness.toFixed(2)}); ${nameB} (JB = ${assumptions.normality.jbB.statistic.toFixed(2)}, ${Exporter.formatP(assumptions.normality.jbB.pValue)}, Skew = ${assumptions.statsB.skewness.toFixed(2)}). Distribution: ${assumptions.normality.isParametric ? 'Parametric (Normal)' : 'Non-Parametric (Skewed/Deviated)'}.\n`;
+        report += `• Equality of Variances: F-test F(${assumptions.varianceEquality.df1}, ${assumptions.varianceEquality.df2}) = ${assumptions.varianceEquality.fStat.toFixed(2)}, ${Exporter.formatP(assumptions.varianceEquality.pValue)}, confirming ${assumptions.varianceEquality.equalVariance ? 'equal variances (homoscedasticity)' : 'unequal variances (heteroscedasticity)'}.\n`;
+      }
+      report += `• Decision Rationale: ${assumptions.rationale}\n\n`;
+      report += `Inferential Test Results:\n`;
+      const statLabel = res.testName.includes('Mann-Whitney') ? 'U' : (res.testName.includes('Wilcoxon') ? 'W' : 't');
+      const dfLabel = res.df !== undefined ? `(${res.df.toFixed(1)})` : '';
+      const effectLabel = res.cohensD !== undefined ? `Cohen's d = ${res.cohensD.toFixed(2)}` : `Rank-Biserial r = ${(res.rankBiserial || 0).toFixed(2)}`;
+      report += `There was a ${res.isSignificant ? 'statistically significant' : 'non-significant'} difference between ${nameA} (M = ${res.groupA.mean.toFixed(2)}, SD = ${res.groupA.sd.toFixed(2)}) and ${nameB} (M = ${res.groupB.mean.toFixed(2)}, SD = ${res.groupB.sd.toFixed(2)}): ${statLabel}${dfLabel} = ${(res.statistic !== undefined ? res.statistic : res.zScore || 0).toFixed(2)}, ${Exporter.formatP(res.pValue)}, ${effectLabel}.`;
+      if (res.ci95) {
+        report += ` 95% Confidence Interval: [${res.ci95[0].toFixed(2)}, ${res.ci95[1].toFixed(2)}].`;
+      }
+
       document.getElementById('hypoReportText').innerText = report;
 
       const errorBarMode = document.getElementById('hypoErrorBarMode')?.value || 'ci95';
@@ -7986,7 +8440,7 @@ const DocxReports = {
           title: `${nameA} vs ${nameB}`
         });
       }
-      this.results = this.results || {}; this.results.hypothesis = res;
+      this.results = this.results || {}; this.results.hypothesis = Object.assign(res, { assumptions, nameA, nameB, isPaired });
     }
 
     runAnova() {

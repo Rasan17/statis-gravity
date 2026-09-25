@@ -111,6 +111,49 @@ assert(tRes.pValue < 0.001, `Groups A and B differ significantly: p = ${tRes.pVa
 const mwRes = Hypothesis.mannWhitneyUTest(groupA, groupB);
 assert(mwRes.pValue < 0.001, `Mann-Whitney U test confirms difference: p = ${mwRes.pValue.toExponential(3)}`);
 
+console.log('--- Testing Wilcoxon Signed-Rank Test & Assumption Evaluation Engine ---');
+const preIcp = [10.2, 11.5, 9.8, 12.1, 10.9, 13.4, 11.0, 9.5, 12.8, 10.4, 11.7, 10.0];
+const postIcp = [18.5, 21.0, 19.2, 23.4, 20.1, 25.6, 22.0, 19.8, 24.5, 20.3, 21.8, 19.5];
+
+const wilcRes = Hypothesis.wilcoxonSignedRank(preIcp, postIcp);
+assert(wilcRes.pValue < 0.01, `Wilcoxon test on Pre/Post ICP is highly significant: p = ${wilcRes.pValue.toFixed(4)}`);
+assert(wilcRes.rankBiserial !== undefined, `Rank-biserial effect size calculated: ${wilcRes.rankBiserial.toFixed(2)}`);
+
+// 1. Paired Parametric (normal differences)
+const assumpPaired = Hypothesis.evaluateAssumptions(preIcp, postIcp, true);
+assert(assumpPaired.isPaired === true, `Assumptions correctly identifies paired design`);
+assert(assumpPaired.recommendedTest === 'paired', `Recommends Paired Samples t-test for normal differences, got ${assumpPaired.recommendedTest}`);
+assert(assumpPaired.varianceEquality.applicable === false, `Variance equality is marked not applicable for paired design`);
+
+// 2. Paired Non-Parametric (skewed differences)
+const preSkew = [10, 11, 12, 11, 10, 12, 11, 10];
+const postSkew = [11, 12, 13, 12, 11, 13, 12, 95]; // one extreme outlier creating high skew
+const assumpPairedSkew = Hypothesis.evaluateAssumptions(preSkew, postSkew, true);
+assert(assumpPairedSkew.recommendedTest === 'wilcoxon', `Recommends Wilcoxon Signed-Rank for skewed paired differences, got ${assumpPairedSkew.recommendedTest}`);
+
+// 3. Independent Parametric Equal Variances
+const indA = [20, 22, 21, 23, 20, 22, 21, 23];
+const indB = [28, 30, 29, 31, 28, 30, 29, 31];
+const assumpIndEq = Hypothesis.evaluateAssumptions(indA, indB, false);
+assert(assumpIndEq.isPaired === false, `Assumptions correctly identifies independent design`);
+assert(assumpIndEq.normality.isParametric === true, `Identifies normal cohorts as parametric`);
+assert(assumpIndEq.varianceEquality.equalVariance === true, `Confirms equal variances when variances match`);
+assert(assumpIndEq.recommendedTest === 'student', `Recommends Student's t-test for equal variances, got ${assumpIndEq.recommendedTest}`);
+
+// 4. Independent Parametric Unequal Variances (Heteroscedastic)
+const indUneqVarA = [14.2, 15.1, 13.8, 16.5, 14.9, 15.8, 17.2, 13.5, 15.0, 14.6, 16.1, 14.8, 15.4, 16.0]; // Low variance
+const indUneqVarB = [22.4, 28.1, 18.9, 31.5, 24.0, 19.8, 35.2, 26.7, 21.3, 29.4, 33.1, 20.5]; // High variance
+const assumpIndUneq = Hypothesis.evaluateAssumptions(indUneqVarA, indUneqVarB, false);
+assert(assumpIndUneq.varianceEquality.equalVariance === false, `Detects heteroscedasticity (unequal variances)`);
+assert(assumpIndUneq.recommendedTest === 'welch', `Recommends Welch's t-test for unequal variances, got ${assumpIndUneq.recommendedTest}`);
+
+// 5. Independent Non-Parametric (Skewed Cohort)
+const skewCohortA = [2, 3, 3, 4, 4, 4, 5, 6, 8, 35, 95];
+const skewCohortB = [5, 6, 7, 7, 8, 8, 9, 10, 12, 14, 15];
+const assumpIndSkew = Hypothesis.evaluateAssumptions(skewCohortA, skewCohortB, false);
+assert(assumpIndSkew.normality.isParametric === false, `Flags violation of normality for skewed cohort`);
+assert(assumpIndSkew.recommendedTest === 'mannwhitney', `Recommends Mann-Whitney U test for non-parametric data, got ${assumpIndSkew.recommendedTest}`);
+
 console.log('--- Testing ANOVA & Tukey HSD Post-Hoc ---');
 const anovaRes = Anova.oneWay([
   { name: 'Control', data: [10, 11, 12, 10, 13] },
