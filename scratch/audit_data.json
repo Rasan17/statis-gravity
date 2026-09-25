@@ -1,0 +1,6112 @@
+{
+  "metadata": {
+    "timestamp": "2026-09-25T15:23:13.532Z",
+    "suite": "Statis-Gravity Mathematical Calculation Audit"
+  },
+  "distributions": {
+    "normal": [
+      {
+        "z": -2.576,
+        "cdf": 0.004997561966258612,
+        "pTwoTailed": 0.009995123932517114
+      },
+      {
+        "z": -1.96,
+        "cdf": 0.024997826108223875,
+        "pTwoTailed": 0.04999565221644775
+      },
+      {
+        "z": -1.645,
+        "cdf": 0.049984891605329373,
+        "pTwoTailed": 0.09996978321065875
+      },
+      {
+        "z": 0,
+        "cdf": 0.5,
+        "pTwoTailed": 1
+      },
+      {
+        "z": 1,
+        "cdf": 0.8413447361676363,
+        "pTwoTailed": 0.31731052766472745
+      },
+      {
+        "z": 1.645,
+        "cdf": 0.9500151083946706,
+        "pTwoTailed": 0.09996978321065875
+      },
+      {
+        "z": 1.96,
+        "cdf": 0.9750021738917761,
+        "pTwoTailed": 0.04999565221644775
+      },
+      {
+        "z": 2.576,
+        "cdf": 0.9950024380337414,
+        "pTwoTailed": 0.009995123932517114
+      }
+    ],
+    "studentT": [
+      {
+        "t": 2.228,
+        "df": 10,
+        "pTwoTailed": 0.050012042595269667
+      },
+      {
+        "t": -1.753,
+        "df": 15,
+        "pTwoTailed": 0.10000902971488441
+      },
+      {
+        "t": 3.169,
+        "df": 10,
+        "pTwoTailed": 0.010004723476950176
+      },
+      {
+        "t": 2.042,
+        "df": 30,
+        "pTwoTailed": 0.050028948741545454
+      }
+    ],
+    "chiSquare": [
+      {
+        "chi2": 3.841,
+        "df": 1,
+        "pValue": 0.05001354569039318
+      },
+      {
+        "chi2": 5.991,
+        "df": 2,
+        "pValue": 0.05001161502657909
+      },
+      {
+        "chi2": 9.488,
+        "df": 4,
+        "pValue": 0.04999440557804796
+      },
+      {
+        "chi2": 18.307,
+        "df": 10,
+        "pValue": 0.05000058909158361
+      }
+    ],
+    "fisherF": [
+      {
+        "f": 3.885,
+        "df1": 2,
+        "df2": 12,
+        "pValue": 0.050009176458136746
+      },
+      {
+        "f": 2.689,
+        "df1": 3,
+        "df2": 20,
+        "pValue": 0.07388705328310075
+      },
+      {
+        "f": 4.459,
+        "df1": 1,
+        "df2": 18,
+        "pValue": 0.04896056117006828
+      }
+    ],
+    "inverseNormal": [
+      {
+        "p": 0.005,
+        "z": -2.5758293064439264
+      },
+      {
+        "p": 0.025,
+        "z": -1.959963986120195
+      },
+      {
+        "p": 0.05,
+        "z": -1.6448536251336814
+      },
+      {
+        "p": 0.1,
+        "z": -1.2815515641401563
+      },
+      {
+        "p": 0.5,
+        "z": 0
+      },
+      {
+        "p": 0.9,
+        "z": 1.2815515641401563
+      },
+      {
+        "p": 0.95,
+        "z": 1.644853625133699
+      },
+      {
+        "p": 0.975,
+        "z": 1.959963986120195
+      },
+      {
+        "p": 0.995,
+        "z": 2.5758293064439264
+      }
+    ]
+  },
+  "descriptive": {
+    "sample1": {
+      "data": [
+        14.2,
+        15.1,
+        13.8,
+        16.5,
+        14.9,
+        15.8,
+        17.2,
+        13.5,
+        15,
+        14.6,
+        16.1,
+        14.8,
+        15.4,
+        16
+      ],
+      "results": {
+        "n": 14,
+        "values": [
+          13.5,
+          13.8,
+          14.2,
+          14.6,
+          14.8,
+          14.9,
+          15,
+          15.1,
+          15.4,
+          15.8,
+          16,
+          16.1,
+          16.5,
+          17.2
+        ],
+        "sum": 212.9,
+        "mean": 15.207142857142857,
+        "median": 15.05,
+        "modes": [],
+        "maxFreq": 1,
+        "min": 13.5,
+        "max": 17.2,
+        "range": 3.6999999999999993,
+        "q1": 14.649999999999999,
+        "q3": 15.95,
+        "iqr": 1.3000000000000007,
+        "lowerFence": 12.699999999999998,
+        "upperFence": 17.9,
+        "extremeLowerFence": 10.749999999999996,
+        "extremeUpperFence": 19.85,
+        "outliers": [],
+        "variance": 1.0807142857142855,
+        "sd": 1.039574088612392,
+        "sem": 0.27783786198252464,
+        "skewness": 0.19074812888737755,
+        "skewnessInterpretation": "Approximately Symmetric",
+        "kurtosis": -0.3476158739339419,
+        "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+        "ci95": [
+          14.652017802092901,
+          15.762267912192813
+        ],
+        "ci99": [
+          14.4775848674731,
+          15.936700846812615
+        ],
+        "normality": {
+          "test": "Jarque-Bera",
+          "statistic": 0.15538611112908368,
+          "pValue": 0.9252483828044312,
+          "isNormal": true
+        }
+      }
+    },
+    "sample2": {
+      "data": [
+        22.4,
+        28.1,
+        18.9,
+        31.5,
+        24,
+        19.8,
+        35.2,
+        26.7,
+        21.3,
+        29.4,
+        33.1,
+        20.5
+      ],
+      "results": {
+        "n": 12,
+        "values": [
+          18.9,
+          19.8,
+          20.5,
+          21.3,
+          22.4,
+          24,
+          26.7,
+          28.1,
+          29.4,
+          31.5,
+          33.1,
+          35.2
+        ],
+        "sum": 310.9,
+        "mean": 25.90833333333333,
+        "median": 25.35,
+        "modes": [],
+        "maxFreq": 1,
+        "min": 18.9,
+        "max": 35.2,
+        "range": 16.300000000000004,
+        "q1": 21.1,
+        "q3": 29.924999999999997,
+        "iqr": 8.824999999999996,
+        "lowerFence": 7.862500000000008,
+        "upperFence": 43.162499999999994,
+        "extremeLowerFence": -5.374999999999986,
+        "extremeUpperFence": 56.399999999999984,
+        "outliers": [],
+        "variance": 30.89174242424243,
+        "sd": 5.5580340430985515,
+        "sem": 1.6044662254740265,
+        "skewness": 0.3330886874859686,
+        "skewnessInterpretation": "Approximately Symmetric",
+        "kurtosis": -1.299845417027187,
+        "kurtosisInterpretation": "Platykurtic (Light Tails / Flat)",
+        "ci95": [
+          22.691354787164673,
+          29.12531187950199
+        ],
+        "ci99": [
+          21.680506865039007,
+          30.136159801627656
+        ],
+        "normality": {
+          "test": "Jarque-Bera",
+          "statistic": 1.0666952015455413,
+          "pValue": 0.5866378496303323,
+          "isNormal": true
+        }
+      }
+    },
+    "sampleSkewed": {
+      "data": [
+        120,
+        135,
+        140,
+        145,
+        150,
+        155,
+        160,
+        290,
+        310,
+        480
+      ],
+      "results": {
+        "n": 10,
+        "values": [
+          120,
+          135,
+          140,
+          145,
+          150,
+          155,
+          160,
+          290,
+          310,
+          480
+        ],
+        "sum": 2085,
+        "mean": 208.5,
+        "median": 152.5,
+        "modes": [],
+        "maxFreq": 1,
+        "min": 120,
+        "max": 480,
+        "range": 360,
+        "q1": 141.25,
+        "q3": 257.5,
+        "iqr": 116.25,
+        "lowerFence": -33.125,
+        "upperFence": 431.875,
+        "extremeLowerFence": -207.5,
+        "extremeUpperFence": 606.25,
+        "outliers": [
+          {
+            "value": 480,
+            "zScore": 2.339083566637316,
+            "type": "Mild",
+            "direction": "High"
+          }
+        ],
+        "variance": 13472.5,
+        "sd": 116.07109890063073,
+        "sem": 36.704904304465906,
+        "skewness": 1.7288011761092659,
+        "skewnessInterpretation": "High Right Skew (Positive)",
+        "kurtosis": 2.5603447354661766,
+        "kurtosisInterpretation": "Leptokurtic (Heavy Tails / Peaked)",
+        "ci95": [
+          134.5336133033466,
+          282.4663866966534
+        ],
+        "ci99": [
+          111.29169010541197,
+          305.708309894588
+        ],
+        "normality": {
+          "test": "Jarque-Bera",
+          "statistic": 7.712657996040204,
+          "pValue": 0.021145482323745586,
+          "isNormal": false
+        }
+      }
+    }
+  },
+  "hypothesis": {
+    "independentT": {
+      "groupA": [
+        14.2,
+        15.1,
+        13.8,
+        16.5,
+        14.9,
+        15.8,
+        17.2,
+        13.5,
+        15,
+        14.6,
+        16.1,
+        14.8,
+        15.4,
+        16
+      ],
+      "groupB": [
+        22.4,
+        28.1,
+        18.9,
+        31.5,
+        24,
+        19.8,
+        35.2,
+        26.7,
+        21.3,
+        29.4,
+        33.1,
+        20.5
+      ],
+      "results": {
+        "testName": "Independent Samples Student's t-test",
+        "groupA": {
+          "n": 14,
+          "values": [
+            13.5,
+            13.8,
+            14.2,
+            14.6,
+            14.8,
+            14.9,
+            15,
+            15.1,
+            15.4,
+            15.8,
+            16,
+            16.1,
+            16.5,
+            17.2
+          ],
+          "sum": 212.9,
+          "mean": 15.207142857142857,
+          "median": 15.05,
+          "modes": [],
+          "maxFreq": 1,
+          "min": 13.5,
+          "max": 17.2,
+          "range": 3.6999999999999993,
+          "q1": 14.649999999999999,
+          "q3": 15.95,
+          "iqr": 1.3000000000000007,
+          "lowerFence": 12.699999999999998,
+          "upperFence": 17.9,
+          "extremeLowerFence": 10.749999999999996,
+          "extremeUpperFence": 19.85,
+          "outliers": [],
+          "variance": 1.0807142857142855,
+          "sd": 1.039574088612392,
+          "sem": 0.27783786198252464,
+          "skewness": 0.19074812888737755,
+          "skewnessInterpretation": "Approximately Symmetric",
+          "kurtosis": -0.3476158739339419,
+          "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+          "ci95": [
+            14.652017802092901,
+            15.762267912192813
+          ],
+          "ci99": [
+            14.4775848674731,
+            15.936700846812615
+          ],
+          "normality": {
+            "test": "Jarque-Bera",
+            "statistic": 0.15538611112908368,
+            "pValue": 0.9252483828044312,
+            "isNormal": true
+          }
+        },
+        "groupB": {
+          "n": 12,
+          "values": [
+            18.9,
+            19.8,
+            20.5,
+            21.3,
+            22.4,
+            24,
+            26.7,
+            28.1,
+            29.4,
+            31.5,
+            33.1,
+            35.2
+          ],
+          "sum": 310.9,
+          "mean": 25.90833333333333,
+          "median": 25.35,
+          "modes": [],
+          "maxFreq": 1,
+          "min": 18.9,
+          "max": 35.2,
+          "range": 16.300000000000004,
+          "q1": 21.1,
+          "q3": 29.924999999999997,
+          "iqr": 8.824999999999996,
+          "lowerFence": 7.862500000000008,
+          "upperFence": 43.162499999999994,
+          "extremeLowerFence": -5.374999999999986,
+          "extremeUpperFence": 56.399999999999984,
+          "outliers": [],
+          "variance": 30.89174242424243,
+          "sd": 5.5580340430985515,
+          "sem": 1.6044662254740265,
+          "skewness": 0.3330886874859686,
+          "skewnessInterpretation": "Approximately Symmetric",
+          "kurtosis": -1.299845417027187,
+          "kurtosisInterpretation": "Platykurtic (Light Tails / Flat)",
+          "ci95": [
+            22.691354787164673,
+            29.12531187950199
+          ],
+          "ci99": [
+            21.680506865039007,
+            30.136159801627656
+          ],
+          "normality": {
+            "test": "Jarque-Bera",
+            "statistic": 1.0666952015455413,
+            "pValue": 0.5866378496303323,
+            "isNormal": true
+          }
+        },
+        "meanDiff": -10.701190476190474,
+        "seDiff": 1.5105711958640013,
+        "df": 24,
+        "statistic": -7.084201330920861,
+        "pValue": 2.530430586863675e-7,
+        "cohensD": -2.786909900087481,
+        "ci95": [
+          -13.692695880454057,
+          -7.7096850719268915
+        ],
+        "isSignificant": true
+      }
+    },
+    "welchT": {
+      "groupA": [
+        14.2,
+        15.1,
+        13.8,
+        16.5,
+        14.9,
+        15.8,
+        17.2,
+        13.5,
+        15,
+        14.6,
+        16.1,
+        14.8,
+        15.4,
+        16
+      ],
+      "groupB": [
+        22.4,
+        28.1,
+        18.9,
+        31.5,
+        24,
+        19.8,
+        35.2,
+        26.7,
+        21.3,
+        29.4,
+        33.1,
+        20.5
+      ],
+      "results": {
+        "testName": "Welch's t-test (Unequal Variances)",
+        "groupA": {
+          "n": 14,
+          "values": [
+            13.5,
+            13.8,
+            14.2,
+            14.6,
+            14.8,
+            14.9,
+            15,
+            15.1,
+            15.4,
+            15.8,
+            16,
+            16.1,
+            16.5,
+            17.2
+          ],
+          "sum": 212.9,
+          "mean": 15.207142857142857,
+          "median": 15.05,
+          "modes": [],
+          "maxFreq": 1,
+          "min": 13.5,
+          "max": 17.2,
+          "range": 3.6999999999999993,
+          "q1": 14.649999999999999,
+          "q3": 15.95,
+          "iqr": 1.3000000000000007,
+          "lowerFence": 12.699999999999998,
+          "upperFence": 17.9,
+          "extremeLowerFence": 10.749999999999996,
+          "extremeUpperFence": 19.85,
+          "outliers": [],
+          "variance": 1.0807142857142855,
+          "sd": 1.039574088612392,
+          "sem": 0.27783786198252464,
+          "skewness": 0.19074812888737755,
+          "skewnessInterpretation": "Approximately Symmetric",
+          "kurtosis": -0.3476158739339419,
+          "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+          "ci95": [
+            14.652017802092901,
+            15.762267912192813
+          ],
+          "ci99": [
+            14.4775848674731,
+            15.936700846812615
+          ],
+          "normality": {
+            "test": "Jarque-Bera",
+            "statistic": 0.15538611112908368,
+            "pValue": 0.9252483828044312,
+            "isNormal": true
+          }
+        },
+        "groupB": {
+          "n": 12,
+          "values": [
+            18.9,
+            19.8,
+            20.5,
+            21.3,
+            22.4,
+            24,
+            26.7,
+            28.1,
+            29.4,
+            31.5,
+            33.1,
+            35.2
+          ],
+          "sum": 310.9,
+          "mean": 25.90833333333333,
+          "median": 25.35,
+          "modes": [],
+          "maxFreq": 1,
+          "min": 18.9,
+          "max": 35.2,
+          "range": 16.300000000000004,
+          "q1": 21.1,
+          "q3": 29.924999999999997,
+          "iqr": 8.824999999999996,
+          "lowerFence": 7.862500000000008,
+          "upperFence": 43.162499999999994,
+          "extremeLowerFence": -5.374999999999986,
+          "extremeUpperFence": 56.399999999999984,
+          "outliers": [],
+          "variance": 30.89174242424243,
+          "sd": 5.5580340430985515,
+          "sem": 1.6044662254740265,
+          "skewness": 0.3330886874859686,
+          "skewnessInterpretation": "Approximately Symmetric",
+          "kurtosis": -1.299845417027187,
+          "kurtosisInterpretation": "Platykurtic (Light Tails / Flat)",
+          "ci95": [
+            22.691354787164673,
+            29.12531187950199
+          ],
+          "ci99": [
+            21.680506865039007,
+            30.136159801627656
+          ],
+          "normality": {
+            "test": "Jarque-Bera",
+            "statistic": 1.0666952015455413,
+            "pValue": 0.5866378496303323,
+            "isNormal": true
+          }
+        },
+        "meanDiff": -10.701190476190474,
+        "seDiff": 1.6283444802123075,
+        "df": 11.660715781188102,
+        "statistic": -6.571822244145309,
+        "pValue": 0.000030361257203995765,
+        "cohensD": -2.6764497143668753,
+        "ci95": [
+          -13.961111127428262,
+          -7.441269824952686
+        ],
+        "isSignificant": true
+      }
+    },
+    "pairedT": {
+      "pre": [
+        18.5,
+        22.1,
+        19.4,
+        25,
+        17.8,
+        24.2,
+        21,
+        26.5,
+        20.1,
+        23.4
+      ],
+      "post": [
+        12.1,
+        14.5,
+        13,
+        16.2,
+        11.5,
+        15.8,
+        14,
+        17.1,
+        13.2,
+        15
+      ],
+      "results": {
+        "testName": "Paired Samples t-test",
+        "n": 10,
+        "meanDiff": -7.56,
+        "sdDiff": 1.1236844159579082,
+        "seDiff": 0.3553402125663046,
+        "df": 9,
+        "statistic": -21.27538548311456,
+        "pValue": 5.258000921980185e-9,
+        "cohensD": -6.727867622472382,
+        "ci95": [
+          -8.276068658115324,
+          -6.843931341884675
+        ],
+        "isSignificant": true
+      }
+    },
+    "mannWhitney": {
+      "groupA": [
+        14.2,
+        15.1,
+        13.8,
+        16.5,
+        14.9,
+        15.8,
+        17.2,
+        13.5,
+        15,
+        14.6,
+        16.1,
+        14.8,
+        15.4,
+        16
+      ],
+      "groupB": [
+        22.4,
+        28.1,
+        18.9,
+        31.5,
+        24,
+        19.8,
+        35.2,
+        26.7,
+        21.3,
+        29.4,
+        33.1,
+        20.5
+      ],
+      "results": {
+        "testName": "Mann-Whitney U Test (Wilcoxon Rank-Sum)",
+        "n1": 14,
+        "n2": 12,
+        "rankSumA": 105,
+        "rankSumB": 246,
+        "u1": 0,
+        "u2": 168,
+        "statistic": 0,
+        "zScore": -4.320493798938573,
+        "pValue": 0.000015579496758011402,
+        "cles": 0,
+        "rankBiserial": 1,
+        "isSignificant": true
+      }
+    },
+    "wilcoxon": {
+      "pre": [
+        18.5,
+        22.1,
+        19.4,
+        25,
+        17.8,
+        24.2,
+        21,
+        26.5,
+        20.1,
+        23.4
+      ],
+      "post": [
+        12.1,
+        14.5,
+        13,
+        16.2,
+        11.5,
+        15.8,
+        14,
+        17.1,
+        13.2,
+        15
+      ],
+      "results": {
+        "testName": "Wilcoxon Signed-Rank Test",
+        "n": 10,
+        "wPlus": 0,
+        "wMinus": 55,
+        "statistic": 0,
+        "zScore": -2.8030595529069404,
+        "pValue": 0.005062153494364896,
+        "rankBiserial": -1,
+        "meanDiff": -7.56,
+        "medianDiff": -7.300000000000001,
+        "sdDiff": 1.1236844159579082,
+        "seDiff": 0.3553402125663046,
+        "ci95": [
+          -8.276068658115324,
+          -6.843931341884675
+        ],
+        "isSignificant": true
+      }
+    },
+    "assumptionsIndep": {
+      "groupA": [
+        14.2,
+        15.1,
+        13.8,
+        16.5,
+        14.9,
+        15.8,
+        17.2,
+        13.5,
+        15,
+        14.6,
+        16.1,
+        14.8,
+        15.4,
+        16
+      ],
+      "groupB": [
+        22.4,
+        28.1,
+        18.9,
+        31.5,
+        24,
+        19.8,
+        35.2,
+        26.7,
+        21.3,
+        29.4,
+        33.1,
+        20.5
+      ],
+      "results": {
+        "isPaired": false,
+        "nA": 14,
+        "nB": 12,
+        "statsA": {
+          "n": 14,
+          "values": [
+            13.5,
+            13.8,
+            14.2,
+            14.6,
+            14.8,
+            14.9,
+            15,
+            15.1,
+            15.4,
+            15.8,
+            16,
+            16.1,
+            16.5,
+            17.2
+          ],
+          "sum": 212.9,
+          "mean": 15.207142857142857,
+          "median": 15.05,
+          "modes": [],
+          "maxFreq": 1,
+          "min": 13.5,
+          "max": 17.2,
+          "range": 3.6999999999999993,
+          "q1": 14.649999999999999,
+          "q3": 15.95,
+          "iqr": 1.3000000000000007,
+          "lowerFence": 12.699999999999998,
+          "upperFence": 17.9,
+          "extremeLowerFence": 10.749999999999996,
+          "extremeUpperFence": 19.85,
+          "outliers": [],
+          "variance": 1.0807142857142855,
+          "sd": 1.039574088612392,
+          "sem": 0.27783786198252464,
+          "skewness": 0.19074812888737755,
+          "skewnessInterpretation": "Approximately Symmetric",
+          "kurtosis": -0.3476158739339419,
+          "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+          "ci95": [
+            14.652017802092901,
+            15.762267912192813
+          ],
+          "ci99": [
+            14.4775848674731,
+            15.936700846812615
+          ],
+          "normality": {
+            "test": "Jarque-Bera",
+            "statistic": 0.15538611112908368,
+            "pValue": 0.9252483828044312,
+            "isNormal": true
+          }
+        },
+        "statsB": {
+          "n": 12,
+          "values": [
+            18.9,
+            19.8,
+            20.5,
+            21.3,
+            22.4,
+            24,
+            26.7,
+            28.1,
+            29.4,
+            31.5,
+            33.1,
+            35.2
+          ],
+          "sum": 310.9,
+          "mean": 25.90833333333333,
+          "median": 25.35,
+          "modes": [],
+          "maxFreq": 1,
+          "min": 18.9,
+          "max": 35.2,
+          "range": 16.300000000000004,
+          "q1": 21.1,
+          "q3": 29.924999999999997,
+          "iqr": 8.824999999999996,
+          "lowerFence": 7.862500000000008,
+          "upperFence": 43.162499999999994,
+          "extremeLowerFence": -5.374999999999986,
+          "extremeUpperFence": 56.399999999999984,
+          "outliers": [],
+          "variance": 30.89174242424243,
+          "sd": 5.5580340430985515,
+          "sem": 1.6044662254740265,
+          "skewness": 0.3330886874859686,
+          "skewnessInterpretation": "Approximately Symmetric",
+          "kurtosis": -1.299845417027187,
+          "kurtosisInterpretation": "Platykurtic (Light Tails / Flat)",
+          "ci95": [
+            22.691354787164673,
+            29.12531187950199
+          ],
+          "ci99": [
+            21.680506865039007,
+            30.136159801627656
+          ],
+          "normality": {
+            "test": "Jarque-Bera",
+            "statistic": 1.0666952015455413,
+            "pValue": 0.5866378496303323,
+            "isNormal": true
+          }
+        },
+        "normality": {
+          "isParametric": true,
+          "normA": true,
+          "normB": true,
+          "jbA": {
+            "test": "Jarque-Bera",
+            "statistic": 0.15538611112908368,
+            "pValue": 0.9252483828044312,
+            "isNormal": true
+          },
+          "jbB": {
+            "test": "Jarque-Bera",
+            "statistic": 1.0666952015455413,
+            "pValue": 0.5866378496303323,
+            "isNormal": true
+          },
+          "interpretation": "Both Cohorts Normal (Parametric suitable)"
+        },
+        "varianceEquality": {
+          "applicable": true,
+          "equalVariance": false,
+          "fStat": 28.584560075306946,
+          "df1": 11,
+          "df2": 13,
+          "pValue": 5.435193091976252e-7,
+          "varA": 1.0807142857142855,
+          "varB": 30.89174242424243,
+          "interpretation": "Heteroscedastic (Unequal Variances, p ≤ .05)"
+        },
+        "recommendedTest": "welch",
+        "recommendedTestName": "Welch's t-test (Unequal Variances - Recommended)",
+        "rationale": "Independent two-cohort design (n₁ = 14, n₂ = 12). Both cohorts conform to normal distributions, but variance homogeneity is violated (Heteroscedasticity: F(11, 13) = 28.58, p = < .001). Welch's t-test with Satterthwaite degrees of freedom is required to control Type I error rates."
+      }
+    },
+    "assumptionsPaired": {
+      "pre": [
+        18.5,
+        22.1,
+        19.4,
+        25,
+        17.8,
+        24.2,
+        21,
+        26.5,
+        20.1,
+        23.4
+      ],
+      "post": [
+        12.1,
+        14.5,
+        13,
+        16.2,
+        11.5,
+        15.8,
+        14,
+        17.1,
+        13.2,
+        15
+      ],
+      "results": {
+        "isPaired": true,
+        "unequalLengths": false,
+        "n": 10,
+        "nA": 10,
+        "nB": 10,
+        "statsA": {
+          "n": 10,
+          "values": [
+            17.8,
+            18.5,
+            19.4,
+            20.1,
+            21,
+            22.1,
+            23.4,
+            24.2,
+            25,
+            26.5
+          ],
+          "sum": 218,
+          "mean": 21.8,
+          "median": 21.55,
+          "modes": [],
+          "maxFreq": 1,
+          "min": 17.8,
+          "max": 26.5,
+          "range": 8.7,
+          "q1": 19.575,
+          "q3": 24,
+          "iqr": 4.425000000000001,
+          "lowerFence": 12.937499999999998,
+          "upperFence": 30.637500000000003,
+          "extremeLowerFence": 6.299999999999997,
+          "extremeUpperFence": 37.275000000000006,
+          "outliers": [],
+          "variance": 8.546666666666665,
+          "sd": 2.923468259904093,
+          "sem": 0.9244818368506038,
+          "skewness": 0.1965107634649103,
+          "skewnessInterpretation": "Approximately Symmetric",
+          "kurtosis": -1.2046721165704222,
+          "kurtosisInterpretation": "Platykurtic (Light Tails / Flat)",
+          "ci95": [
+            19.937017863571864,
+            23.662982136428138
+          ],
+          "ci99": [
+            19.351626449069443,
+            24.24837355093056
+          ],
+          "normality": {
+            "test": "Jarque-Bera",
+            "statistic": 0.6690420121135453,
+            "pValue": 0.7156808110382542,
+            "isNormal": true
+          }
+        },
+        "statsB": {
+          "n": 10,
+          "values": [
+            11.5,
+            12.1,
+            13,
+            13.2,
+            14,
+            14.5,
+            15,
+            15.8,
+            16.2,
+            17.1
+          ],
+          "sum": 142.4,
+          "mean": 14.24,
+          "median": 14.25,
+          "modes": [],
+          "maxFreq": 1,
+          "min": 11.5,
+          "max": 17.1,
+          "range": 5.600000000000001,
+          "q1": 13.05,
+          "q3": 15.600000000000001,
+          "iqr": 2.5500000000000007,
+          "lowerFence": 9.225,
+          "upperFence": 19.425000000000004,
+          "extremeLowerFence": 5.399999999999999,
+          "extremeUpperFence": 23.250000000000004,
+          "outliers": [],
+          "variance": 3.3182222222222233,
+          "sd": 1.821598809349145,
+          "sem": 0.576040122059412,
+          "skewness": 0.04043365492523102,
+          "skewnessInterpretation": "Approximately Symmetric",
+          "kurtosis": -0.9933323996725134,
+          "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+          "ci95": [
+            13.079184920151127,
+            15.400815079848874
+          ],
+          "ci99": [
+            12.714430385858421,
+            15.76556961414158
+          ],
+          "normality": {
+            "test": "Jarque-Bera",
+            "statistic": 0.41385365751733527,
+            "pValue": 0.8130791418211073,
+            "isNormal": true
+          }
+        },
+        "statsDiff": {
+          "n": 10,
+          "values": [
+            -9.399999999999999,
+            -8.8,
+            -8.399999999999999,
+            -8.399999999999999,
+            -7.600000000000001,
+            -7,
+            -6.900000000000002,
+            -6.4,
+            -6.399999999999999,
+            -6.300000000000001
+          ],
+          "sum": -75.6,
+          "mean": -7.56,
+          "median": -7.300000000000001,
+          "modes": [
+            -8.399999999999999
+          ],
+          "maxFreq": 2,
+          "min": -9.399999999999999,
+          "max": -6.300000000000001,
+          "range": 3.099999999999998,
+          "q1": -8.399999999999999,
+          "q3": -6.525000000000001,
+          "iqr": 1.8749999999999973,
+          "lowerFence": -11.212499999999995,
+          "upperFence": -3.7125000000000052,
+          "extremeLowerFence": -14.024999999999991,
+          "extremeUpperFence": -0.9000000000000092,
+          "outliers": [],
+          "variance": 1.2626666666666653,
+          "sd": 1.1236844159579082,
+          "sem": 0.3553402125663046,
+          "skewness": -0.36574508174886067,
+          "skewnessInterpretation": "Approximately Symmetric",
+          "kurtosis": -1.4299999060159787,
+          "kurtosisInterpretation": "Platykurtic (Light Tails / Flat)",
+          "ci95": [
+            -8.276068658115324,
+            -6.843931341884675
+          ],
+          "ci99": [
+            -8.501073738120368,
+            -6.618926261879632
+          ],
+          "normality": {
+            "test": "Jarque-Bera",
+            "statistic": 1.0749906627081796,
+            "pValue": 0.5842096730734699,
+            "isNormal": true
+          }
+        },
+        "normality": {
+          "isNormal": true,
+          "testName": "Jarque-Bera Test of Paired Differences (Δ)",
+          "statistic": 1.0749906627081796,
+          "pValue": 0.5842096730734699,
+          "skewness": -0.36574508174886067,
+          "kurtosis": -1.4299999060159787,
+          "interpretation": "Normal Distribution (Parametric suitable)"
+        },
+        "varianceEquality": {
+          "applicable": false,
+          "note": "Not required for paired repeated measures (within-subject differencing removes inter-subject variance)."
+        },
+        "recommendedTest": "paired",
+        "recommendedTestName": "Paired Samples Student's t-test (Parametric)",
+        "rationale": "Paired / repeated measures design (10 paired observations). Within-subject differences (Δ = Post - Pre) conform to normality (Jarque-Bera p = 0.584, Skewness = -0.37). The parametric Paired Samples t-test is recommended."
+      }
+    },
+    "levene": {
+      "groups": [
+        {
+          "name": "Group 1",
+          "data": [
+            14.2,
+            15.1,
+            13.8,
+            16.5,
+            14.9,
+            15.8,
+            17.2,
+            13.5,
+            15,
+            14.6,
+            16.1,
+            14.8,
+            15.4,
+            16
+          ]
+        },
+        {
+          "name": "Group 2",
+          "data": [
+            22.4,
+            28.1,
+            18.9,
+            31.5,
+            24,
+            19.8,
+            35.2,
+            26.7,
+            21.3,
+            29.4,
+            33.1,
+            20.5
+          ]
+        }
+      ],
+      "results": {
+        "statistic": 31.391830874836632,
+        "fStatistic": 31.391830874836632,
+        "df1": 1,
+        "df2": 24,
+        "pValue": 0.000009116388993649777,
+        "varianceRatio": 28.584560075306946,
+        "equalVariance": false,
+        "interpretation": "Heteroscedastic (Unequal Variances Detected, p < .05)"
+      }
+    }
+  },
+  "anova": {
+    "oneWay": {
+      "groups": [
+        {
+          "name": "Group 1 (Control)",
+          "data": [
+            12.1,
+            14.3,
+            13.5,
+            15,
+            14.2,
+            13.8,
+            16.1,
+            14.5,
+            15.2,
+            13.9
+          ]
+        },
+        {
+          "name": "Group 2 (Treatment Low)",
+          "data": [
+            18.4,
+            20.1,
+            19.2,
+            22,
+            21.3,
+            20.5,
+            23.1,
+            19.8,
+            21,
+            22.4
+          ]
+        },
+        {
+          "name": "Group 3 (Treatment High)",
+          "data": [
+            25,
+            28.2,
+            27.1,
+            30.5,
+            29,
+            26.8,
+            31.4,
+            28.5,
+            29.2,
+            32.1
+          ]
+        }
+      ],
+      "results": {
+        "testKey": "oneway",
+        "testName": "One-Way Analysis of Variance (Fisher's ANOVA)",
+        "k": 3,
+        "totalN": 30,
+        "grandMean": 21.273333333333333,
+        "groups": [
+          {
+            "name": "Group 1 (Control)",
+            "stats": {
+              "n": 10,
+              "values": [
+                12.1,
+                13.5,
+                13.8,
+                13.9,
+                14.2,
+                14.3,
+                14.5,
+                15,
+                15.2,
+                16.1
+              ],
+              "sum": 142.6,
+              "mean": 14.26,
+              "median": 14.25,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 12.1,
+              "max": 16.1,
+              "range": 4.000000000000002,
+              "q1": 13.825000000000001,
+              "q3": 14.875,
+              "iqr": 1.049999999999999,
+              "lowerFence": 12.250000000000004,
+              "upperFence": 16.45,
+              "extremeLowerFence": 10.675000000000004,
+              "extremeUpperFence": 18.025,
+              "outliers": [
+                {
+                  "value": 12.1,
+                  "zScore": -2.003208435659466,
+                  "type": "Mild",
+                  "direction": "Low"
+                }
+              ],
+              "variance": 1.1626666666666672,
+              "sd": 1.0782702196883058,
+              "sem": 0.340978982734518,
+              "skewness": -0.3524854292964424,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": 1.264699105038658,
+              "kurtosisInterpretation": "Leptokurtic (Heavy Tails / Peaked)",
+              "ci95": [
+                13.572871569336739,
+                14.94712843066326
+              ],
+              "ci99": [
+                13.356960167876926,
+                15.163039832123074
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.8735198907294882,
+                "pValue": 0.6461265184609154,
+                "isNormal": true
+              }
+            },
+            "data": [
+              12.1,
+              13.5,
+              13.8,
+              13.9,
+              14.2,
+              14.3,
+              14.5,
+              15,
+              15.2,
+              16.1
+            ]
+          },
+          {
+            "name": "Group 2 (Treatment Low)",
+            "stats": {
+              "n": 10,
+              "values": [
+                18.4,
+                19.2,
+                19.8,
+                20.1,
+                20.5,
+                21,
+                21.3,
+                22,
+                22.4,
+                23.1
+              ],
+              "sum": 207.8,
+              "mean": 20.78,
+              "median": 20.75,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 18.4,
+              "max": 23.1,
+              "range": 4.700000000000003,
+              "q1": 19.875,
+              "q3": 21.825,
+              "iqr": 1.9499999999999993,
+              "lowerFence": 16.950000000000003,
+              "upperFence": 24.75,
+              "extremeLowerFence": 14.025000000000002,
+              "extremeUpperFence": 27.674999999999997,
+              "outliers": [],
+              "variance": 2.1640000000000006,
+              "sd": 1.4710540438746635,
+              "sem": 0.4651881339845203,
+              "skewness": 0.00011518224678446378,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": -0.7222264659670863,
+              "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+              "ci95": [
+                19.842569810301697,
+                21.717430189698305
+              ],
+              "ci99": [
+                19.548007895823602,
+                22.0119921041764
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.2173379671712945,
+                "pValue": 0.8970272991193108,
+                "isNormal": true
+              }
+            },
+            "data": [
+              18.4,
+              19.2,
+              19.8,
+              20.1,
+              20.5,
+              21,
+              21.3,
+              22,
+              22.4,
+              23.1
+            ]
+          },
+          {
+            "name": "Group 3 (Treatment High)",
+            "stats": {
+              "n": 10,
+              "values": [
+                25,
+                26.8,
+                27.1,
+                28.2,
+                28.5,
+                29,
+                29.2,
+                30.5,
+                31.4,
+                32.1
+              ],
+              "sum": 287.8,
+              "mean": 28.78,
+              "median": 28.75,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 25,
+              "max": 32.1,
+              "range": 7.100000000000001,
+              "q1": 27.375000000000004,
+              "q3": 30.175,
+              "iqr": 2.799999999999997,
+              "lowerFence": 23.175000000000008,
+              "upperFence": 34.375,
+              "extremeLowerFence": 18.975000000000012,
+              "extremeUpperFence": 38.57499999999999,
+              "outliers": [],
+              "variance": 4.723999999999999,
+              "sd": 2.173476477903545,
+              "sem": 0.6873136110975833,
+              "skewness": -0.09440464845016175,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": -0.37823586331448933,
+              "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+              "ci95": [
+                27.394950636606577,
+                30.165049363393425
+              ],
+              "ci99": [
+                26.95973658375093,
+                30.60026341624907
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.07446304953885483,
+                "pValue": 0.9634530462803332,
+                "isNormal": true
+              }
+            },
+            "data": [
+              25,
+              26.8,
+              27.1,
+              28.2,
+              28.5,
+              29,
+              29.2,
+              30.5,
+              31.4,
+              32.1
+            ]
+          }
+        ],
+        "dfBetween": 2,
+        "dfWithin": 27,
+        "dfTotal": 29,
+        "ssBetween": 1057.802666666667,
+        "ssWithin": 72.45600000000002,
+        "ssTotal": 1130.258666666667,
+        "msBetween": 528.9013333333335,
+        "msWithin": 2.6835555555555564,
+        "statistic": 197.089764822789,
+        "fStatistic": 197.089764822789,
+        "pValue": 7.820533973536467e-17,
+        "etaSquared": 0.9358943203561662,
+        "omegaSquared": 0.9289401832789353,
+        "effectSizeLabel": "Eta² (η²) & Omega² (ω²)",
+        "pairwise": [
+          {
+            "groupA": "Group 1 (Control)",
+            "groupB": "Group 2 (Treatment Low)",
+            "comparison": "Group 1 (Control) vs Group 2 (Treatment Low)",
+            "meanA": 14.26,
+            "meanB": 20.78,
+            "meanDiff": -6.520000000000001,
+            "seDiff": 0.7326056996168616,
+            "statisticLabel": "q / t",
+            "qStatistic": 12.586132528718808,
+            "tStatistic": 8.899739659969658,
+            "pValue": 4.881170529633347e-9,
+            "pValueRaw": 1.6270568432111157e-9,
+            "ci95": [
+              -7.969173032456446,
+              -5.070826967543557
+            ],
+            "cohensD": -3.980084572348604,
+            "isSignificant": true
+          },
+          {
+            "groupA": "Group 1 (Control)",
+            "groupB": "Group 3 (Treatment High)",
+            "comparison": "Group 1 (Control) vs Group 3 (Treatment High)",
+            "meanA": 14.26,
+            "meanB": 28.78,
+            "meanDiff": -14.520000000000001,
+            "seDiff": 0.7326056996168616,
+            "statisticLabel": "q / t",
+            "qStatistic": 28.029239925919796,
+            "tStatistic": 19.81966562312261,
+            "pValue": 3.844509730898492e-17,
+            "pValueRaw": 1.2815032436328306e-17,
+            "ci95": [
+              -15.969173032456446,
+              -13.070826967543557
+            ],
+            "cohensD": -8.863623924923576,
+            "isSignificant": true
+          },
+          {
+            "groupA": "Group 2 (Treatment Low)",
+            "groupB": "Group 3 (Treatment High)",
+            "comparison": "Group 2 (Treatment Low) vs Group 3 (Treatment High)",
+            "meanA": 20.78,
+            "meanB": 28.78,
+            "meanDiff": -8,
+            "seDiff": 0.7326056996168616,
+            "statisticLabel": "q / t",
+            "qStatistic": 15.443107397200988,
+            "tStatistic": 10.919925963152952,
+            "pValue": 6.239903891367393e-11,
+            "pValueRaw": 2.079967963789131e-11,
+            "ci95": [
+              -9.449173032456445,
+              -6.550826967543555
+            ],
+            "cohensD": -4.883539352574973,
+            "isSignificant": true
+          }
+        ],
+        "isSignificant": true
+      }
+    },
+    "welch": {
+      "groups": [
+        {
+          "name": "Group 1 (Control)",
+          "data": [
+            12.1,
+            14.3,
+            13.5,
+            15,
+            14.2,
+            13.8,
+            16.1,
+            14.5,
+            15.2,
+            13.9
+          ]
+        },
+        {
+          "name": "Group 2 (Treatment Low)",
+          "data": [
+            18.4,
+            20.1,
+            19.2,
+            22,
+            21.3,
+            20.5,
+            23.1,
+            19.8,
+            21,
+            22.4
+          ]
+        },
+        {
+          "name": "Group 3 (Treatment High)",
+          "data": [
+            25,
+            28.2,
+            27.1,
+            30.5,
+            29,
+            26.8,
+            31.4,
+            28.5,
+            29.2,
+            32.1
+          ]
+        }
+      ],
+      "results": {
+        "testKey": "welch",
+        "testName": "Welch's Heteroscedastic ANOVA (Robust)",
+        "k": 3,
+        "totalN": 30,
+        "grandMean": 18.228100277707323,
+        "groups": [
+          {
+            "name": "Group 1 (Control)",
+            "stats": {
+              "n": 10,
+              "values": [
+                12.1,
+                13.5,
+                13.8,
+                13.9,
+                14.2,
+                14.3,
+                14.5,
+                15,
+                15.2,
+                16.1
+              ],
+              "sum": 142.6,
+              "mean": 14.26,
+              "median": 14.25,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 12.1,
+              "max": 16.1,
+              "range": 4.000000000000002,
+              "q1": 13.825000000000001,
+              "q3": 14.875,
+              "iqr": 1.049999999999999,
+              "lowerFence": 12.250000000000004,
+              "upperFence": 16.45,
+              "extremeLowerFence": 10.675000000000004,
+              "extremeUpperFence": 18.025,
+              "outliers": [
+                {
+                  "value": 12.1,
+                  "zScore": -2.003208435659466,
+                  "type": "Mild",
+                  "direction": "Low"
+                }
+              ],
+              "variance": 1.1626666666666672,
+              "sd": 1.0782702196883058,
+              "sem": 0.340978982734518,
+              "skewness": -0.3524854292964424,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": 1.264699105038658,
+              "kurtosisInterpretation": "Leptokurtic (Heavy Tails / Peaked)",
+              "ci95": [
+                13.572871569336739,
+                14.94712843066326
+              ],
+              "ci99": [
+                13.356960167876926,
+                15.163039832123074
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.8735198907294882,
+                "pValue": 0.6461265184609154,
+                "isNormal": true
+              }
+            },
+            "data": [
+              12.1,
+              13.5,
+              13.8,
+              13.9,
+              14.2,
+              14.3,
+              14.5,
+              15,
+              15.2,
+              16.1
+            ]
+          },
+          {
+            "name": "Group 2 (Treatment Low)",
+            "stats": {
+              "n": 10,
+              "values": [
+                18.4,
+                19.2,
+                19.8,
+                20.1,
+                20.5,
+                21,
+                21.3,
+                22,
+                22.4,
+                23.1
+              ],
+              "sum": 207.8,
+              "mean": 20.78,
+              "median": 20.75,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 18.4,
+              "max": 23.1,
+              "range": 4.700000000000003,
+              "q1": 19.875,
+              "q3": 21.825,
+              "iqr": 1.9499999999999993,
+              "lowerFence": 16.950000000000003,
+              "upperFence": 24.75,
+              "extremeLowerFence": 14.025000000000002,
+              "extremeUpperFence": 27.674999999999997,
+              "outliers": [],
+              "variance": 2.1640000000000006,
+              "sd": 1.4710540438746635,
+              "sem": 0.4651881339845203,
+              "skewness": 0.00011518224678446378,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": -0.7222264659670863,
+              "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+              "ci95": [
+                19.842569810301697,
+                21.717430189698305
+              ],
+              "ci99": [
+                19.548007895823602,
+                22.0119921041764
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.2173379671712945,
+                "pValue": 0.8970272991193108,
+                "isNormal": true
+              }
+            },
+            "data": [
+              18.4,
+              19.2,
+              19.8,
+              20.1,
+              20.5,
+              21,
+              21.3,
+              22,
+              22.4,
+              23.1
+            ]
+          },
+          {
+            "name": "Group 3 (Treatment High)",
+            "stats": {
+              "n": 10,
+              "values": [
+                25,
+                26.8,
+                27.1,
+                28.2,
+                28.5,
+                29,
+                29.2,
+                30.5,
+                31.4,
+                32.1
+              ],
+              "sum": 287.8,
+              "mean": 28.78,
+              "median": 28.75,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 25,
+              "max": 32.1,
+              "range": 7.100000000000001,
+              "q1": 27.375000000000004,
+              "q3": 30.175,
+              "iqr": 2.799999999999997,
+              "lowerFence": 23.175000000000008,
+              "upperFence": 34.375,
+              "extremeLowerFence": 18.975000000000012,
+              "extremeUpperFence": 38.57499999999999,
+              "outliers": [],
+              "variance": 4.723999999999999,
+              "sd": 2.173476477903545,
+              "sem": 0.6873136110975833,
+              "skewness": -0.09440464845016175,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": -0.37823586331448933,
+              "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+              "ci95": [
+                27.394950636606577,
+                30.165049363393425
+              ],
+              "ci99": [
+                26.95973658375093,
+                30.60026341624907
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.07446304953885483,
+                "pValue": 0.9634530462803332,
+                "isNormal": true
+              }
+            },
+            "data": [
+              25,
+              26.8,
+              27.1,
+              28.2,
+              28.5,
+              29,
+              29.2,
+              30.5,
+              31.4,
+              32.1
+            ]
+          }
+        ],
+        "dfBetween": 2,
+        "dfWithin": 16.85129595595055,
+        "df1": 2,
+        "df2": 16.85129595595055,
+        "statistic": 192.97428882398862,
+        "fStatistic": 192.97428882398862,
+        "pValue": 2.4302058770990322e-12,
+        "etaSquared": 0.9581645947274542,
+        "omegaSquared": 0.9275272301442425,
+        "effectSizeLabel": "Robust Omega² (ω²)",
+        "pairwise": [
+          {
+            "groupA": "Group 1 (Control)",
+            "groupB": "Group 2 (Treatment Low)",
+            "comparison": "Group 1 (Control) vs Group 2 (Treatment Low)",
+            "meanA": 14.26,
+            "meanB": 20.78,
+            "meanDiff": -6.520000000000001,
+            "seDiff": 0.5767726299562651,
+            "statisticLabel": "Games-Howell t (df')",
+            "qStatistic": 15.986667792075634,
+            "tStatistic": 11.304281204353252,
+            "df": 16.50464293405269,
+            "pValue": 1.0385005187418912e-8,
+            "pValueRaw": 3.461668395806304e-9,
+            "ci95": [
+              -7.667574515258651,
+              -5.372425484741352
+            ],
+            "cohensD": -5.055428241941413,
+            "isSignificant": true
+          },
+          {
+            "groupA": "Group 1 (Control)",
+            "groupB": "Group 3 (Treatment High)",
+            "comparison": "Group 1 (Control) vs Group 3 (Treatment High)",
+            "meanA": 14.26,
+            "meanB": 28.78,
+            "meanDiff": -14.520000000000001,
+            "seDiff": 0.7672461578050859,
+            "statisticLabel": "Games-Howell t (df')",
+            "qStatistic": 26.76374552907696,
+            "tStatistic": 18.92482595356146,
+            "df": 13.177116707865029,
+            "pValue": 1.8396456252938808e-10,
+            "pValueRaw": 6.132152084312937e-11,
+            "ci95": [
+              -16.052301764667508,
+              -12.987698235332495
+            ],
+            "cohensD": -8.46343945890314,
+            "isSignificant": true
+          },
+          {
+            "groupA": "Group 2 (Treatment Low)",
+            "groupB": "Group 3 (Treatment High)",
+            "comparison": "Group 2 (Treatment Low) vs Group 3 (Treatment High)",
+            "meanA": 20.78,
+            "meanB": 28.78,
+            "meanDiff": -8,
+            "seDiff": 0.8299397568498571,
+            "statisticLabel": "Games-Howell t (df')",
+            "qStatistic": 13.631963531819942,
+            "tStatistic": 9.639253854237598,
+            "df": 15.815391580866185,
+            "pValue": 1.5199808350210267e-7,
+            "pValueRaw": 5.0666027834034225e-8,
+            "ci95": [
+              -9.652361790186685,
+              -6.347638209813315
+            ],
+            "cohensD": -4.310805374090424,
+            "isSignificant": true
+          }
+        ],
+        "isSignificant": true
+      }
+    },
+    "kruskalWallis": {
+      "groups": [
+        {
+          "name": "Group 1 (Control)",
+          "data": [
+            12.1,
+            14.3,
+            13.5,
+            15,
+            14.2,
+            13.8,
+            16.1,
+            14.5,
+            15.2,
+            13.9
+          ]
+        },
+        {
+          "name": "Group 2 (Treatment Low)",
+          "data": [
+            18.4,
+            20.1,
+            19.2,
+            22,
+            21.3,
+            20.5,
+            23.1,
+            19.8,
+            21,
+            22.4
+          ]
+        },
+        {
+          "name": "Group 3 (Treatment High)",
+          "data": [
+            25,
+            28.2,
+            27.1,
+            30.5,
+            29,
+            26.8,
+            31.4,
+            28.5,
+            29.2,
+            32.1
+          ]
+        }
+      ],
+      "results": {
+        "testKey": "kruskal",
+        "testName": "Kruskal-Wallis H Test (Non-Parametric ANOVA)",
+        "k": 3,
+        "totalN": 30,
+        "dfBetween": 2,
+        "dfWithin": 27,
+        "df": 2,
+        "statistic": 25.80645161290323,
+        "fStatistic": 25.80645161290323,
+        "pValue": 0.0000024900050821849313,
+        "etaSquared": 0.8898776418242493,
+        "epsilonSquared": 0.8898776418242493,
+        "omegaSquared": 0.8898776418242493,
+        "effectSizeLabel": "Epsilon-Squared (ε²)",
+        "groups": [
+          {
+            "name": "Group 1 (Control)",
+            "stats": {
+              "n": 10,
+              "values": [
+                12.1,
+                13.5,
+                13.8,
+                13.9,
+                14.2,
+                14.3,
+                14.5,
+                15,
+                15.2,
+                16.1
+              ],
+              "sum": 142.6,
+              "mean": 14.26,
+              "median": 14.25,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 12.1,
+              "max": 16.1,
+              "range": 4.000000000000002,
+              "q1": 13.825000000000001,
+              "q3": 14.875,
+              "iqr": 1.049999999999999,
+              "lowerFence": 12.250000000000004,
+              "upperFence": 16.45,
+              "extremeLowerFence": 10.675000000000004,
+              "extremeUpperFence": 18.025,
+              "outliers": [
+                {
+                  "value": 12.1,
+                  "zScore": -2.003208435659466,
+                  "type": "Mild",
+                  "direction": "Low"
+                }
+              ],
+              "variance": 1.1626666666666672,
+              "sd": 1.0782702196883058,
+              "sem": 0.340978982734518,
+              "skewness": -0.3524854292964424,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": 1.264699105038658,
+              "kurtosisInterpretation": "Leptokurtic (Heavy Tails / Peaked)",
+              "ci95": [
+                13.572871569336739,
+                14.94712843066326
+              ],
+              "ci99": [
+                13.356960167876926,
+                15.163039832123074
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.8735198907294882,
+                "pValue": 0.6461265184609154,
+                "isNormal": true
+              }
+            },
+            "data": [
+              12.1,
+              14.3,
+              13.5,
+              15,
+              14.2,
+              13.8,
+              16.1,
+              14.5,
+              15.2,
+              13.9
+            ]
+          },
+          {
+            "name": "Group 2 (Treatment Low)",
+            "stats": {
+              "n": 10,
+              "values": [
+                18.4,
+                19.2,
+                19.8,
+                20.1,
+                20.5,
+                21,
+                21.3,
+                22,
+                22.4,
+                23.1
+              ],
+              "sum": 207.8,
+              "mean": 20.78,
+              "median": 20.75,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 18.4,
+              "max": 23.1,
+              "range": 4.700000000000003,
+              "q1": 19.875,
+              "q3": 21.825,
+              "iqr": 1.9499999999999993,
+              "lowerFence": 16.950000000000003,
+              "upperFence": 24.75,
+              "extremeLowerFence": 14.025000000000002,
+              "extremeUpperFence": 27.674999999999997,
+              "outliers": [],
+              "variance": 2.1640000000000006,
+              "sd": 1.4710540438746635,
+              "sem": 0.4651881339845203,
+              "skewness": 0.00011518224678446378,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": -0.7222264659670863,
+              "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+              "ci95": [
+                19.842569810301697,
+                21.717430189698305
+              ],
+              "ci99": [
+                19.548007895823602,
+                22.0119921041764
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.2173379671712945,
+                "pValue": 0.8970272991193108,
+                "isNormal": true
+              }
+            },
+            "data": [
+              18.4,
+              20.1,
+              19.2,
+              22,
+              21.3,
+              20.5,
+              23.1,
+              19.8,
+              21,
+              22.4
+            ]
+          },
+          {
+            "name": "Group 3 (Treatment High)",
+            "stats": {
+              "n": 10,
+              "values": [
+                25,
+                26.8,
+                27.1,
+                28.2,
+                28.5,
+                29,
+                29.2,
+                30.5,
+                31.4,
+                32.1
+              ],
+              "sum": 287.8,
+              "mean": 28.78,
+              "median": 28.75,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 25,
+              "max": 32.1,
+              "range": 7.100000000000001,
+              "q1": 27.375000000000004,
+              "q3": 30.175,
+              "iqr": 2.799999999999997,
+              "lowerFence": 23.175000000000008,
+              "upperFence": 34.375,
+              "extremeLowerFence": 18.975000000000012,
+              "extremeUpperFence": 38.57499999999999,
+              "outliers": [],
+              "variance": 4.723999999999999,
+              "sd": 2.173476477903545,
+              "sem": 0.6873136110975833,
+              "skewness": -0.09440464845016175,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": -0.37823586331448933,
+              "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+              "ci95": [
+                27.394950636606577,
+                30.165049363393425
+              ],
+              "ci99": [
+                26.95973658375093,
+                30.60026341624907
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.07446304953885483,
+                "pValue": 0.9634530462803332,
+                "isNormal": true
+              }
+            },
+            "data": [
+              25,
+              28.2,
+              27.1,
+              30.5,
+              29,
+              26.8,
+              31.4,
+              28.5,
+              29.2,
+              32.1
+            ]
+          }
+        ],
+        "groupRankSums": [
+          55,
+          155,
+          255
+        ],
+        "pairwise": [
+          {
+            "groupA": "Group 1 (Control)",
+            "groupB": "Group 2 (Treatment Low)",
+            "comparison": "Group 1 (Control) vs Group 2 (Treatment Low)",
+            "meanA": 14.26,
+            "meanB": 20.78,
+            "medianA": 14.25,
+            "medianB": 20.75,
+            "meanDiff": -6.5,
+            "rankDiff": -10,
+            "seDiff": 3.9370039370059056,
+            "statisticLabel": "Dunn's z",
+            "zStatistic": 2.54000254000381,
+            "tStatistic": 2.54000254000381,
+            "pValue": 0.03325563610102522,
+            "pValueRaw": 0.011085212033675074,
+            "ci95": [
+              -6.5,
+              -6.5
+            ],
+            "cohensD": 0.46373889576016825,
+            "isSignificant": true
+          },
+          {
+            "groupA": "Group 1 (Control)",
+            "groupB": "Group 3 (Treatment High)",
+            "comparison": "Group 1 (Control) vs Group 3 (Treatment High)",
+            "meanA": 14.26,
+            "meanB": 28.78,
+            "medianA": 14.25,
+            "medianB": 28.75,
+            "meanDiff": -14.5,
+            "rankDiff": -20,
+            "seDiff": 3.9370039370059056,
+            "statisticLabel": "Dunn's z",
+            "zStatistic": 5.08000508000762,
+            "tStatistic": 5.08000508000762,
+            "pValue": 0.0000011342083046095297,
+            "pValueRaw": 3.7806943486984323e-7,
+            "ci95": [
+              -14.5,
+              -14.5
+            ],
+            "cohensD": 0.9274777915203365,
+            "isSignificant": true
+          },
+          {
+            "groupA": "Group 2 (Treatment Low)",
+            "groupB": "Group 3 (Treatment High)",
+            "comparison": "Group 2 (Treatment Low) vs Group 3 (Treatment High)",
+            "meanA": 20.78,
+            "meanB": 28.78,
+            "medianA": 20.75,
+            "medianB": 28.75,
+            "meanDiff": -8,
+            "rankDiff": -10,
+            "seDiff": 3.9370039370059056,
+            "statisticLabel": "Dunn's z",
+            "zStatistic": 2.54000254000381,
+            "tStatistic": 2.54000254000381,
+            "pValue": 0.03325563610102522,
+            "pValueRaw": 0.011085212033675074,
+            "ci95": [
+              -8,
+              -8
+            ],
+            "cohensD": 0.46373889576016825,
+            "isSignificant": true
+          }
+        ],
+        "isSignificant": true
+      }
+    },
+    "repeatedMeasures": {
+      "groups": [
+        {
+          "name": "Group 1 (Control)",
+          "data": [
+            12.1,
+            14.3,
+            13.5,
+            15,
+            14.2,
+            13.8,
+            16.1,
+            14.5,
+            15.2,
+            13.9
+          ]
+        },
+        {
+          "name": "Group 2 (Treatment Low)",
+          "data": [
+            18.4,
+            20.1,
+            19.2,
+            22,
+            21.3,
+            20.5,
+            23.1,
+            19.8,
+            21,
+            22.4
+          ]
+        },
+        {
+          "name": "Group 3 (Treatment High)",
+          "data": [
+            25,
+            28.2,
+            27.1,
+            30.5,
+            29,
+            26.8,
+            31.4,
+            28.5,
+            29.2,
+            32.1
+          ]
+        }
+      ],
+      "results": {
+        "testKey": "rm_anova",
+        "testName": "One-Way Repeated Measures ANOVA (Within-Subjects)",
+        "k": 3,
+        "totalN": 10,
+        "matchedN": 10,
+        "grandMean": 21.273333333333337,
+        "groups": [
+          {
+            "name": "Group 1 (Control)",
+            "stats": {
+              "n": 10,
+              "values": [
+                12.1,
+                13.5,
+                13.8,
+                13.9,
+                14.2,
+                14.3,
+                14.5,
+                15,
+                15.2,
+                16.1
+              ],
+              "sum": 142.6,
+              "mean": 14.26,
+              "median": 14.25,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 12.1,
+              "max": 16.1,
+              "range": 4.000000000000002,
+              "q1": 13.825000000000001,
+              "q3": 14.875,
+              "iqr": 1.049999999999999,
+              "lowerFence": 12.250000000000004,
+              "upperFence": 16.45,
+              "extremeLowerFence": 10.675000000000004,
+              "extremeUpperFence": 18.025,
+              "outliers": [
+                {
+                  "value": 12.1,
+                  "zScore": -2.003208435659466,
+                  "type": "Mild",
+                  "direction": "Low"
+                }
+              ],
+              "variance": 1.1626666666666672,
+              "sd": 1.0782702196883058,
+              "sem": 0.340978982734518,
+              "skewness": -0.3524854292964424,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": 1.264699105038658,
+              "kurtosisInterpretation": "Leptokurtic (Heavy Tails / Peaked)",
+              "ci95": [
+                13.572871569336739,
+                14.94712843066326
+              ],
+              "ci99": [
+                13.356960167876926,
+                15.163039832123074
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.8735198907294882,
+                "pValue": 0.6461265184609154,
+                "isNormal": true
+              }
+            },
+            "data": [
+              12.1,
+              14.3,
+              13.5,
+              15,
+              14.2,
+              13.8,
+              16.1,
+              14.5,
+              15.2,
+              13.9
+            ]
+          },
+          {
+            "name": "Group 2 (Treatment Low)",
+            "stats": {
+              "n": 10,
+              "values": [
+                18.4,
+                19.2,
+                19.8,
+                20.1,
+                20.5,
+                21,
+                21.3,
+                22,
+                22.4,
+                23.1
+              ],
+              "sum": 207.8,
+              "mean": 20.78,
+              "median": 20.75,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 18.4,
+              "max": 23.1,
+              "range": 4.700000000000003,
+              "q1": 19.875,
+              "q3": 21.825,
+              "iqr": 1.9499999999999993,
+              "lowerFence": 16.950000000000003,
+              "upperFence": 24.75,
+              "extremeLowerFence": 14.025000000000002,
+              "extremeUpperFence": 27.674999999999997,
+              "outliers": [],
+              "variance": 2.1640000000000006,
+              "sd": 1.4710540438746635,
+              "sem": 0.4651881339845203,
+              "skewness": 0.00011518224678446378,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": -0.7222264659670863,
+              "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+              "ci95": [
+                19.842569810301697,
+                21.717430189698305
+              ],
+              "ci99": [
+                19.548007895823602,
+                22.0119921041764
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.2173379671712945,
+                "pValue": 0.8970272991193108,
+                "isNormal": true
+              }
+            },
+            "data": [
+              18.4,
+              20.1,
+              19.2,
+              22,
+              21.3,
+              20.5,
+              23.1,
+              19.8,
+              21,
+              22.4
+            ]
+          },
+          {
+            "name": "Group 3 (Treatment High)",
+            "stats": {
+              "n": 10,
+              "values": [
+                25,
+                26.8,
+                27.1,
+                28.2,
+                28.5,
+                29,
+                29.2,
+                30.5,
+                31.4,
+                32.1
+              ],
+              "sum": 287.8,
+              "mean": 28.78,
+              "median": 28.75,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 25,
+              "max": 32.1,
+              "range": 7.100000000000001,
+              "q1": 27.375000000000004,
+              "q3": 30.175,
+              "iqr": 2.799999999999997,
+              "lowerFence": 23.175000000000008,
+              "upperFence": 34.375,
+              "extremeLowerFence": 18.975000000000012,
+              "extremeUpperFence": 38.57499999999999,
+              "outliers": [],
+              "variance": 4.723999999999999,
+              "sd": 2.173476477903545,
+              "sem": 0.6873136110975833,
+              "skewness": -0.09440464845016175,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": -0.37823586331448933,
+              "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+              "ci95": [
+                27.394950636606577,
+                30.165049363393425
+              ],
+              "ci99": [
+                26.95973658375093,
+                30.60026341624907
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.07446304953885483,
+                "pValue": 0.9634530462803332,
+                "isNormal": true
+              }
+            },
+            "data": [
+              25,
+              28.2,
+              27.1,
+              30.5,
+              29,
+              26.8,
+              31.4,
+              28.5,
+              29.2,
+              32.1
+            ]
+          }
+        ],
+        "dfBetween": 2,
+        "dfWithin": 18,
+        "dfTreatment": 2,
+        "dfSubjects": 9,
+        "dfError": 18,
+        "dfTotal": 29,
+        "ssBetween": 1057.8026666666667,
+        "ssWithin": 12.87066666666692,
+        "ssTreatment": 1057.8026666666667,
+        "ssSubjects": 59.58533333333332,
+        "ssError": 12.87066666666692,
+        "ssTotal": 1130.2586666666668,
+        "msTreatment": 528.9013333333334,
+        "msError": 0.7150370370370511,
+        "statistic": 739.6838288614792,
+        "fStatistic": 739.6838288614792,
+        "pValue": 5.2424761039205095e-18,
+        "pValueGG": 4.0907858876298756e-17,
+        "ggEpsilon": 0.9444444444444444,
+        "etaSquared": 0.9879789042409447,
+        "omegaSquared": 0.9879789042409447,
+        "partialEtaSquared": 0.9879789042409447,
+        "effectSizeLabel": "Partial Eta² (η²_p)",
+        "pairwise": [
+          {
+            "groupA": "Group 1 (Control)",
+            "groupB": "Group 2 (Treatment Low)",
+            "comparison": "Group 1 (Control) vs Group 2 (Treatment Low)",
+            "meanA": 14.26,
+            "meanB": 20.78,
+            "meanDiff": -6.519999999999999,
+            "seDiff": 0.29806785208144193,
+            "statisticLabel": "Paired t (df)",
+            "tStatistic": -21.874214057202387,
+            "df": 9,
+            "pValue": 1.2339370796740165e-8,
+            "pValueRaw": 4.113123598913388e-9,
+            "ci95": [
+              -7.1204288747923625,
+              -5.919571125207635
+            ],
+            "cohensD": -6.917233844683223,
+            "isSignificant": true
+          },
+          {
+            "groupA": "Group 1 (Control)",
+            "groupB": "Group 3 (Treatment High)",
+            "comparison": "Group 1 (Control) vs Group 3 (Treatment High)",
+            "meanA": 14.26,
+            "meanB": 28.78,
+            "meanDiff": -14.52,
+            "seDiff": 0.49324323501583783,
+            "statisticLabel": "Paired t (df)",
+            "tStatistic": -29.437808710207182,
+            "df": 9,
+            "pValue": 8.804005069746675e-10,
+            "pValueRaw": 2.934668356582225e-10,
+            "ci95": [
+              -15.51359081676002,
+              -13.526409183239979
+            ],
+            "cohensD": -9.30905248485983,
+            "isSignificant": true
+          },
+          {
+            "groupA": "Group 2 (Treatment Low)",
+            "groupB": "Group 3 (Treatment High)",
+            "comparison": "Group 2 (Treatment Low) vs Group 3 (Treatment High)",
+            "meanA": 20.78,
+            "meanB": 28.78,
+            "meanDiff": -8.000000000000002,
+            "seDiff": 0.3112698007981,
+            "statisticLabel": "Paired t (df)",
+            "tStatistic": -25.70117621268717,
+            "df": 9,
+            "pValue": 2.950794970730593e-9,
+            "pValueRaw": 9.835983235768644e-10,
+            "ci95": [
+              -8.627022924293698,
+              -7.372977075706307
+            ],
+            "cohensD": -8.127425537743157,
+            "isSignificant": true
+          }
+        ],
+        "isSignificant": true
+      }
+    },
+    "friedman": {
+      "groups": [
+        {
+          "name": "Group 1 (Control)",
+          "data": [
+            12.1,
+            14.3,
+            13.5,
+            15,
+            14.2,
+            13.8,
+            16.1,
+            14.5,
+            15.2,
+            13.9
+          ]
+        },
+        {
+          "name": "Group 2 (Treatment Low)",
+          "data": [
+            18.4,
+            20.1,
+            19.2,
+            22,
+            21.3,
+            20.5,
+            23.1,
+            19.8,
+            21,
+            22.4
+          ]
+        },
+        {
+          "name": "Group 3 (Treatment High)",
+          "data": [
+            25,
+            28.2,
+            27.1,
+            30.5,
+            29,
+            26.8,
+            31.4,
+            28.5,
+            29.2,
+            32.1
+          ]
+        }
+      ],
+      "results": {
+        "testKey": "friedman",
+        "testName": "Friedman Test (Non-Parametric Repeated Measures)",
+        "k": 3,
+        "totalN": 10,
+        "matchedN": 10,
+        "dfBetween": 2,
+        "dfWithin": 20,
+        "df": 2,
+        "statistic": 20,
+        "fStatistic": 20,
+        "pValue": 0.00004539992976248485,
+        "etaSquared": 1,
+        "omegaSquared": 1,
+        "kendallsW": 1,
+        "effectSizeLabel": "Kendall's Concordance W",
+        "groups": [
+          {
+            "name": "Group 1 (Control)",
+            "stats": {
+              "n": 10,
+              "values": [
+                12.1,
+                13.5,
+                13.8,
+                13.9,
+                14.2,
+                14.3,
+                14.5,
+                15,
+                15.2,
+                16.1
+              ],
+              "sum": 142.6,
+              "mean": 14.26,
+              "median": 14.25,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 12.1,
+              "max": 16.1,
+              "range": 4.000000000000002,
+              "q1": 13.825000000000001,
+              "q3": 14.875,
+              "iqr": 1.049999999999999,
+              "lowerFence": 12.250000000000004,
+              "upperFence": 16.45,
+              "extremeLowerFence": 10.675000000000004,
+              "extremeUpperFence": 18.025,
+              "outliers": [
+                {
+                  "value": 12.1,
+                  "zScore": -2.003208435659466,
+                  "type": "Mild",
+                  "direction": "Low"
+                }
+              ],
+              "variance": 1.1626666666666672,
+              "sd": 1.0782702196883058,
+              "sem": 0.340978982734518,
+              "skewness": -0.3524854292964424,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": 1.264699105038658,
+              "kurtosisInterpretation": "Leptokurtic (Heavy Tails / Peaked)",
+              "ci95": [
+                13.572871569336739,
+                14.94712843066326
+              ],
+              "ci99": [
+                13.356960167876926,
+                15.163039832123074
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.8735198907294882,
+                "pValue": 0.6461265184609154,
+                "isNormal": true
+              }
+            },
+            "data": [
+              12.1,
+              14.3,
+              13.5,
+              15,
+              14.2,
+              13.8,
+              16.1,
+              14.5,
+              15.2,
+              13.9
+            ]
+          },
+          {
+            "name": "Group 2 (Treatment Low)",
+            "stats": {
+              "n": 10,
+              "values": [
+                18.4,
+                19.2,
+                19.8,
+                20.1,
+                20.5,
+                21,
+                21.3,
+                22,
+                22.4,
+                23.1
+              ],
+              "sum": 207.8,
+              "mean": 20.78,
+              "median": 20.75,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 18.4,
+              "max": 23.1,
+              "range": 4.700000000000003,
+              "q1": 19.875,
+              "q3": 21.825,
+              "iqr": 1.9499999999999993,
+              "lowerFence": 16.950000000000003,
+              "upperFence": 24.75,
+              "extremeLowerFence": 14.025000000000002,
+              "extremeUpperFence": 27.674999999999997,
+              "outliers": [],
+              "variance": 2.1640000000000006,
+              "sd": 1.4710540438746635,
+              "sem": 0.4651881339845203,
+              "skewness": 0.00011518224678446378,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": -0.7222264659670863,
+              "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+              "ci95": [
+                19.842569810301697,
+                21.717430189698305
+              ],
+              "ci99": [
+                19.548007895823602,
+                22.0119921041764
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.2173379671712945,
+                "pValue": 0.8970272991193108,
+                "isNormal": true
+              }
+            },
+            "data": [
+              18.4,
+              20.1,
+              19.2,
+              22,
+              21.3,
+              20.5,
+              23.1,
+              19.8,
+              21,
+              22.4
+            ]
+          },
+          {
+            "name": "Group 3 (Treatment High)",
+            "stats": {
+              "n": 10,
+              "values": [
+                25,
+                26.8,
+                27.1,
+                28.2,
+                28.5,
+                29,
+                29.2,
+                30.5,
+                31.4,
+                32.1
+              ],
+              "sum": 287.8,
+              "mean": 28.78,
+              "median": 28.75,
+              "modes": [],
+              "maxFreq": 1,
+              "min": 25,
+              "max": 32.1,
+              "range": 7.100000000000001,
+              "q1": 27.375000000000004,
+              "q3": 30.175,
+              "iqr": 2.799999999999997,
+              "lowerFence": 23.175000000000008,
+              "upperFence": 34.375,
+              "extremeLowerFence": 18.975000000000012,
+              "extremeUpperFence": 38.57499999999999,
+              "outliers": [],
+              "variance": 4.723999999999999,
+              "sd": 2.173476477903545,
+              "sem": 0.6873136110975833,
+              "skewness": -0.09440464845016175,
+              "skewnessInterpretation": "Approximately Symmetric",
+              "kurtosis": -0.37823586331448933,
+              "kurtosisInterpretation": "Mesokurtic (Normal Tails)",
+              "ci95": [
+                27.394950636606577,
+                30.165049363393425
+              ],
+              "ci99": [
+                26.95973658375093,
+                30.60026341624907
+              ],
+              "normality": {
+                "test": "Jarque-Bera",
+                "statistic": 0.07446304953885483,
+                "pValue": 0.9634530462803332,
+                "isNormal": true
+              }
+            },
+            "data": [
+              25,
+              28.2,
+              27.1,
+              30.5,
+              29,
+              26.8,
+              31.4,
+              28.5,
+              29.2,
+              32.1
+            ]
+          }
+        ],
+        "conditionRankSums": [
+          10,
+          20,
+          30
+        ],
+        "pairwise": [
+          {
+            "groupA": "Group 1 (Control)",
+            "groupB": "Group 2 (Treatment Low)",
+            "comparison": "Group 1 (Control) vs Group 2 (Treatment Low)",
+            "meanA": 14.26,
+            "meanB": 20.78,
+            "medianA": 14.25,
+            "medianB": 20.75,
+            "meanDiff": -6.5,
+            "seDiff": 0,
+            "statisticLabel": "Wilcoxon z",
+            "zStatistic": -2.8030595529069404,
+            "tStatistic": -2.8030595529069404,
+            "pValue": 0.015186460483094688,
+            "pValueRaw": 0.005062153494364896,
+            "ci95": [
+              -6.5,
+              -6.5
+            ],
+            "cohensD": 0.8864052604279182,
+            "isSignificant": true
+          },
+          {
+            "groupA": "Group 1 (Control)",
+            "groupB": "Group 3 (Treatment High)",
+            "comparison": "Group 1 (Control) vs Group 3 (Treatment High)",
+            "meanA": 14.26,
+            "meanB": 28.78,
+            "medianA": 14.25,
+            "medianB": 28.75,
+            "meanDiff": -14.5,
+            "seDiff": 0,
+            "statisticLabel": "Wilcoxon z",
+            "zStatistic": -2.8030595529069404,
+            "tStatistic": -2.8030595529069404,
+            "pValue": 0.015186460483094688,
+            "pValueRaw": 0.005062153494364896,
+            "ci95": [
+              -14.5,
+              -14.5
+            ],
+            "cohensD": 0.8864052604279182,
+            "isSignificant": true
+          },
+          {
+            "groupA": "Group 2 (Treatment Low)",
+            "groupB": "Group 3 (Treatment High)",
+            "comparison": "Group 2 (Treatment Low) vs Group 3 (Treatment High)",
+            "meanA": 20.78,
+            "meanB": 28.78,
+            "medianA": 20.75,
+            "medianB": 28.75,
+            "meanDiff": -8,
+            "seDiff": 0,
+            "statisticLabel": "Wilcoxon z",
+            "zStatistic": -2.8030595529069404,
+            "tStatistic": -2.8030595529069404,
+            "pValue": 0.015186460483094688,
+            "pValueRaw": 0.005062153494364896,
+            "ci95": [
+              -8,
+              -8
+            ],
+            "cohensD": 0.8864052604279182,
+            "isSignificant": true
+          }
+        ],
+        "isSignificant": true
+      }
+    }
+  },
+  "categorical": {
+    "tables": [
+      {
+        "name": "Shunt Infection Trial",
+        "a": 14,
+        "b": 86,
+        "c": 32,
+        "d": 68,
+        "results": {
+          "table": {
+            "a": 14,
+            "b": 86,
+            "c": 32,
+            "d": 68,
+            "r1": 100,
+            "r2": 100,
+            "c1": 46,
+            "c2": 154,
+            "n": 200
+          },
+          "expected": {
+            "eA": 23,
+            "eB": 77,
+            "eC": 23,
+            "eD": 77
+          },
+          "chiSquare": {
+            "standard": 9.14737436476567,
+            "pValueStandard": 0.002490890691848824,
+            "yates": 8.15923207227555,
+            "pValueYates": 0.00428438005656373,
+            "df": 1
+          },
+          "fishersExact": {
+            "pValue": 0.00397603738556821
+          },
+          "riskMetrics": {
+            "oddsRatio": 0.34593023255813954,
+            "orCI95": [
+              0.17110057685800023,
+              0.6993998968048083
+            ],
+            "relativeRisk": 0.544994944388271,
+            "rrCI95": [
+              0.34441968085514774,
+              0.8623766466286571
+            ],
+            "riskTreated": 0.30434782608695654,
+            "riskControl": 0.5584415584415584,
+            "arr": -0.25409373235460186,
+            "arrCI95": [
+              -0.4084688897991832,
+              -0.09971857491002051
+            ],
+            "nnt": 3.9355555555555566
+          }
+        }
+      },
+      {
+        "name": "Tumor Recurrence",
+        "a": 45,
+        "b": 55,
+        "c": 20,
+        "d": 80,
+        "results": {
+          "table": {
+            "a": 45,
+            "b": 55,
+            "c": 20,
+            "d": 80,
+            "r1": 100,
+            "r2": 100,
+            "c1": 65,
+            "c2": 135,
+            "n": 200
+          },
+          "expected": {
+            "eA": 32.5,
+            "eB": 67.5,
+            "eC": 32.5,
+            "eD": 67.5
+          },
+          "chiSquare": {
+            "standard": 14.245014245014245,
+            "pValueStandard": 0.00016053713357910837,
+            "yates": 13.128205128205128,
+            "pValueYates": 0.0002909543381659496,
+            "df": 1
+          },
+          "fishersExact": {
+            "pValue": 0.00025902907109085155
+          },
+          "riskMetrics": {
+            "oddsRatio": 3.272727272727273,
+            "orCI95": [
+              1.745242456512245,
+              6.137109352162808
+            ],
+            "relativeRisk": 1.6993006993006994,
+            "rrCI95": [
+              1.3101078337198946,
+              2.204110831430407
+            ],
+            "riskTreated": 0.6923076923076923,
+            "riskControl": 0.4074074074074074,
+            "arr": 0.2849002849002849,
+            "arrCI95": [
+              0.14540451825161557,
+              0.4243960515489542
+            ],
+            "nnt": 3.51
+          }
+        }
+      },
+      {
+        "name": "Rare Event Study",
+        "a": 3,
+        "b": 97,
+        "c": 12,
+        "d": 88,
+        "results": {
+          "table": {
+            "a": 3,
+            "b": 97,
+            "c": 12,
+            "d": 88,
+            "r1": 100,
+            "r2": 100,
+            "c1": 15,
+            "c2": 185,
+            "n": 200
+          },
+          "expected": {
+            "eA": 7.5,
+            "eB": 92.5,
+            "eC": 7.5,
+            "eD": 92.5
+          },
+          "chiSquare": {
+            "standard": 5.837837837837839,
+            "pValueStandard": 0.015685083453832016,
+            "yates": 4.612612612612613,
+            "pValueYates": 0.0317375320977078,
+            "df": 1
+          },
+          "fishersExact": {
+            "pValue": 0.028671314973249085
+          },
+          "riskMetrics": {
+            "oddsRatio": 0.2268041237113402,
+            "orCI95": [
+              0.06195752751665493,
+              0.8302479552406475
+            ],
+            "relativeRisk": 0.3814432989690722,
+            "rrCI95": [
+              0.13735617176759513,
+              1.0592825095226985
+            ],
+            "riskTreated": 0.2,
+            "riskControl": 0.5243243243243243,
+            "arr": -0.3243243243243243,
+            "arrCI95": [
+              -0.5391601582159724,
+              -0.10948849043267614
+            ],
+            "nnt": 3.0833333333333335
+          }
+        }
+      }
+    ]
+  },
+  "correlation": {
+    "x": [
+      10,
+      12,
+      14,
+      15,
+      18,
+      20,
+      22,
+      24,
+      25,
+      28,
+      30,
+      32
+    ],
+    "y": [
+      15,
+      19,
+      21,
+      22,
+      27,
+      31,
+      33,
+      37,
+      39,
+      42,
+      47,
+      49
+    ],
+    "pearson": {
+      "n": 12,
+      "r": 0.9983436357549746,
+      "rSquared": 0.9966900150524615,
+      "df": 10,
+      "statistic": 54.87405375223139,
+      "pValue": 0,
+      "ci95": [
+        0.9938954205945651,
+        0.9995513057217703
+      ],
+      "isSignificant": true
+    },
+    "spearman": {
+      "n": 12,
+      "rho": 1,
+      "rhoSquared": 1,
+      "statistic": null,
+      "pValue": 0,
+      "isSignificant": true
+    },
+    "regression": {
+      "n": 12,
+      "slope": 1.5560720511330624,
+      "intercept": -0.5848343986054623,
+      "equation": "y = 1.5561x + -0.5848",
+      "r": 0.9983436357549746,
+      "rSquared": 0.9966900150524615,
+      "seResidual": 0.6791918498151435,
+      "seSlope": 0.028357155062010267,
+      "seIntercept": 0.6224594700490809,
+      "tSlope": 54.87405375222964,
+      "pValueSlope": 0,
+      "fStat": 3011.1617752027787,
+      "pValueModel": 0,
+      "residuals": [
+        {
+          "x": 10,
+          "yActual": 15,
+          "yPred": 14.975886112725162,
+          "res": 0.02411388727483832
+        },
+        {
+          "x": 12,
+          "yActual": 19,
+          "yPred": 18.088030214991285,
+          "res": 0.911969785008715
+        },
+        {
+          "x": 14,
+          "yActual": 21,
+          "yPred": 21.20017431725741,
+          "res": -0.2001743172574102
+        },
+        {
+          "x": 15,
+          "yActual": 22,
+          "yPred": 22.756246368390475,
+          "res": -0.7562463683904745
+        },
+        {
+          "x": 18,
+          "yActual": 27,
+          "yPred": 27.42446252178966,
+          "res": -0.4244625217896605
+        },
+        {
+          "x": 20,
+          "yActual": 31,
+          "yPred": 30.536606624055786,
+          "res": 0.46339337594421437
+        },
+        {
+          "x": 22,
+          "yActual": 33,
+          "yPred": 33.64875072632191,
+          "res": -0.6487507263219072
+        },
+        {
+          "x": 24,
+          "yActual": 37,
+          "yPred": 36.760894828588036,
+          "res": 0.23910517141196408
+        },
+        {
+          "x": 25,
+          "yActual": 39,
+          "yPred": 38.31696687972109,
+          "res": 0.6830331202789068
+        },
+        {
+          "x": 28,
+          "yActual": 42,
+          "yPred": 42.98518303312028,
+          "res": -0.9851830331202791
+        },
+        {
+          "x": 30,
+          "yActual": 47,
+          "yPred": 46.09732713538641,
+          "res": 0.9026728646135922
+        },
+        {
+          "x": 32,
+          "yActual": 49,
+          "yPred": 49.20947123765254,
+          "res": -0.2094712376525365
+        }
+      ],
+      "xStats": {
+        "n": 12,
+        "values": [
+          10,
+          12,
+          14,
+          15,
+          18,
+          20,
+          22,
+          24,
+          25,
+          28,
+          30,
+          32
+        ],
+        "sum": 250,
+        "mean": 20.833333333333332,
+        "median": 21,
+        "modes": [],
+        "maxFreq": 1,
+        "min": 10,
+        "max": 32,
+        "range": 22,
+        "q1": 14.75,
+        "q3": 25.75,
+        "iqr": 11,
+        "lowerFence": -1.75,
+        "upperFence": 42.25,
+        "extremeLowerFence": -18.25,
+        "extremeUpperFence": 58.75,
+        "outliers": [],
+        "variance": 52.15151515151515,
+        "sd": 7.221600594848427,
+        "sem": 2.0846965237078505,
+        "skewness": 0.039071883066082294,
+        "skewnessInterpretation": "Approximately Symmetric",
+        "kurtosis": -1.1992723444641356,
+        "kurtosisInterpretation": "Platykurtic (Light Tails / Flat)",
+        "ci95": [
+          16.653485926411953,
+          25.01318074025471
+        ],
+        "ci99": [
+          15.340082680026953,
+          26.32658398663971
+        ],
+        "normality": {
+          "test": "Jarque-Bera",
+          "statistic": 0.7221803021909112,
+          "pValue": 0.6969161678788172,
+          "isNormal": true
+        }
+      },
+      "yStats": {
+        "n": 12,
+        "values": [
+          15,
+          19,
+          21,
+          22,
+          27,
+          31,
+          33,
+          37,
+          39,
+          42,
+          47,
+          49
+        ],
+        "sum": 382,
+        "mean": 31.833333333333332,
+        "median": 32,
+        "modes": [],
+        "maxFreq": 1,
+        "min": 15,
+        "max": 49,
+        "range": 34,
+        "q1": 21.75,
+        "q3": 39.75,
+        "iqr": 18,
+        "lowerFence": -5.25,
+        "upperFence": 66.75,
+        "extremeLowerFence": -32.25,
+        "extremeUpperFence": 93.75,
+        "outliers": [],
+        "variance": 126.69696969696969,
+        "sd": 11.255974844364644,
+        "sem": 3.249320053192792,
+        "skewness": 0.06784352946315618,
+        "skewnessInterpretation": "Approximately Symmetric",
+        "kurtosis": -1.2367974826725212,
+        "kurtosisInterpretation": "Platykurtic (Light Tails / Flat)",
+        "ci95": [
+          25.318398500305875,
+          38.34826816636079
+        ],
+        "ci99": [
+          23.27125760575648,
+          40.39540906091018
+        ],
+        "normality": {
+          "test": "Jarque-Bera",
+          "statistic": 0.774039495552579,
+          "pValue": 0.6790776845200273,
+          "isNormal": true
+        }
+      },
+      "sxx": 573.6666666666666
+    }
+  },
+  "diagnostic": {
+    "eval2x2": {
+      "table": {
+        "tp": 85,
+        "fp": 12,
+        "fn": 15,
+        "tn": 188
+      },
+      "results": {
+        "tp": 85,
+        "fp": 12,
+        "fn": 15,
+        "tn": 188,
+        "diseased": 100,
+        "nonDiseased": 200,
+        "testPositive": 97,
+        "testNegative": 203,
+        "total": 300,
+        "sensitivity": 0.85,
+        "sensitivityCI95": [
+          0.7671644040154493,
+          0.9069401471994512
+        ],
+        "specificity": 0.94,
+        "specificityCI95": [
+          0.8980683070009928,
+          0.9653478057607764
+        ],
+        "ppv": 0.8762886597938144,
+        "ppvCI95": [
+          0.7961126091757186,
+          0.9277959979510103
+        ],
+        "npv": 0.9261083743842364,
+        "npvCI95": [
+          0.881677040674183,
+          0.9547123417116226
+        ],
+        "accuracy": 0.91,
+        "accuracyCI95": [
+          0.8722229891664981,
+          0.9374097744128693
+        ],
+        "prevalence": 0.3333333333333333,
+        "plr": 14.166666666666654,
+        "nlr": 0.15957446808510642,
+        "youdenJ": 0.79
+      }
+    },
+    "roc": {
+      "samples": [
+        {
+          "score": 0.95,
+          "status": 1
+        },
+        {
+          "score": 0.88,
+          "status": 1
+        },
+        {
+          "score": 0.82,
+          "status": 1
+        },
+        {
+          "score": 0.79,
+          "status": 1
+        },
+        {
+          "score": 0.75,
+          "status": 1
+        },
+        {
+          "score": 0.71,
+          "status": 0
+        },
+        {
+          "score": 0.68,
+          "status": 1
+        },
+        {
+          "score": 0.62,
+          "status": 0
+        },
+        {
+          "score": 0.58,
+          "status": 1
+        },
+        {
+          "score": 0.55,
+          "status": 0
+        },
+        {
+          "score": 0.51,
+          "status": 0
+        },
+        {
+          "score": 0.47,
+          "status": 1
+        },
+        {
+          "score": 0.42,
+          "status": 0
+        },
+        {
+          "score": 0.38,
+          "status": 0
+        },
+        {
+          "score": 0.35,
+          "status": 0
+        },
+        {
+          "score": 0.29,
+          "status": 0
+        },
+        {
+          "score": 0.24,
+          "status": 0
+        },
+        {
+          "score": 0.18,
+          "status": 0
+        }
+      ],
+      "results": {
+        "nPos": 8,
+        "nNeg": 10,
+        "total": 18,
+        "auc": 0.9125,
+        "seAUC": 0.07645845884148116,
+        "aucCI95": [
+          0.7626441742364437,
+          1
+        ],
+        "points": [
+          {
+            "threshold": null,
+            "fpr": 0,
+            "tpr": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 8,
+            "tn": 10
+          },
+          {
+            "threshold": 0.95,
+            "fpr": 0,
+            "tpr": 0.125,
+            "tp": 1,
+            "fp": 0,
+            "fn": 7,
+            "tn": 10
+          },
+          {
+            "threshold": 0.88,
+            "fpr": 0,
+            "tpr": 0.25,
+            "tp": 2,
+            "fp": 0,
+            "fn": 6,
+            "tn": 10
+          },
+          {
+            "threshold": 0.82,
+            "fpr": 0,
+            "tpr": 0.375,
+            "tp": 3,
+            "fp": 0,
+            "fn": 5,
+            "tn": 10
+          },
+          {
+            "threshold": 0.79,
+            "fpr": 0,
+            "tpr": 0.5,
+            "tp": 4,
+            "fp": 0,
+            "fn": 4,
+            "tn": 10
+          },
+          {
+            "threshold": 0.75,
+            "fpr": 0,
+            "tpr": 0.625,
+            "tp": 5,
+            "fp": 0,
+            "fn": 3,
+            "tn": 10
+          },
+          {
+            "threshold": 0.71,
+            "fpr": 0.1,
+            "tpr": 0.625,
+            "tp": 5,
+            "fp": 1,
+            "fn": 3,
+            "tn": 9
+          },
+          {
+            "threshold": 0.68,
+            "fpr": 0.1,
+            "tpr": 0.75,
+            "tp": 6,
+            "fp": 1,
+            "fn": 2,
+            "tn": 9
+          },
+          {
+            "threshold": 0.62,
+            "fpr": 0.2,
+            "tpr": 0.75,
+            "tp": 6,
+            "fp": 2,
+            "fn": 2,
+            "tn": 8
+          },
+          {
+            "threshold": 0.58,
+            "fpr": 0.2,
+            "tpr": 0.875,
+            "tp": 7,
+            "fp": 2,
+            "fn": 1,
+            "tn": 8
+          },
+          {
+            "threshold": 0.55,
+            "fpr": 0.3,
+            "tpr": 0.875,
+            "tp": 7,
+            "fp": 3,
+            "fn": 1,
+            "tn": 7
+          },
+          {
+            "threshold": 0.51,
+            "fpr": 0.4,
+            "tpr": 0.875,
+            "tp": 7,
+            "fp": 4,
+            "fn": 1,
+            "tn": 6
+          },
+          {
+            "threshold": 0.47,
+            "fpr": 0.4,
+            "tpr": 1,
+            "tp": 8,
+            "fp": 4,
+            "fn": 0,
+            "tn": 6
+          },
+          {
+            "threshold": 0.42,
+            "fpr": 0.5,
+            "tpr": 1,
+            "tp": 8,
+            "fp": 5,
+            "fn": 0,
+            "tn": 5
+          },
+          {
+            "threshold": 0.38,
+            "fpr": 0.6,
+            "tpr": 1,
+            "tp": 8,
+            "fp": 6,
+            "fn": 0,
+            "tn": 4
+          },
+          {
+            "threshold": 0.35,
+            "fpr": 0.7,
+            "tpr": 1,
+            "tp": 8,
+            "fp": 7,
+            "fn": 0,
+            "tn": 3
+          },
+          {
+            "threshold": 0.29,
+            "fpr": 0.8,
+            "tpr": 1,
+            "tp": 8,
+            "fp": 8,
+            "fn": 0,
+            "tn": 2
+          },
+          {
+            "threshold": 0.24,
+            "fpr": 0.9,
+            "tpr": 1,
+            "tp": 8,
+            "fp": 9,
+            "fn": 0,
+            "tn": 1
+          },
+          {
+            "threshold": 0.18,
+            "fpr": 1,
+            "tpr": 1,
+            "tp": 8,
+            "fp": 10,
+            "fn": 0,
+            "tn": 0
+          },
+          {
+            "threshold": null,
+            "fpr": 1,
+            "tpr": 1,
+            "tp": 8,
+            "fp": 10,
+            "fn": 0,
+            "tn": 0
+          }
+        ],
+        "optimalCutoff": {
+          "threshold": 0.58,
+          "youdenJ": 0.675,
+          "sens": 0.875,
+          "spec": 0.8
+        }
+      }
+    }
+  },
+  "power": {
+    "indepMeans": {
+      "params": {
+        "m1": 10,
+        "m2": 15,
+        "sd": 10,
+        "alpha": 0.05,
+        "power": 0.8
+      },
+      "resultN": {
+        "design": "independent_means",
+        "testName": "Two Independent Groups (Two-Sample t-Test)",
+        "m1": 10,
+        "m2": 15,
+        "diff": 5,
+        "sd": 10,
+        "effectSize": 0.5,
+        "effectSizeLabel": "Cohen's d",
+        "cohensD": 0.5,
+        "alpha": 0.05,
+        "power": 0.8,
+        "achievedPower": 0.8013015027301161,
+        "nPerGroup": 63,
+        "n1": 63,
+        "n2": 63,
+        "totalN": 126,
+        "isPostHoc": false
+      },
+      "resultPower": {
+        "design": "independent_means",
+        "testName": "Two Independent Groups (Two-Sample t-Test)",
+        "m1": 10,
+        "m2": 15,
+        "diff": 5,
+        "sd": 10,
+        "effectSize": 0.5,
+        "effectSizeLabel": "Cohen's d",
+        "cohensD": 0.5,
+        "alpha": 0.05,
+        "power": 0.807429618881336,
+        "achievedPower": 0.807429618881336,
+        "nPerGroup": 64,
+        "n1": 64,
+        "n2": 64,
+        "totalN": 128,
+        "isPostHoc": true
+      }
+    },
+    "pairedMeans": {
+      "params": {
+        "m1": 120,
+        "m2": 112,
+        "sdDiff": 10,
+        "alpha": 0.05,
+        "power": 0.8
+      },
+      "resultN": {
+        "design": "paired_means",
+        "testName": "Paired Mean Study Design (Paired t-Test)",
+        "m1": 120,
+        "m2": 112,
+        "diff": 8,
+        "sdDiff": 10,
+        "effectSize": 0.8,
+        "effectSizeLabel": "Cohen's d_z (Paired)",
+        "dz": 0.8,
+        "alpha": 0.05,
+        "power": 0.8,
+        "achievedPower": 0.8223810182796611,
+        "nPairs": 13,
+        "nPerGroup": 13,
+        "totalN": 13,
+        "isPostHoc": false
+      },
+      "resultPower": {
+        "design": "paired_means",
+        "testName": "Paired Mean Study Design (Paired t-Test)",
+        "m1": 120,
+        "m2": 112,
+        "diff": 8,
+        "sdDiff": 10,
+        "effectSize": 0.8,
+        "effectSizeLabel": "Cohen's d_z (Paired)",
+        "dz": 0.8,
+        "alpha": 0.05,
+        "power": 0.8725279340918531,
+        "achievedPower": 0.8725279340918531,
+        "nPairs": 15,
+        "nPerGroup": 15,
+        "totalN": 15,
+        "isPostHoc": true
+      }
+    }
+  },
+  "multivariate": {
+    "pca": {
+      "records": [
+        {
+          "age_months": 2.5,
+          "cranial_index": 64,
+          "operative_time_min": 79,
+          "blood_loss_ml": 42,
+          "length_of_stay_days": 1.9
+        },
+        {
+          "age_months": 9.5,
+          "cranial_index": 82,
+          "operative_time_min": 247,
+          "blood_loss_ml": 311,
+          "length_of_stay_days": 5.1
+        },
+        {
+          "age_months": 4.5,
+          "cranial_index": 76,
+          "operative_time_min": 81,
+          "blood_loss_ml": 30,
+          "length_of_stay_days": 1.2
+        },
+        {
+          "age_months": 10.7,
+          "cranial_index": 75,
+          "operative_time_min": 194,
+          "blood_loss_ml": 320,
+          "length_of_stay_days": 3
+        },
+        {
+          "age_months": 8.8,
+          "cranial_index": 83,
+          "operative_time_min": 221,
+          "blood_loss_ml": 223,
+          "length_of_stay_days": 8.3
+        },
+        {
+          "age_months": 5.1,
+          "cranial_index": 74,
+          "operative_time_min": 80,
+          "blood_loss_ml": 58,
+          "length_of_stay_days": 2.2
+        },
+        {
+          "age_months": 8.8,
+          "cranial_index": 81,
+          "operative_time_min": 173,
+          "blood_loss_ml": 263,
+          "length_of_stay_days": 6.8
+        },
+        {
+          "age_months": 7,
+          "cranial_index": 83,
+          "operative_time_min": 249,
+          "blood_loss_ml": 203,
+          "length_of_stay_days": 6
+        },
+        {
+          "age_months": 5.4,
+          "cranial_index": 86,
+          "operative_time_min": 57,
+          "blood_loss_ml": 25,
+          "length_of_stay_days": 1.9
+        },
+        {
+          "age_months": 3.8,
+          "cranial_index": 65,
+          "operative_time_min": 77,
+          "blood_loss_ml": 66,
+          "length_of_stay_days": 1.8
+        },
+        {
+          "age_months": 6,
+          "cranial_index": 83,
+          "operative_time_min": 280,
+          "blood_loss_ml": 191,
+          "length_of_stay_days": 5.2
+        },
+        {
+          "age_months": 11.9,
+          "cranial_index": 83,
+          "operative_time_min": 195,
+          "blood_loss_ml": 329,
+          "length_of_stay_days": 3.4
+        },
+        {
+          "age_months": 4.5,
+          "cranial_index": 89,
+          "operative_time_min": 70,
+          "blood_loss_ml": 76,
+          "length_of_stay_days": 1.5
+        },
+        {
+          "age_months": 8.1,
+          "cranial_index": 62,
+          "operative_time_min": 176,
+          "blood_loss_ml": 222,
+          "length_of_stay_days": 3.2
+        },
+        {
+          "age_months": 9.5,
+          "cranial_index": 81,
+          "operative_time_min": 311,
+          "blood_loss_ml": 252,
+          "length_of_stay_days": 6.8
+        },
+        {
+          "age_months": 6.3,
+          "cranial_index": 69,
+          "operative_time_min": 256,
+          "blood_loss_ml": 292,
+          "length_of_stay_days": 4.5
+        },
+        {
+          "age_months": 8.6,
+          "cranial_index": 89,
+          "operative_time_min": 226,
+          "blood_loss_ml": 246,
+          "length_of_stay_days": 4.7
+        },
+        {
+          "age_months": 9.2,
+          "cranial_index": 83,
+          "operative_time_min": 227,
+          "blood_loss_ml": 240,
+          "length_of_stay_days": 4.9
+        },
+        {
+          "age_months": 4,
+          "cranial_index": 82,
+          "operative_time_min": 70,
+          "blood_loss_ml": 47,
+          "length_of_stay_days": 1.6
+        },
+        {
+          "age_months": 4.6,
+          "cranial_index": 68,
+          "operative_time_min": 59,
+          "blood_loss_ml": 21,
+          "length_of_stay_days": 2.2
+        },
+        {
+          "age_months": 8.6,
+          "cranial_index": 63,
+          "operative_time_min": 176,
+          "blood_loss_ml": 179,
+          "length_of_stay_days": 6.5
+        },
+        {
+          "age_months": 4.6,
+          "cranial_index": 76,
+          "operative_time_min": 70,
+          "blood_loss_ml": 27,
+          "length_of_stay_days": 1.9
+        },
+        {
+          "age_months": 8.7,
+          "cranial_index": 65,
+          "operative_time_min": 242,
+          "blood_loss_ml": 240,
+          "length_of_stay_days": 4.5
+        },
+        {
+          "age_months": 3.1,
+          "cranial_index": 70,
+          "operative_time_min": 57,
+          "blood_loss_ml": 53,
+          "length_of_stay_days": 1.7
+        },
+        {
+          "age_months": 7.5,
+          "cranial_index": 81,
+          "operative_time_min": 198,
+          "blood_loss_ml": 299,
+          "length_of_stay_days": 5.9
+        },
+        {
+          "age_months": 6.8,
+          "cranial_index": 80,
+          "operative_time_min": 185,
+          "blood_loss_ml": 351,
+          "length_of_stay_days": 4.8
+        },
+        {
+          "age_months": 3.2,
+          "cranial_index": 90,
+          "operative_time_min": 77,
+          "blood_loss_ml": 70,
+          "length_of_stay_days": 1.6
+        },
+        {
+          "age_months": 3.6,
+          "cranial_index": 78,
+          "operative_time_min": 66,
+          "blood_loss_ml": 56,
+          "length_of_stay_days": 2.1
+        },
+        {
+          "age_months": 3.9,
+          "cranial_index": 72,
+          "operative_time_min": 79,
+          "blood_loss_ml": 49,
+          "length_of_stay_days": 1.5
+        },
+        {
+          "age_months": 3.5,
+          "cranial_index": 68,
+          "operative_time_min": 50,
+          "blood_loss_ml": 39,
+          "length_of_stay_days": 2
+        },
+        {
+          "age_months": 3.7,
+          "cranial_index": 77,
+          "operative_time_min": 72,
+          "blood_loss_ml": 34,
+          "length_of_stay_days": 1.9
+        },
+        {
+          "age_months": 2.7,
+          "cranial_index": 83,
+          "operative_time_min": 62,
+          "blood_loss_ml": 43,
+          "length_of_stay_days": 1.2
+        },
+        {
+          "age_months": 3.8,
+          "cranial_index": 92,
+          "operative_time_min": 70,
+          "blood_loss_ml": 26,
+          "length_of_stay_days": 2.3
+        },
+        {
+          "age_months": 7.3,
+          "cranial_index": 94,
+          "operative_time_min": 225,
+          "blood_loss_ml": 260,
+          "length_of_stay_days": 3.9
+        },
+        {
+          "age_months": 3.4,
+          "cranial_index": 71,
+          "operative_time_min": 72,
+          "blood_loss_ml": 103,
+          "length_of_stay_days": 1.2
+        },
+        {
+          "age_months": 3.7,
+          "cranial_index": 87,
+          "operative_time_min": 75,
+          "blood_loss_ml": 65,
+          "length_of_stay_days": 1.3
+        },
+        {
+          "age_months": 9,
+          "cranial_index": 85,
+          "operative_time_min": 259,
+          "blood_loss_ml": 279,
+          "length_of_stay_days": 3.7
+        },
+        {
+          "age_months": 9.3,
+          "cranial_index": 67,
+          "operative_time_min": 242,
+          "blood_loss_ml": 312,
+          "length_of_stay_days": 8
+        },
+        {
+          "age_months": 9.1,
+          "cranial_index": 80,
+          "operative_time_min": 164,
+          "blood_loss_ml": 279,
+          "length_of_stay_days": 7.3
+        },
+        {
+          "age_months": 8.9,
+          "cranial_index": 64,
+          "operative_time_min": 140,
+          "blood_loss_ml": 264,
+          "length_of_stay_days": 5.1
+        },
+        {
+          "age_months": 9.2,
+          "cranial_index": 70,
+          "operative_time_min": 201,
+          "blood_loss_ml": 391,
+          "length_of_stay_days": 6
+        },
+        {
+          "age_months": 4.6,
+          "cranial_index": 81,
+          "operative_time_min": 88,
+          "blood_loss_ml": 50,
+          "length_of_stay_days": 2.6
+        },
+        {
+          "age_months": 3.3,
+          "cranial_index": 84,
+          "operative_time_min": 80,
+          "blood_loss_ml": 80,
+          "length_of_stay_days": 1.3
+        },
+        {
+          "age_months": 3.8,
+          "cranial_index": 87,
+          "operative_time_min": 107,
+          "blood_loss_ml": 53,
+          "length_of_stay_days": 2.5
+        },
+        {
+          "age_months": 3.5,
+          "cranial_index": 76,
+          "operative_time_min": 71,
+          "blood_loss_ml": 66,
+          "length_of_stay_days": 1.4
+        },
+        {
+          "age_months": 9.6,
+          "cranial_index": 73,
+          "operative_time_min": 176,
+          "blood_loss_ml": 246,
+          "length_of_stay_days": 5
+        },
+        {
+          "age_months": 5.1,
+          "cranial_index": 82,
+          "operative_time_min": 92,
+          "blood_loss_ml": 82,
+          "length_of_stay_days": 1.6
+        },
+        {
+          "age_months": 9,
+          "cranial_index": 87,
+          "operative_time_min": 209,
+          "blood_loss_ml": 295,
+          "length_of_stay_days": 5.7
+        },
+        {
+          "age_months": 4.3,
+          "cranial_index": 86,
+          "operative_time_min": 80,
+          "blood_loss_ml": 50,
+          "length_of_stay_days": 1
+        },
+        {
+          "age_months": 8.3,
+          "cranial_index": 85,
+          "operative_time_min": 200,
+          "blood_loss_ml": 201,
+          "length_of_stay_days": 3.8
+        },
+        {
+          "age_months": 4.1,
+          "cranial_index": 77,
+          "operative_time_min": 79,
+          "blood_loss_ml": 48,
+          "length_of_stay_days": 2.2
+        },
+        {
+          "age_months": 3.9,
+          "cranial_index": 82,
+          "operative_time_min": 91,
+          "blood_loss_ml": 68,
+          "length_of_stay_days": 2.1
+        },
+        {
+          "age_months": 7.1,
+          "cranial_index": 67,
+          "operative_time_min": 181,
+          "blood_loss_ml": 349,
+          "length_of_stay_days": 3.6
+        },
+        {
+          "age_months": 2.5,
+          "cranial_index": 63,
+          "operative_time_min": 69,
+          "blood_loss_ml": 39,
+          "length_of_stay_days": 2.5
+        },
+        {
+          "age_months": 4.2,
+          "cranial_index": 87,
+          "operative_time_min": 85,
+          "blood_loss_ml": 21,
+          "length_of_stay_days": 1.8
+        },
+        {
+          "age_months": 2.2,
+          "cranial_index": 76,
+          "operative_time_min": 71,
+          "blood_loss_ml": 43,
+          "length_of_stay_days": 1.5
+        },
+        {
+          "age_months": 9.4,
+          "cranial_index": 76,
+          "operative_time_min": 288,
+          "blood_loss_ml": 273,
+          "length_of_stay_days": 4.5
+        },
+        {
+          "age_months": 3.8,
+          "cranial_index": 84,
+          "operative_time_min": 84,
+          "blood_loss_ml": 58,
+          "length_of_stay_days": 1.3
+        },
+        {
+          "age_months": 10.3,
+          "cranial_index": 74,
+          "operative_time_min": 217,
+          "blood_loss_ml": 351,
+          "length_of_stay_days": 5.7
+        },
+        {
+          "age_months": 7.3,
+          "cranial_index": 64,
+          "operative_time_min": 153,
+          "blood_loss_ml": 311,
+          "length_of_stay_days": 5.2
+        },
+        {
+          "age_months": 3.6,
+          "cranial_index": 71,
+          "operative_time_min": 75,
+          "blood_loss_ml": 43,
+          "length_of_stay_days": 2.1
+        },
+        {
+          "age_months": 9.8,
+          "cranial_index": 86,
+          "operative_time_min": 160,
+          "blood_loss_ml": 293,
+          "length_of_stay_days": 4.7
+        },
+        {
+          "age_months": 9.8,
+          "cranial_index": 70,
+          "operative_time_min": 186,
+          "blood_loss_ml": 264,
+          "length_of_stay_days": 5.1
+        },
+        {
+          "age_months": 12.8,
+          "cranial_index": 92,
+          "operative_time_min": 214,
+          "blood_loss_ml": 206,
+          "length_of_stay_days": 3
+        },
+        {
+          "age_months": 4.4,
+          "cranial_index": 85,
+          "operative_time_min": 99,
+          "blood_loss_ml": 92,
+          "length_of_stay_days": 1.9
+        },
+        {
+          "age_months": 10.4,
+          "cranial_index": 98,
+          "operative_time_min": 165,
+          "blood_loss_ml": 312,
+          "length_of_stay_days": 4.3
+        },
+        {
+          "age_months": 4.8,
+          "cranial_index": 78,
+          "operative_time_min": 114,
+          "blood_loss_ml": 118,
+          "length_of_stay_days": 2.6
+        },
+        {
+          "age_months": 3,
+          "cranial_index": 70,
+          "operative_time_min": 65,
+          "blood_loss_ml": 52,
+          "length_of_stay_days": 1.6
+        },
+        {
+          "age_months": 6,
+          "cranial_index": 74,
+          "operative_time_min": 171,
+          "blood_loss_ml": 375,
+          "length_of_stay_days": 6.2
+        },
+        {
+          "age_months": 4.1,
+          "cranial_index": 74,
+          "operative_time_min": 77,
+          "blood_loss_ml": 42,
+          "length_of_stay_days": 2.4
+        },
+        {
+          "age_months": 3.1,
+          "cranial_index": 65,
+          "operative_time_min": 64,
+          "blood_loss_ml": 31,
+          "length_of_stay_days": 1.8
+        },
+        {
+          "age_months": 4.4,
+          "cranial_index": 83,
+          "operative_time_min": 113,
+          "blood_loss_ml": 106,
+          "length_of_stay_days": 2.7
+        },
+        {
+          "age_months": 8.6,
+          "cranial_index": 71,
+          "operative_time_min": 194,
+          "blood_loss_ml": 259,
+          "length_of_stay_days": 3.6
+        },
+        {
+          "age_months": 5.8,
+          "cranial_index": 81,
+          "operative_time_min": 77,
+          "blood_loss_ml": 35,
+          "length_of_stay_days": 1.9
+        },
+        {
+          "age_months": 3.4,
+          "cranial_index": 78,
+          "operative_time_min": 67,
+          "blood_loss_ml": 41,
+          "length_of_stay_days": 3
+        },
+        {
+          "age_months": 5,
+          "cranial_index": 82,
+          "operative_time_min": 75,
+          "blood_loss_ml": 75,
+          "length_of_stay_days": 1.7
+        },
+        {
+          "age_months": 2.2,
+          "cranial_index": 70,
+          "operative_time_min": 59,
+          "blood_loss_ml": 45,
+          "length_of_stay_days": 1.8
+        },
+        {
+          "age_months": 2.8,
+          "cranial_index": 79,
+          "operative_time_min": 55,
+          "blood_loss_ml": 55,
+          "length_of_stay_days": 1.8
+        },
+        {
+          "age_months": 8.3,
+          "cranial_index": 76,
+          "operative_time_min": 166,
+          "blood_loss_ml": 431,
+          "length_of_stay_days": 5.4
+        },
+        {
+          "age_months": 8.2,
+          "cranial_index": 92,
+          "operative_time_min": 242,
+          "blood_loss_ml": 271,
+          "length_of_stay_days": 4.7
+        },
+        {
+          "age_months": 9.4,
+          "cranial_index": 68,
+          "operative_time_min": 195,
+          "blood_loss_ml": 173,
+          "length_of_stay_days": 4.7
+        },
+        {
+          "age_months": 3.6,
+          "cranial_index": 83,
+          "operative_time_min": 54,
+          "blood_loss_ml": 62,
+          "length_of_stay_days": 3
+        },
+        {
+          "age_months": 6.5,
+          "cranial_index": 86,
+          "operative_time_min": 188,
+          "blood_loss_ml": 268,
+          "length_of_stay_days": 4.5
+        },
+        {
+          "age_months": 4.1,
+          "cranial_index": 74,
+          "operative_time_min": 120,
+          "blood_loss_ml": 87,
+          "length_of_stay_days": 1.5
+        },
+        {
+          "age_months": 3.2,
+          "cranial_index": 86,
+          "operative_time_min": 81,
+          "blood_loss_ml": 54,
+          "length_of_stay_days": 1.5
+        },
+        {
+          "age_months": 10.2,
+          "cranial_index": 80,
+          "operative_time_min": 236,
+          "blood_loss_ml": 383,
+          "length_of_stay_days": 4
+        },
+        {
+          "age_months": 12.9,
+          "cranial_index": 82,
+          "operative_time_min": 181,
+          "blood_loss_ml": 248,
+          "length_of_stay_days": 6.5
+        },
+        {
+          "age_months": 9.8,
+          "cranial_index": 78,
+          "operative_time_min": 172,
+          "blood_loss_ml": 239,
+          "length_of_stay_days": 3.1
+        },
+        {
+          "age_months": 12.4,
+          "cranial_index": 74,
+          "operative_time_min": 227,
+          "blood_loss_ml": 308,
+          "length_of_stay_days": 5.1
+        },
+        {
+          "age_months": 2.8,
+          "cranial_index": 80,
+          "operative_time_min": 79,
+          "blood_loss_ml": 61,
+          "length_of_stay_days": 1.2
+        },
+        {
+          "age_months": 2.8,
+          "cranial_index": 62,
+          "operative_time_min": 80,
+          "blood_loss_ml": 44,
+          "length_of_stay_days": 1
+        },
+        {
+          "age_months": 10.6,
+          "cranial_index": 80,
+          "operative_time_min": 221,
+          "blood_loss_ml": 303,
+          "length_of_stay_days": 4.7
+        },
+        {
+          "age_months": 5.5,
+          "cranial_index": 69,
+          "operative_time_min": 72,
+          "blood_loss_ml": 65,
+          "length_of_stay_days": 3.3
+        },
+        {
+          "age_months": 4.7,
+          "cranial_index": 68,
+          "operative_time_min": 145,
+          "blood_loss_ml": 112,
+          "length_of_stay_days": 2.8
+        },
+        {
+          "age_months": 4.1,
+          "cranial_index": 68,
+          "operative_time_min": 70,
+          "blood_loss_ml": 53,
+          "length_of_stay_days": 1.6
+        },
+        {
+          "age_months": 3.1,
+          "cranial_index": 82,
+          "operative_time_min": 70,
+          "blood_loss_ml": 47,
+          "length_of_stay_days": 2.2
+        },
+        {
+          "age_months": 4.4,
+          "cranial_index": 71,
+          "operative_time_min": 71,
+          "blood_loss_ml": 27,
+          "length_of_stay_days": 1.9
+        },
+        {
+          "age_months": 3.1,
+          "cranial_index": 70,
+          "operative_time_min": 84,
+          "blood_loss_ml": 50,
+          "length_of_stay_days": 2.1
+        },
+        {
+          "age_months": 9.2,
+          "cranial_index": 76,
+          "operative_time_min": 188,
+          "blood_loss_ml": 220,
+          "length_of_stay_days": 4.3
+        },
+        {
+          "age_months": 3.1,
+          "cranial_index": 87,
+          "operative_time_min": 69,
+          "blood_loss_ml": 70,
+          "length_of_stay_days": 1.2
+        },
+        {
+          "age_months": 4.9,
+          "cranial_index": 69,
+          "operative_time_min": 70,
+          "blood_loss_ml": 57,
+          "length_of_stay_days": 2.3
+        },
+        {
+          "age_months": 5,
+          "cranial_index": 77,
+          "operative_time_min": 77,
+          "blood_loss_ml": 66,
+          "length_of_stay_days": 1.6
+        },
+        {
+          "age_months": 12.8,
+          "cranial_index": 83,
+          "operative_time_min": 186,
+          "blood_loss_ml": 305,
+          "length_of_stay_days": 4.5
+        },
+        {
+          "age_months": 10.3,
+          "cranial_index": 68,
+          "operative_time_min": 194,
+          "blood_loss_ml": 225,
+          "length_of_stay_days": 4.4
+        },
+        {
+          "age_months": 5.5,
+          "cranial_index": 67,
+          "operative_time_min": 83,
+          "blood_loss_ml": 56,
+          "length_of_stay_days": 2
+        },
+        {
+          "age_months": 6.5,
+          "cranial_index": 74,
+          "operative_time_min": 198,
+          "blood_loss_ml": 295,
+          "length_of_stay_days": 3.8
+        },
+        {
+          "age_months": 4.1,
+          "cranial_index": 82,
+          "operative_time_min": 71,
+          "blood_loss_ml": 51,
+          "length_of_stay_days": 2.3
+        },
+        {
+          "age_months": 8.8,
+          "cranial_index": 79,
+          "operative_time_min": 182,
+          "blood_loss_ml": 279,
+          "length_of_stay_days": 3
+        },
+        {
+          "age_months": 14,
+          "cranial_index": 66,
+          "operative_time_min": 147,
+          "blood_loss_ml": 278,
+          "length_of_stay_days": 3.9
+        },
+        {
+          "age_months": 9.7,
+          "cranial_index": 87,
+          "operative_time_min": 189,
+          "blood_loss_ml": 337,
+          "length_of_stay_days": 4.9
+        },
+        {
+          "age_months": 6,
+          "cranial_index": 74,
+          "operative_time_min": 251,
+          "blood_loss_ml": 284,
+          "length_of_stay_days": 5.8
+        },
+        {
+          "age_months": 4.1,
+          "cranial_index": 79,
+          "operative_time_min": 101,
+          "blood_loss_ml": 90,
+          "length_of_stay_days": 2.6
+        },
+        {
+          "age_months": 2.4,
+          "cranial_index": 84,
+          "operative_time_min": 75,
+          "blood_loss_ml": 69,
+          "length_of_stay_days": 1
+        },
+        {
+          "age_months": 5.5,
+          "cranial_index": 82,
+          "operative_time_min": 96,
+          "blood_loss_ml": 83,
+          "length_of_stay_days": 2.4
+        },
+        {
+          "age_months": 4.2,
+          "cranial_index": 62,
+          "operative_time_min": 73,
+          "blood_loss_ml": 59,
+          "length_of_stay_days": 1.1
+        },
+        {
+          "age_months": 4,
+          "cranial_index": 69,
+          "operative_time_min": 79,
+          "blood_loss_ml": 33,
+          "length_of_stay_days": 2.3
+        },
+        {
+          "age_months": 13.1,
+          "cranial_index": 83,
+          "operative_time_min": 246,
+          "blood_loss_ml": 211,
+          "length_of_stay_days": 3.7
+        },
+        {
+          "age_months": 9.1,
+          "cranial_index": 83,
+          "operative_time_min": 239,
+          "blood_loss_ml": 236,
+          "length_of_stay_days": 7.6
+        },
+        {
+          "age_months": 5.1,
+          "cranial_index": 80,
+          "operative_time_min": 110,
+          "blood_loss_ml": 38,
+          "length_of_stay_days": 1.9
+        },
+        {
+          "age_months": 11.4,
+          "cranial_index": 72,
+          "operative_time_min": 210,
+          "blood_loss_ml": 290,
+          "length_of_stay_days": 3.4
+        }
+      ],
+      "cols": [
+        "age_months",
+        "cranial_index",
+        "operative_time_min",
+        "blood_loss_ml",
+        "length_of_stay_days"
+      ],
+      "results": {
+        "eigenvalues": [
+          3.417018038589287,
+          0.9974048909844752,
+          0.27940159908304696,
+          0.16838460108201533,
+          0.13779087026117676
+        ],
+        "variancePct": [
+          68.34036077178573,
+          19.9480978196895,
+          5.588031981660938,
+          3.3676920216403063,
+          2.7558174052235347
+        ],
+        "cumulativePct": [
+          68.34036077178573,
+          88.28845859147523,
+          93.87649057313617,
+          97.24418259477648,
+          100
+        ],
+        "individualCoordSample": [
+          [
+            -2.027770050702757,
+            -1.5385589777289286,
+            0.2648083824497923,
+            -0.24336604479308085,
+            0.12315501983606919
+          ],
+          [
+            2.513085805570922,
+            0.4452758504177099,
+            0.029351235611395268,
+            -0.3494382482128579,
+            0.12797567970477775
+          ],
+          [
+            -1.8374325592460705,
+            -0.016472165877763942,
+            -0.36595994981772695,
+            -0.0006465261961638095,
+            0.2527491638818028
+          ],
+          [
+            1.7349392976919427,
+            -0.32805650099242795,
+            -1.2058647331553591,
+            -0.3539461833273595,
+            -0.2624935554776054
+          ],
+          [
+            2.7076028425413146,
+            0.4244577377471685,
+            1.5366343800316093,
+            0.9263001325233484,
+            0.34290287973278627
+          ]
+        ]
+      }
+    }
+  },
+  "psm": {
+    "dataset": [
+      {
+        "patient_id": "PT-1001",
+        "treatment_col": 0,
+        "outcome_col": 8.3,
+        "age": 6.9,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 8.2,
+        "bmi_percentile": 39
+      },
+      {
+        "patient_id": "PT-1002",
+        "treatment_col": 1,
+        "outcome_col": 5.5,
+        "age": 8.1,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 7.1,
+        "bmi_percentile": 58
+      },
+      {
+        "patient_id": "PT-1003",
+        "treatment_col": 1,
+        "outcome_col": 7.2,
+        "age": 8.4,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 11.2,
+        "bmi_percentile": 44
+      },
+      {
+        "patient_id": "PT-1004",
+        "treatment_col": 1,
+        "outcome_col": 6.3,
+        "age": 6.7,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 10,
+        "bmi_percentile": 67
+      },
+      {
+        "patient_id": "PT-1005",
+        "treatment_col": 1,
+        "outcome_col": 5.6,
+        "age": 2.2,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 11.4,
+        "bmi_percentile": 47
+      },
+      {
+        "patient_id": "PT-1006",
+        "treatment_col": 1,
+        "outcome_col": 6.5,
+        "age": 5,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 9,
+        "bmi_percentile": 37
+      },
+      {
+        "patient_id": "PT-1007",
+        "treatment_col": 1,
+        "outcome_col": 5.4,
+        "age": 2.2,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 10.5,
+        "bmi_percentile": 30
+      },
+      {
+        "patient_id": "PT-1008",
+        "treatment_col": 1,
+        "outcome_col": 5,
+        "age": 2.2,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 6.7,
+        "bmi_percentile": 64
+      },
+      {
+        "patient_id": "PT-1009",
+        "treatment_col": 1,
+        "outcome_col": 6.3,
+        "age": 2.8,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 13.8,
+        "bmi_percentile": 41
+      },
+      {
+        "patient_id": "PT-1010",
+        "treatment_col": 1,
+        "outcome_col": 5.1,
+        "age": 4,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 7.5,
+        "bmi_percentile": 46
+      },
+      {
+        "patient_id": "PT-1011",
+        "treatment_col": 1,
+        "outcome_col": 5,
+        "age": 4.6,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 8.2,
+        "bmi_percentile": 43
+      },
+      {
+        "patient_id": "PT-1012",
+        "treatment_col": 1,
+        "outcome_col": 3.6,
+        "age": 3.6,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 7.6,
+        "bmi_percentile": 71
+      },
+      {
+        "patient_id": "PT-1013",
+        "treatment_col": 1,
+        "outcome_col": 6.1,
+        "age": 8.2,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 9.7,
+        "bmi_percentile": 40
+      },
+      {
+        "patient_id": "PT-1014",
+        "treatment_col": 1,
+        "outcome_col": 6.8,
+        "age": 7.9,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 11.9,
+        "bmi_percentile": 25
+      },
+      {
+        "patient_id": "PT-1015",
+        "treatment_col": 0,
+        "outcome_col": 8.1,
+        "age": 7.1,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 9.2,
+        "bmi_percentile": 50
+      },
+      {
+        "patient_id": "PT-1016",
+        "treatment_col": 0,
+        "outcome_col": 8.1,
+        "age": 10.3,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 6.5,
+        "bmi_percentile": 33
+      },
+      {
+        "patient_id": "PT-1017",
+        "treatment_col": 1,
+        "outcome_col": 5,
+        "age": 5.7,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 6.4,
+        "bmi_percentile": 57
+      },
+      {
+        "patient_id": "PT-1018",
+        "treatment_col": 0,
+        "outcome_col": 9.1,
+        "age": 11.7,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 7.4,
+        "bmi_percentile": 54
+      },
+      {
+        "patient_id": "PT-1019",
+        "treatment_col": 1,
+        "outcome_col": 6.3,
+        "age": 9.4,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 12.8,
+        "bmi_percentile": 39
+      },
+      {
+        "patient_id": "PT-1020",
+        "treatment_col": 1,
+        "outcome_col": 6.9,
+        "age": 8.7,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 12.6,
+        "bmi_percentile": 41
+      },
+      {
+        "patient_id": "PT-1021",
+        "treatment_col": 1,
+        "outcome_col": 6,
+        "age": 7.9,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 6.8,
+        "bmi_percentile": 68
+      },
+      {
+        "patient_id": "PT-1022",
+        "treatment_col": 1,
+        "outcome_col": 6,
+        "age": 2.5,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 11.6,
+        "bmi_percentile": 52
+      },
+      {
+        "patient_id": "PT-1023",
+        "treatment_col": 0,
+        "outcome_col": 8,
+        "age": 2.2,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 12.6,
+        "bmi_percentile": 43
+      },
+      {
+        "patient_id": "PT-1024",
+        "treatment_col": 1,
+        "outcome_col": 5.5,
+        "age": 3.8,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 8,
+        "bmi_percentile": 38
+      },
+      {
+        "patient_id": "PT-1025",
+        "treatment_col": 1,
+        "outcome_col": 4.4,
+        "age": 2.2,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 8.9,
+        "bmi_percentile": 53
+      },
+      {
+        "patient_id": "PT-1026",
+        "treatment_col": 1,
+        "outcome_col": 6.5,
+        "age": 8.4,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 10.7,
+        "bmi_percentile": 33
+      },
+      {
+        "patient_id": "PT-1027",
+        "treatment_col": 0,
+        "outcome_col": 7.8,
+        "age": 2.8,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 8.8,
+        "bmi_percentile": 44
+      },
+      {
+        "patient_id": "PT-1028",
+        "treatment_col": 1,
+        "outcome_col": 6.9,
+        "age": 9.5,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 7.1,
+        "bmi_percentile": 66
+      },
+      {
+        "patient_id": "PT-1029",
+        "treatment_col": 1,
+        "outcome_col": 6.6,
+        "age": 7,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 9.6,
+        "bmi_percentile": 59
+      },
+      {
+        "patient_id": "PT-1030",
+        "treatment_col": 0,
+        "outcome_col": 9.8,
+        "age": 10.1,
+        "sex": 1,
+        "comorbidity_score": 2,
+        "baseline_severity": 8.4,
+        "bmi_percentile": 53
+      },
+      {
+        "patient_id": "PT-1031",
+        "treatment_col": 1,
+        "outcome_col": 6.4,
+        "age": 5.3,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 10.2,
+        "bmi_percentile": 33
+      },
+      {
+        "patient_id": "PT-1032",
+        "treatment_col": 1,
+        "outcome_col": 6.7,
+        "age": 8,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 12.9,
+        "bmi_percentile": 49
+      },
+      {
+        "patient_id": "PT-1033",
+        "treatment_col": 0,
+        "outcome_col": 8.7,
+        "age": 6.3,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 9.6,
+        "bmi_percentile": 47
+      },
+      {
+        "patient_id": "PT-1034",
+        "treatment_col": 1,
+        "outcome_col": 5.3,
+        "age": 3.1,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 8.3,
+        "bmi_percentile": 50
+      },
+      {
+        "patient_id": "PT-1035",
+        "treatment_col": 1,
+        "outcome_col": 6.7,
+        "age": 6.8,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 9,
+        "bmi_percentile": 67
+      },
+      {
+        "patient_id": "PT-1036",
+        "treatment_col": 1,
+        "outcome_col": 5.9,
+        "age": 9.1,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 5.8,
+        "bmi_percentile": 74
+      },
+      {
+        "patient_id": "PT-1037",
+        "treatment_col": 1,
+        "outcome_col": 7.3,
+        "age": 10.4,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 11.4,
+        "bmi_percentile": 39
+      },
+      {
+        "patient_id": "PT-1038",
+        "treatment_col": 1,
+        "outcome_col": 6.4,
+        "age": 6.4,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 10.8,
+        "bmi_percentile": 76
+      },
+      {
+        "patient_id": "PT-1039",
+        "treatment_col": 1,
+        "outcome_col": 6.4,
+        "age": 7.4,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 9.5,
+        "bmi_percentile": 52
+      },
+      {
+        "patient_id": "PT-1040",
+        "treatment_col": 1,
+        "outcome_col": 5.8,
+        "age": 5.8,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 12,
+        "bmi_percentile": 13
+      },
+      {
+        "patient_id": "PT-1041",
+        "treatment_col": 0,
+        "outcome_col": 9.8,
+        "age": 6.8,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 13.3,
+        "bmi_percentile": 95
+      },
+      {
+        "patient_id": "PT-1042",
+        "treatment_col": 1,
+        "outcome_col": 6.2,
+        "age": 8.3,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 7.6,
+        "bmi_percentile": 67
+      },
+      {
+        "patient_id": "PT-1043",
+        "treatment_col": 1,
+        "outcome_col": 4.7,
+        "age": 4.9,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 7.1,
+        "bmi_percentile": 53
+      },
+      {
+        "patient_id": "PT-1044",
+        "treatment_col": 1,
+        "outcome_col": 6.5,
+        "age": 3.3,
+        "sex": 0,
+        "comorbidity_score": 2,
+        "baseline_severity": 10,
+        "bmi_percentile": 53
+      },
+      {
+        "patient_id": "PT-1045",
+        "treatment_col": 0,
+        "outcome_col": 8.6,
+        "age": 6.2,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 13.9,
+        "bmi_percentile": 66
+      },
+      {
+        "patient_id": "PT-1046",
+        "treatment_col": 1,
+        "outcome_col": 7.2,
+        "age": 8.8,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 14,
+        "bmi_percentile": 31
+      },
+      {
+        "patient_id": "PT-1047",
+        "treatment_col": 0,
+        "outcome_col": 9,
+        "age": 9.5,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 11.8,
+        "bmi_percentile": 73
+      },
+      {
+        "patient_id": "PT-1048",
+        "treatment_col": 1,
+        "outcome_col": 5.8,
+        "age": 7.1,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 9.1,
+        "bmi_percentile": 47
+      },
+      {
+        "patient_id": "PT-1049",
+        "treatment_col": 0,
+        "outcome_col": 9,
+        "age": 7.2,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 12.7,
+        "bmi_percentile": 41
+      },
+      {
+        "patient_id": "PT-1050",
+        "treatment_col": 1,
+        "outcome_col": 6.5,
+        "age": 7.6,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 10.8,
+        "bmi_percentile": 34
+      },
+      {
+        "patient_id": "PT-1051",
+        "treatment_col": 1,
+        "outcome_col": 7.1,
+        "age": 10,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 10.2,
+        "bmi_percentile": 52
+      },
+      {
+        "patient_id": "PT-1052",
+        "treatment_col": 1,
+        "outcome_col": 5.5,
+        "age": 5.9,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 9,
+        "bmi_percentile": 22
+      },
+      {
+        "patient_id": "PT-1053",
+        "treatment_col": 1,
+        "outcome_col": 6.9,
+        "age": 5.3,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 13.5,
+        "bmi_percentile": 34
+      },
+      {
+        "patient_id": "PT-1054",
+        "treatment_col": 1,
+        "outcome_col": 5.7,
+        "age": 3.3,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 12.3,
+        "bmi_percentile": 25
+      },
+      {
+        "patient_id": "PT-1055",
+        "treatment_col": 1,
+        "outcome_col": 5.8,
+        "age": 3.7,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 7.6,
+        "bmi_percentile": 54
+      },
+      {
+        "patient_id": "PT-1056",
+        "treatment_col": 1,
+        "outcome_col": 5.6,
+        "age": 7.3,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 9.8,
+        "bmi_percentile": 30
+      },
+      {
+        "patient_id": "PT-1057",
+        "treatment_col": 0,
+        "outcome_col": 9.5,
+        "age": 7.7,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 13.5,
+        "bmi_percentile": 75
+      },
+      {
+        "patient_id": "PT-1058",
+        "treatment_col": 0,
+        "outcome_col": 8.4,
+        "age": 11,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 7.3,
+        "bmi_percentile": 38
+      },
+      {
+        "patient_id": "PT-1059",
+        "treatment_col": 0,
+        "outcome_col": 9.5,
+        "age": 5.7,
+        "sex": 1,
+        "comorbidity_score": 2,
+        "baseline_severity": 14.6,
+        "bmi_percentile": 58
+      },
+      {
+        "patient_id": "PT-1060",
+        "treatment_col": 1,
+        "outcome_col": 6.3,
+        "age": 9.2,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 9.4,
+        "bmi_percentile": 44
+      },
+      {
+        "patient_id": "PT-1061",
+        "treatment_col": 1,
+        "outcome_col": 5.5,
+        "age": 5.4,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 11.1,
+        "bmi_percentile": 34
+      },
+      {
+        "patient_id": "PT-1062",
+        "treatment_col": 1,
+        "outcome_col": 6.8,
+        "age": 6.2,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 11.7,
+        "bmi_percentile": 60
+      },
+      {
+        "patient_id": "PT-1063",
+        "treatment_col": 1,
+        "outcome_col": 4.5,
+        "age": 6.8,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 7.3,
+        "bmi_percentile": 43
+      },
+      {
+        "patient_id": "PT-1064",
+        "treatment_col": 1,
+        "outcome_col": 5.5,
+        "age": 4.5,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 7.8,
+        "bmi_percentile": 38
+      },
+      {
+        "patient_id": "PT-1065",
+        "treatment_col": 1,
+        "outcome_col": 7.2,
+        "age": 7.4,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 10.7,
+        "bmi_percentile": 53
+      },
+      {
+        "patient_id": "PT-1066",
+        "treatment_col": 0,
+        "outcome_col": 9.1,
+        "age": 6.8,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 14,
+        "bmi_percentile": 73
+      },
+      {
+        "patient_id": "PT-1067",
+        "treatment_col": 0,
+        "outcome_col": 9.2,
+        "age": 8,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 10.3,
+        "bmi_percentile": 37
+      },
+      {
+        "patient_id": "PT-1068",
+        "treatment_col": 0,
+        "outcome_col": 9.4,
+        "age": 9.3,
+        "sex": 0,
+        "comorbidity_score": 2,
+        "baseline_severity": 6.9,
+        "bmi_percentile": 17
+      },
+      {
+        "patient_id": "PT-1069",
+        "treatment_col": 1,
+        "outcome_col": 6,
+        "age": 4.1,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 8.7,
+        "bmi_percentile": 33
+      },
+      {
+        "patient_id": "PT-1070",
+        "treatment_col": 1,
+        "outcome_col": 6,
+        "age": 7.4,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 9,
+        "bmi_percentile": 14
+      },
+      {
+        "patient_id": "PT-1071",
+        "treatment_col": 0,
+        "outcome_col": 9.5,
+        "age": 8.6,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 9,
+        "bmi_percentile": 27
+      },
+      {
+        "patient_id": "PT-1072",
+        "treatment_col": 0,
+        "outcome_col": 9,
+        "age": 6,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 12.7,
+        "bmi_percentile": 49
+      },
+      {
+        "patient_id": "PT-1073",
+        "treatment_col": 0,
+        "outcome_col": 9.9,
+        "age": 7.3,
+        "sex": 0,
+        "comorbidity_score": 2,
+        "baseline_severity": 10.6,
+        "bmi_percentile": 18
+      },
+      {
+        "patient_id": "PT-1074",
+        "treatment_col": 0,
+        "outcome_col": 9.6,
+        "age": 6.7,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 10,
+        "bmi_percentile": 48
+      },
+      {
+        "patient_id": "PT-1075",
+        "treatment_col": 1,
+        "outcome_col": 4.7,
+        "age": 3.4,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 6.1,
+        "bmi_percentile": 32
+      },
+      {
+        "patient_id": "PT-1076",
+        "treatment_col": 1,
+        "outcome_col": 6.1,
+        "age": 5.6,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 8.2,
+        "bmi_percentile": 65
+      },
+      {
+        "patient_id": "PT-1077",
+        "treatment_col": 0,
+        "outcome_col": 9,
+        "age": 7.8,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 14.7,
+        "bmi_percentile": 55
+      },
+      {
+        "patient_id": "PT-1078",
+        "treatment_col": 1,
+        "outcome_col": 5.1,
+        "age": 4,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 9.8,
+        "bmi_percentile": 76
+      },
+      {
+        "patient_id": "PT-1079",
+        "treatment_col": 1,
+        "outcome_col": 6.3,
+        "age": 9.4,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 9.7,
+        "bmi_percentile": 71
+      },
+      {
+        "patient_id": "PT-1080",
+        "treatment_col": 1,
+        "outcome_col": 5.9,
+        "age": 5.1,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 11,
+        "bmi_percentile": 58
+      },
+      {
+        "patient_id": "PT-1081",
+        "treatment_col": 1,
+        "outcome_col": 5.3,
+        "age": 7.8,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 8.4,
+        "bmi_percentile": 56
+      },
+      {
+        "patient_id": "PT-1082",
+        "treatment_col": 1,
+        "outcome_col": 6.3,
+        "age": 9,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 5.9,
+        "bmi_percentile": 37
+      },
+      {
+        "patient_id": "PT-1083",
+        "treatment_col": 1,
+        "outcome_col": 6.4,
+        "age": 2.2,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 11.2,
+        "bmi_percentile": 81
+      },
+      {
+        "patient_id": "PT-1084",
+        "treatment_col": 1,
+        "outcome_col": 6.4,
+        "age": 5.9,
+        "sex": 1,
+        "comorbidity_score": 2,
+        "baseline_severity": 7.2,
+        "bmi_percentile": 50
+      },
+      {
+        "patient_id": "PT-1085",
+        "treatment_col": 1,
+        "outcome_col": 6.6,
+        "age": 3.8,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 12.1,
+        "bmi_percentile": 76
+      },
+      {
+        "patient_id": "PT-1086",
+        "treatment_col": 1,
+        "outcome_col": 5.8,
+        "age": 6.4,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 9.6,
+        "bmi_percentile": 39
+      },
+      {
+        "patient_id": "PT-1087",
+        "treatment_col": 1,
+        "outcome_col": 5.2,
+        "age": 5.5,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 8.6,
+        "bmi_percentile": 56
+      },
+      {
+        "patient_id": "PT-1088",
+        "treatment_col": 1,
+        "outcome_col": 5.6,
+        "age": 7.2,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 10.8,
+        "bmi_percentile": 48
+      },
+      {
+        "patient_id": "PT-1089",
+        "treatment_col": 1,
+        "outcome_col": 6.2,
+        "age": 9.7,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 8,
+        "bmi_percentile": 48
+      },
+      {
+        "patient_id": "PT-1090",
+        "treatment_col": 1,
+        "outcome_col": 4.9,
+        "age": 5.7,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 9.1,
+        "bmi_percentile": 43
+      },
+      {
+        "patient_id": "PT-1091",
+        "treatment_col": 1,
+        "outcome_col": 7.1,
+        "age": 7.2,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 10.4,
+        "bmi_percentile": 33
+      },
+      {
+        "patient_id": "PT-1092",
+        "treatment_col": 1,
+        "outcome_col": 5.7,
+        "age": 6.1,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 9.6,
+        "bmi_percentile": 57
+      },
+      {
+        "patient_id": "PT-1093",
+        "treatment_col": 1,
+        "outcome_col": 6.5,
+        "age": 5.2,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 9.7,
+        "bmi_percentile": 41
+      },
+      {
+        "patient_id": "PT-1094",
+        "treatment_col": 0,
+        "outcome_col": 9.9,
+        "age": 7.2,
+        "sex": 0,
+        "comorbidity_score": 2,
+        "baseline_severity": 10,
+        "bmi_percentile": 18
+      },
+      {
+        "patient_id": "PT-1095",
+        "treatment_col": 1,
+        "outcome_col": 5.2,
+        "age": 4.4,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 8.1,
+        "bmi_percentile": 28
+      },
+      {
+        "patient_id": "PT-1096",
+        "treatment_col": 1,
+        "outcome_col": 5.8,
+        "age": 5.6,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 9.4,
+        "bmi_percentile": 33
+      },
+      {
+        "patient_id": "PT-1097",
+        "treatment_col": 1,
+        "outcome_col": 5.7,
+        "age": 6.4,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 9.7,
+        "bmi_percentile": 66
+      },
+      {
+        "patient_id": "PT-1098",
+        "treatment_col": 0,
+        "outcome_col": 9,
+        "age": 7.1,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 11.5,
+        "bmi_percentile": 87
+      },
+      {
+        "patient_id": "PT-1099",
+        "treatment_col": 0,
+        "outcome_col": 9,
+        "age": 5,
+        "sex": 0,
+        "comorbidity_score": 2,
+        "baseline_severity": 9.3,
+        "bmi_percentile": 49
+      },
+      {
+        "patient_id": "PT-1100",
+        "treatment_col": 1,
+        "outcome_col": 5.5,
+        "age": 8.8,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 8.6,
+        "bmi_percentile": 33
+      },
+      {
+        "patient_id": "PT-1101",
+        "treatment_col": 1,
+        "outcome_col": 6.6,
+        "age": 8.7,
+        "sex": 1,
+        "comorbidity_score": 2,
+        "baseline_severity": 6.9,
+        "bmi_percentile": 50
+      },
+      {
+        "patient_id": "PT-1102",
+        "treatment_col": 0,
+        "outcome_col": 7.4,
+        "age": 3.7,
+        "sex": 0,
+        "comorbidity_score": 1,
+        "baseline_severity": 9.7,
+        "bmi_percentile": 35
+      },
+      {
+        "patient_id": "PT-1103",
+        "treatment_col": 1,
+        "outcome_col": 5.2,
+        "age": 3.5,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 6.7,
+        "bmi_percentile": 75
+      },
+      {
+        "patient_id": "PT-1104",
+        "treatment_col": 0,
+        "outcome_col": 10.1,
+        "age": 7.5,
+        "sex": 1,
+        "comorbidity_score": 2,
+        "baseline_severity": 13.8,
+        "bmi_percentile": 60
+      },
+      {
+        "patient_id": "PT-1105",
+        "treatment_col": 1,
+        "outcome_col": 6.1,
+        "age": 7.2,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 8.4,
+        "bmi_percentile": 62
+      },
+      {
+        "patient_id": "PT-1106",
+        "treatment_col": 1,
+        "outcome_col": 5.4,
+        "age": 7.1,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 6.6,
+        "bmi_percentile": 45
+      },
+      {
+        "patient_id": "PT-1107",
+        "treatment_col": 1,
+        "outcome_col": 7.1,
+        "age": 11.4,
+        "sex": 1,
+        "comorbidity_score": 2,
+        "baseline_severity": 5,
+        "bmi_percentile": 41
+      },
+      {
+        "patient_id": "PT-1108",
+        "treatment_col": 1,
+        "outcome_col": 6.3,
+        "age": 6.6,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 6.2,
+        "bmi_percentile": 10
+      },
+      {
+        "patient_id": "PT-1109",
+        "treatment_col": 1,
+        "outcome_col": 4,
+        "age": 3.6,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 6.3,
+        "bmi_percentile": 62
+      },
+      {
+        "patient_id": "PT-1110",
+        "treatment_col": 1,
+        "outcome_col": 4.4,
+        "age": 5.8,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 7.5,
+        "bmi_percentile": 64
+      },
+      {
+        "patient_id": "PT-1111",
+        "treatment_col": 1,
+        "outcome_col": 7.4,
+        "age": 8.8,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 11.5,
+        "bmi_percentile": 73
+      },
+      {
+        "patient_id": "PT-1112",
+        "treatment_col": 1,
+        "outcome_col": 4.7,
+        "age": 5,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 7.4,
+        "bmi_percentile": 42
+      },
+      {
+        "patient_id": "PT-1113",
+        "treatment_col": 1,
+        "outcome_col": 5.7,
+        "age": 7.9,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 9,
+        "bmi_percentile": 68
+      },
+      {
+        "patient_id": "PT-1114",
+        "treatment_col": 1,
+        "outcome_col": 6,
+        "age": 6.3,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 7.6,
+        "bmi_percentile": 56
+      },
+      {
+        "patient_id": "PT-1115",
+        "treatment_col": 0,
+        "outcome_col": 9.9,
+        "age": 11.1,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 12,
+        "bmi_percentile": 85
+      },
+      {
+        "patient_id": "PT-1116",
+        "treatment_col": 0,
+        "outcome_col": 7,
+        "age": 10.4,
+        "sex": 0,
+        "comorbidity_score": 0,
+        "baseline_severity": 5,
+        "bmi_percentile": 29
+      },
+      {
+        "patient_id": "PT-1117",
+        "treatment_col": 0,
+        "outcome_col": 11.6,
+        "age": 7.1,
+        "sex": 1,
+        "comorbidity_score": 2,
+        "baseline_severity": 13,
+        "bmi_percentile": 60
+      },
+      {
+        "patient_id": "PT-1118",
+        "treatment_col": 1,
+        "outcome_col": 7.2,
+        "age": 7,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 8,
+        "bmi_percentile": 48
+      },
+      {
+        "patient_id": "PT-1119",
+        "treatment_col": 1,
+        "outcome_col": 6,
+        "age": 4.1,
+        "sex": 1,
+        "comorbidity_score": 1,
+        "baseline_severity": 9.1,
+        "bmi_percentile": 95
+      },
+      {
+        "patient_id": "PT-1120",
+        "treatment_col": 1,
+        "outcome_col": 5.6,
+        "age": 6.2,
+        "sex": 1,
+        "comorbidity_score": 0,
+        "baseline_severity": 9.6,
+        "bmi_percentile": 90
+      }
+    ],
+    "treatmentCol": "treatment_col",
+    "outcomeCol": "outcome_col",
+    "covariateCols": [
+      "age",
+      "sex",
+      "comorbidity_score",
+      "baseline_severity"
+    ],
+    "results": {
+      "nMatchedPairs": 22,
+      "coefficients": [
+        {
+          "term": "Intercept (β₀)",
+          "estimate": 7.6043862765335,
+          "stdError": 0.28554934428636014,
+          "zScore": 26.630725752630415,
+          "pValue": 0,
+          "oddsRatio": 2006.979785070289,
+          "ci95": [
+            1146.775719889792,
+            3512.4286186211584
+          ]
+        },
+        {
+          "term": "age",
+          "estimate": -0.32933942646271913,
+          "stdError": 0.11768447669629256,
+          "zScore": -2.798495058210973,
+          "pValue": 0.005134256080383093,
+          "oddsRatio": 0.7193987923139429,
+          "ci95": [
+            0.5712084921902371,
+            0.9060345381041678
+          ]
+        },
+        {
+          "term": "sex",
+          "estimate": 0.724568547531681,
+          "stdError": 0.5054057426556615,
+          "zScore": 1.4336373459557967,
+          "pValue": 0.15167587467617105,
+          "oddsRatio": 2.0638404587854753,
+          "ci95": [
+            0.7664186576618894,
+            5.557585787791349
+          ]
+        },
+        {
+          "term": "comorbidity_score",
+          "estimate": -1.3470599117039592,
+          "stdError": 0.3758323606402594,
+          "zScore": -3.584204163284766,
+          "pValue": 0.0003381840265381797,
+          "oddsRatio": 0.26000357145281816,
+          "ci95": [
+            0.12446990259110852,
+            0.5431181013316696
+          ]
+        },
+        {
+          "term": "baseline_severity",
+          "estimate": -0.3828714097179125,
+          "stdError": 0.11615179011994889,
+          "zScore": -3.2963022724189157,
+          "pValue": 0.0009797827834738815,
+          "oddsRatio": 0.6819005794363274,
+          "ci95": [
+            0.5430635568167823,
+            0.8562320089404858
+          ]
+        }
+      ],
+      "pseudoR2": 0,
+      "balanceTable": [
+        {
+          "covariate": "age",
+          "meanTreatedPre": 6.217977528089888,
+          "meanControlPre": 7.45483870967742,
+          "sdTreatedPre": 2.2056519237132997,
+          "sdControlPre": 2.2861669098700874,
+          "smdPre": -0.5506288540666557,
+          "absSmdPre": 0.5506288540666557,
+          "meanTreatedPost": 6.96818181818182,
+          "meanControlPost": 7.136363636363635,
+          "sdTreatedPost": 2.5602057885360856,
+          "sdControlPost": 2.4897017328617337,
+          "smdPost": -0.07487158882408985,
+          "absSmdPost": 0.07487158882408985,
+          "varianceRatioPost": 1.0574384724976953,
+          "varRatioPost": 1.0574384724976953,
+          "percentReduction": 86.40253080253105,
+          "isBalanced": true
+        },
+        {
+          "covariate": "sex",
+          "meanTreatedPre": 0.6853932584269663,
+          "meanControlPre": 0.5483870967741935,
+          "sdTreatedPre": 0.46699001395731443,
+          "sdControlPre": 0.5058794110206735,
+          "smdPre": 0.2814289916772751,
+          "absSmdPre": 0.2814289916772751,
+          "meanTreatedPost": 0.6818181818181818,
+          "meanControlPost": 0.5454545454545454,
+          "sdTreatedPost": 0.4767312946227962,
+          "sdControlPost": 0.5096471914376255,
+          "smdPost": 0.28010915874372355,
+          "absSmdPost": 0.28010915874372355,
+          "varianceRatioPost": 0.875,
+          "varRatioPost": 0.875,
+          "percentReduction": 0.4689754689755046,
+          "isBalanced": false
+        },
+        {
+          "covariate": "comorbidity_score",
+          "meanTreatedPre": 0.43820224719101125,
+          "meanControlPre": 0.967741935483871,
+          "sdTreatedPre": 0.5829988340034977,
+          "sdControlPre": 0.7520581080272073,
+          "smdPre": -0.7869992397559458,
+          "absSmdPre": 0.7869992397559458,
+          "meanTreatedPost": 0.6818181818181818,
+          "meanControlPost": 0.6818181818181818,
+          "sdTreatedPost": 0.646334988801409,
+          "sdControlPost": 0.6463349888014092,
+          "smdPost": 0,
+          "absSmdPost": 0,
+          "varianceRatioPost": 0.9999999999999996,
+          "varRatioPost": 0.9999999999999996,
+          "percentReduction": 100,
+          "isBalanced": true
+        },
+        {
+          "covariate": "baseline_severity",
+          "meanTreatedPre": 9.243820224719105,
+          "meanControlPre": 10.654838709677419,
+          "sdTreatedPre": 2.008671828041637,
+          "sdControlPre": 2.6429577761386223,
+          "smdPre": -0.6011144029667611,
+          "absSmdPre": 0.6011144029667611,
+          "meanTreatedPost": 10.263636363636362,
+          "meanControlPost": 10.399999999999999,
+          "sdTreatedPost": 2.1297318084109973,
+          "sdControlPost": 2.727461753911064,
+          "smdPost": -0.058092892993904084,
+          "absSmdPost": 0.058092892993904084,
+          "varianceRatioPost": 0.6097228849757336,
+          "varRatioPost": 0.6097228849757336,
+          "percentReduction": 90.33580085468085,
+          "isBalanced": true
+        }
+      ],
+      "att": -2.1545454545454543,
+      "ci95": [
+        -2.4710381615758337,
+        -1.8380527475150752
+      ],
+      "pValue": 5.104108235136901e-12
+    }
+  }
+}

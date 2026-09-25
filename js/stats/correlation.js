@@ -47,21 +47,23 @@ export const Correlation = {
       covSum += (xVals[i] - xStats.mean) * (yVals[i] - yStats.mean);
     }
     const covariance = covSum / (n - 1);
-    const r = covariance / (xStats.sd * yStats.sd);
+    const rRaw = covariance / (xStats.sd * yStats.sd);
+    const r = Math.max(-1, Math.min(1, isNaN(rRaw) ? 0 : rRaw));
 
     // t-test for correlation significance
     const df = n - 2;
-    const t = Math.abs(r) >= 1 ? Infinity : (r * Math.sqrt(df)) / Math.sqrt(1 - r * r);
-    const pValue = Distributions.tPValue(t, df);
+    const t = Math.abs(r) >= 1 ? (r >= 0 ? Infinity : -Infinity) : (r * Math.sqrt(df)) / Math.sqrt(1 - r * r);
+    const pValue = Math.abs(r) >= 1 ? 0 : Distributions.tPValue(t, df);
 
     // 95% Confidence Interval for r using Fisher's z transformation
-    const z = 0.5 * Math.log((1 + r) / (1 - r));
-    const seZ = 1 / Math.sqrt(n - 3);
+    const rForZ = Math.max(-0.9999999, Math.min(0.9999999, r));
+    const z = 0.5 * Math.log((1 + rForZ) / (1 - rForZ));
+    const seZ = n > 3 ? 1 / Math.sqrt(n - 3) : 0;
     const zCrit = Distributions.invNormalCDF(0.975);
     const zLower = z - zCrit * seZ;
     const zUpper = z + zCrit * seZ;
-    const rLower = (Math.exp(2 * zLower) - 1) / (Math.exp(2 * zLower) + 1);
-    const rUpper = (Math.exp(2 * zUpper) - 1) / (Math.exp(2 * zUpper) + 1);
+    const rLower = Math.abs(r) >= 1 ? (r > 0 ? 1 : -1) : (Math.exp(2 * zLower) - 1) / (Math.exp(2 * zLower) + 1);
+    const rUpper = Math.abs(r) >= 1 ? (r > 0 ? 1 : -1) : (Math.exp(2 * zUpper) - 1) / (Math.exp(2 * zUpper) + 1);
 
     return {
       n,

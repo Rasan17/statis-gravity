@@ -109,6 +109,7 @@
       if (df <= 0 || isNaN(t) || isNaN(df)) return NaN;
       const absT = Math.abs(t);
       if (absT === 0) return 1.0;
+      if (!isFinite(absT) || absT >= 40.0) return 0.0;
       if (df > 100) return this.normalPValue(absT);
 
       let sum = 0;
@@ -125,7 +126,9 @@
     },
 
     chiSquarePValue(chiSq, df) {
-      if (chiSq <= 0 || df <= 0) return 1.0;
+      if (isNaN(chiSq) || isNaN(df) || df <= 0) return NaN;
+      if (chiSq <= 0) return 1.0;
+      if (!isFinite(chiSq) || chiSq >= 1000.0) return 0.0;
       if (df === 1) return this.normalPValue(Math.sqrt(chiSq));
       if (df === 2) return Math.exp(-chiSq / 2);
 
@@ -161,7 +164,9 @@
     },
 
     fPValue(F, df1, df2) {
-      if (F <= 0 || df1 <= 0 || df2 <= 0) return 1.0;
+      if (isNaN(F) || isNaN(df1) || isNaN(df2) || df1 <= 0 || df2 <= 0) return NaN;
+      if (F <= 0) return 1.0;
+      if (!isFinite(F) || F >= 1000.0) return 0.0;
       const upper = Math.max(100.0, F * 15.0);
       const N = 400;
       const h = (upper - F) / N;
@@ -1859,10 +1864,11 @@
       for (let i = 0; i < n; i++) {
         covSum += (xVals[i] - xStats.mean) * (yVals[i] - yStats.mean);
       }
-      const r = (covSum / (n - 1)) / (xStats.sd * yStats.sd);
+      const rRaw = (covSum / (n - 1)) / (xStats.sd * yStats.sd);
+      const r = Math.max(-1, Math.min(1, isNaN(rRaw) ? 0 : rRaw));
       const df = n - 2;
-      const t = Math.abs(r) >= 1 ? Infinity : (r * Math.sqrt(df)) / Math.sqrt(1 - r * r);
-      const pValue = Distributions.tPValue(t, df);
+      const t = Math.abs(r) >= 1 ? (r >= 0 ? Infinity : -Infinity) : (r * Math.sqrt(df)) / Math.sqrt(1 - r * r);
+      const pValue = Math.abs(r) >= 1 ? 0 : Distributions.tPValue(t, df);
 
       return { n, r, rSquared: r * r, pValue, statistic: t, isSignificant: pValue < 0.05 };
     },

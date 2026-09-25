@@ -125,6 +125,7 @@ export const Distributions = {
     if (df <= 0 || isNaN(t) || isNaN(df)) return NaN;
     const absT = Math.abs(t);
     if (absT === 0) return 1.0;
+    if (!isFinite(absT) || absT >= 40.0) return 0.0;
     if (df > 100) {
       return this.normalPValue(absT);
     }
@@ -147,7 +148,9 @@ export const Distributions = {
    * Chi-Square right-tail p-value: P(X >= chiSq)
    */
   chiSquarePValue(chiSq, df) {
-    if (chiSq <= 0 || df <= 0) return 1.0;
+    if (isNaN(chiSq) || isNaN(df) || df <= 0) return NaN;
+    if (chiSq <= 0) return 1.0;
+    if (!isFinite(chiSq) || chiSq >= 1000.0) return 0.0;
     if (df === 1) {
       return this.normalPValue(Math.sqrt(chiSq));
     }
@@ -197,7 +200,9 @@ export const Distributions = {
    * Snedecor's F-Distribution right-tail p-value: P(X >= F)
    */
   fPValue(F, df1, df2) {
-    if (F <= 0 || df1 <= 0 || df2 <= 0) return 1.0;
+    if (isNaN(F) || isNaN(df1) || isNaN(df2) || df1 <= 0 || df2 <= 0) return NaN;
+    if (F <= 0) return 1.0;
+    if (!isFinite(F) || F >= 1000.0) return 0.0;
     // Simpson integration over tail [F, upper]
     const upper = Math.max(100.0, F * 15.0);
     const N = 400;
