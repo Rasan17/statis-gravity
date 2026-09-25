@@ -3749,6 +3749,8 @@ const DocxReports = {
         return true;
       }
     }
+  };
+
   // ==========================================
   // 10.5 RANDOMISER ENGINE (CLINICAL ALLOCATION & AUDIT TRAIL)
   // ==========================================
