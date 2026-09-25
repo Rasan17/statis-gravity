@@ -13,6 +13,7 @@ import { PowerAnalysis } from './js/stats/power.js';
 import { Teaching } from './js/stats/teaching.js';
 import { DocxReports } from './js/export/docx-generator.js';
 import { Plots } from './js/visualization/plots.js';
+import { Randomiser } from './js/stats/randomiser.js';
 
 let passes = 0;
 let failures = 0;
@@ -932,6 +933,88 @@ try {
   docxDedicatedBayesPass = false;
 }
 assert(docxDedicatedBayesPass, 'DocxReports.createTeachingBayesianDocx successfully generates valid DOCX archive for Teaching - Baysian tab');
+
+// ============================================================
+// 13. Clinical & Research Randomisation Engine Tests
+// ============================================================
+console.log('\n--- Testing Randomiser (Clinical Cryptographic Allocation) ---');
+
+// 13.1 Cryptographic Integer Generation & Bounds
+let intGenPass = true;
+const intCounts = {};
+for (let i = 0; i < 2000; i++) {
+  const val = Randomiser.getSecureRandomInt(1, 100);
+  if (val < 1 || val > 100 || !Number.isInteger(val)) {
+    intGenPass = false;
+    break;
+  }
+  intCounts[val] = (intCounts[val] || 0) + 1;
+}
+assert(intGenPass, 'Randomiser.getSecureRandomInt generates strictly valid integers in range [1, 100] across 2000 draws');
+assert(Object.keys(intCounts).length > 80, `Rejection sampling yields broad uniform coverage across 1-100 (covered ${Object.keys(intCounts).length}/100 unique values in 2000 draws)`);
+
+// 13.2 Simple Randomization Parity Mapping
+const sampleAllocA = Randomiser.generateSimpleAllocation({ participantId: 101, labelA: 'Drug A', labelB: 'Placebo' });
+assert(sampleAllocA.participantId === 101, 'Simple allocation retains participant ID');
+assert(sampleAllocA.randomNumber >= 1 && sampleAllocA.randomNumber <= 100, 'Simple allocation random number is in [1, 100]');
+if (sampleAllocA.randomNumber % 2 !== 0) {
+  assert(sampleAllocA.parity === 'Odd' && sampleAllocA.groupKey === 'A' && sampleAllocA.groupLabel === 'Drug A', 'Odd numbers map strictly to Group A');
+} else {
+  assert(sampleAllocA.parity === 'Even' && sampleAllocA.groupKey === 'B' && sampleAllocA.groupLabel === 'Placebo', 'Even numbers map strictly to Group B');
+}
+
+// 13.3 Permuted Block Generation & Exact Balance
+[4, 6, 8, 10].forEach(bSize => {
+  const block = Randomiser.createBlock(bSize, { labelA: 'Arm A', labelB: 'Arm B' });
+  assert(block.blockSize === bSize, `createBlock(${bSize}) produces block with blockSize ${bSize}`);
+  assert(block.slots.length === bSize, `Block has exactly ${bSize} allocation slots`);
+  const countA = block.slots.filter(s => s.groupKey === 'A').length;
+  const countB = block.slots.filter(s => s.groupKey === 'B').length;
+  assert(countA === bSize / 2 && countB === bSize / 2, `Block of ${bSize} contains exactly balanced ${bSize/2} Group A and ${bSize/2} Group B`);
+});
+
+// 13.4 Fisher-Yates Permutation Diversity
+const origAlloc = ['A', 'A', 'B', 'B'];
+let foundDifferentPerm = false;
+for (let p = 0; p < 20; p++) {
+  const shuffled = Randomiser.fisherYatesShuffle(origAlloc);
+  if (shuffled.join('') !== origAlloc.join('')) {
+    foundDifferentPerm = true;
+    break;
+  }
+}
+assert(foundDifferentPerm, 'Fisher-Yates shuffle produces stochastic permutations across balanced allocations');
+
+// 13.5 Sequential Block Progression & Boundary Balance
+let runningBlock = null;
+const blockHistory = [];
+const TOTAL_PARTICIPANTS = 24;
+const BLOCK_SIZE = 6;
+for (let p = 1; p <= TOTAL_PARTICIPANTS; p++) {
+  const step = Randomiser.assignNextInBlock(runningBlock, p, { blockSize: BLOCK_SIZE, labelA: 'Active', labelB: 'Control' });
+  runningBlock = step.updatedBlock;
+  blockHistory.push(step.allocationRecord);
+}
+assert(blockHistory.length === 24, 'All 24 participants successfully assigned through block engine');
+const totalA = blockHistory.filter(r => r.groupKey === 'A').length;
+const totalB = blockHistory.filter(r => r.groupKey === 'B').length;
+assert(totalA === 12 && totalB === 12, 'Strict 1:1 balance guaranteed across 4 completed blocks (12 Active vs 12 Control)');
+assert(runningBlock.isComplete === true, 'Final block marked as complete when all slots filled');
+
+// 13.6 Summary Metrics Calculation
+const summaryMetrics = Randomiser.computeSummary(blockHistory);
+assert(summaryMetrics.total === 24, 'Summary total is 24');
+assert(summaryMetrics.countA === 12 && summaryMetrics.countB === 12, 'Summary counts are 12 and 12');
+assert(summaryMetrics.pctA === 50 && summaryMetrics.pctB === 50, 'Percentages are exactly 50% each');
+assert(summaryMetrics.diff === 0, 'Imbalance difference is 0');
+assert(summaryMetrics.ratioStr === '1.00 : 1.00', 'Balance ratio string is 1.00 : 1.00');
+
+// 13.7 CSV Export Formatting
+const simpleCSV = Randomiser.exportToCSV([sampleAllocA], 'simple');
+assert(simpleCSV.startsWith('Participant ID,Timestamp,Random Integer (1-100),Parity,Assigned Group Code,Group Label'), 'Simple CSV header is valid');
+const blockCSV = Randomiser.exportToCSV(blockHistory, 'block');
+assert(blockCSV.startsWith('Participant ID,Timestamp,Block Number,Block Size,Slot in Block,Assigned Group Code,Group Label'), 'Block CSV header is valid');
+assert(blockCSV.split('\r\n').length === 25, 'Block CSV contains 1 header row + 24 participant records');
 
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);

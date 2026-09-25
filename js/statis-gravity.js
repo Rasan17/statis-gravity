@@ -3749,6 +3749,207 @@ const DocxReports = {
         return true;
       }
     }
+  // ==========================================
+  // 10.5 RANDOMISER ENGINE (CLINICAL ALLOCATION & AUDIT TRAIL)
+  // ==========================================
+  const Randomiser = {
+    getSecureRandomInt(min, max) {
+      min = Math.floor(min);
+      max = Math.floor(max);
+      if (min > max) throw new Error(`Invalid range: min (${min}) > max (${max})`);
+      const range = max - min + 1;
+      if (range === 1) return min;
+
+      const MAX_UINT32 = 4294967296;
+      const limit = MAX_UINT32 - (MAX_UINT32 % range);
+      const buffer = new Uint32Array(1);
+      let rand;
+      do {
+        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+          crypto.getRandomValues(buffer);
+        } else {
+          buffer[0] = Math.floor(Math.random() * MAX_UINT32);
+        }
+        rand = buffer[0];
+      } while (rand >= limit);
+
+      return min + (rand % range);
+    },
+
+    fisherYatesShuffle(array) {
+      const copy = [...array];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = this.getSecureRandomInt(0, i);
+        const temp = copy[i];
+        copy[i] = copy[j];
+        copy[j] = temp;
+      }
+      return copy;
+    },
+
+    generateSimpleAllocation(options = {}) {
+      const participantId = options.participantId || 1;
+      const labelA = options.labelA || 'Group A';
+      const labelB = options.labelB || 'Group B';
+
+      const randomNumber = this.getSecureRandomInt(1, 100);
+      const isOdd = (randomNumber % 2) !== 0;
+      const groupKey = isOdd ? 'A' : 'B';
+      const groupLabel = isOdd ? labelA : labelB;
+
+      return {
+        participantId,
+        timestamp: new Date().toISOString(),
+        displayTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        randomNumber,
+        parity: isOdd ? 'Odd' : 'Even',
+        groupKey,
+        groupLabel,
+        method: 'Simple (1-100 Odd/Even)'
+      };
+    },
+
+    createBlock(blockSize, options = {}) {
+      let size = parseInt(blockSize, 10);
+      if (isNaN(size) || size < 2) size = 4;
+      if (size % 2 !== 0) size += 1;
+
+      const blockNumber = options.blockNumber || 1;
+      const labelA = options.labelA || 'Group A';
+      const labelB = options.labelB || 'Group B';
+
+      const half = size / 2;
+      const allocations = [];
+      for (let i = 0; i < half; i++) allocations.push('A');
+      for (let i = 0; i < half; i++) allocations.push('B');
+
+      const shuffled = this.fisherYatesShuffle(allocations);
+
+      const slots = shuffled.map((g, idx) => ({
+        slotIndex: idx + 1,
+        groupKey: g,
+        groupLabel: g === 'A' ? labelA : labelB,
+        assigned: false,
+        participantId: null,
+        timestamp: null,
+        displayTime: null
+      }));
+
+      return {
+        blockNumber,
+        blockSize: size,
+        slots,
+        currentIndex: 0,
+        isComplete: false
+      };
+    },
+
+    assignNextInBlock(activeBlock, participantId, options = {}) {
+      const labelA = options.labelA || 'Group A';
+      const labelB = options.labelB || 'Group B';
+      const blockSize = options.blockSize || 4;
+
+      let block = activeBlock;
+      let isNewBlock = false;
+
+      if (!block || block.currentIndex >= block.slots.length) {
+        const nextBlockNumber = block ? (block.blockNumber + 1) : 1;
+        block = this.createBlock(blockSize, { blockNumber: nextBlockNumber, labelA, labelB });
+        isNewBlock = true;
+      }
+
+      const slot = block.slots[block.currentIndex];
+      slot.assigned = true;
+      slot.participantId = participantId;
+      const now = new Date();
+      slot.timestamp = now.toISOString();
+      slot.displayTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      slot.groupLabel = slot.groupKey === 'A' ? labelA : labelB;
+
+      block.currentIndex += 1;
+      if (block.currentIndex >= block.slots.length) {
+        block.isComplete = true;
+      }
+
+      const allocationRecord = {
+        participantId,
+        timestamp: slot.timestamp,
+        displayTime: slot.displayTime,
+        blockNumber: block.blockNumber,
+        blockSize: block.blockSize,
+        slotInBlock: slot.slotIndex,
+        groupKey: slot.groupKey,
+        groupLabel: slot.groupLabel,
+        method: `Block Randomization (${block.blockSize})`
+      };
+
+      return {
+        updatedBlock: block,
+        allocationRecord,
+        isNewBlock
+      };
+    },
+
+    computeSummary(history = []) {
+      const total = history.length;
+      let countA = 0;
+      let countB = 0;
+
+      for (let i = 0; i < total; i++) {
+        if (history[i].groupKey === 'A') countA++;
+        else if (history[i].groupKey === 'B') countB++;
+      }
+
+      const pctA = total > 0 ? (countA / total) * 100 : 0;
+      const pctB = total > 0 ? (countB / total) * 100 : 0;
+      const diff = Math.abs(countA - countB);
+
+      let ratioStr = '1.00 : 1.00';
+      if (countB === 0 && countA > 0) {
+        ratioStr = `${countA} : 0`;
+      } else if (countA === 0 && countB > 0) {
+        ratioStr = `0 : ${countB}`;
+      } else if (countB > 0) {
+        ratioStr = `${(countA / countB).toFixed(2)} : 1.00`;
+      }
+
+      return {
+        total,
+        countA,
+        countB,
+        pctA,
+        pctB,
+        diff,
+        ratioStr
+      };
+    },
+
+    exportToCSV(history = [], mode = 'simple') {
+      if (mode === 'simple') {
+        const headers = ['Participant ID', 'Timestamp', 'Random Integer (1-100)', 'Parity', 'Assigned Group Code', 'Group Label'];
+        const rows = history.map(item => [
+          item.participantId,
+          `"${item.timestamp}"`,
+          item.randomNumber,
+          item.parity,
+          item.groupKey,
+          `"${(item.groupLabel || '').replace(/"/g, '""')}"`
+        ]);
+        return [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+      } else {
+        const headers = ['Participant ID', 'Timestamp', 'Block Number', 'Block Size', 'Slot in Block', 'Assigned Group Code', 'Group Label'];
+        const rows = history.map(item => [
+          item.participantId,
+          `"${item.timestamp}"`,
+          item.blockNumber,
+          item.blockSize,
+          item.slotInBlock,
+          item.groupKey,
+          `"${(item.groupLabel || '').replace(/"/g, '""')}"`
+        ]);
+        return [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+      }
+    }
   };
 
   // ==========================================
@@ -7070,6 +7271,7 @@ const DocxReports = {
       this.initEngines();
       this.bindEvents();
       this.loadInitialData();
+      this.initRandomiser();
     }
 
     applyTheme(theme) {
@@ -10216,6 +10418,559 @@ const DocxReports = {
         });
         this.runBayesianSimulation();
       }, 1200);
+    }
+
+    // ==========================================
+    // 13. RANDOMISER WORKFLOW & EVENT HANDLERS
+    // ==========================================
+    initRandomiser() {
+      this.randomiserState = {
+        mode: localStorage.getItem('statis_gravity_randomiser_mode') || 'simple',
+        simple: {
+          history: [],
+          nextId: 1,
+          labelA: 'Group A (Treatment)',
+          labelB: 'Group B (Control)'
+        },
+        block: {
+          history: [],
+          nextId: 1,
+          blockSize: 4,
+          targetN: 40,
+          labelA: 'Group A (Intervention)',
+          labelB: 'Group B (Control)',
+          activeBlock: null
+        }
+      };
+
+      try {
+        const savedSimple = localStorage.getItem('statis_gravity_randomiser_simple');
+        if (savedSimple) {
+          const parsed = JSON.parse(savedSimple);
+          if (parsed && Array.isArray(parsed.history)) {
+            this.randomiserState.simple.history = parsed.history;
+            this.randomiserState.simple.nextId = parsed.nextId || (parsed.history.length + 1);
+            if (parsed.labelA) this.randomiserState.simple.labelA = parsed.labelA;
+            if (parsed.labelB) this.randomiserState.simple.labelB = parsed.labelB;
+          }
+        }
+        const savedBlock = localStorage.getItem('statis_gravity_randomiser_block');
+        if (savedBlock) {
+          const parsed = JSON.parse(savedBlock);
+          if (parsed && Array.isArray(parsed.history)) {
+            this.randomiserState.block.history = parsed.history;
+            this.randomiserState.block.nextId = parsed.nextId || (parsed.history.length + 1);
+            if (parsed.blockSize) this.randomiserState.block.blockSize = parsed.blockSize;
+            if (parsed.targetN) this.randomiserState.block.targetN = parsed.targetN;
+            if (parsed.labelA) this.randomiserState.block.labelA = parsed.labelA;
+            if (parsed.labelB) this.randomiserState.block.labelB = parsed.labelB;
+            if (parsed.activeBlock) this.randomiserState.block.activeBlock = parsed.activeBlock;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load randomiser state from localStorage:', err);
+      }
+
+      // Sync form input fields
+      const sLabelA = document.getElementById('randomiserSimpleLabelA');
+      const sLabelB = document.getElementById('randomiserSimpleLabelB');
+      const sNextId = document.getElementById('randomiserSimpleNextId');
+      if (sLabelA) sLabelA.value = this.randomiserState.simple.labelA;
+      if (sLabelB) sLabelB.value = this.randomiserState.simple.labelB;
+      if (sNextId) sNextId.value = this.randomiserState.simple.nextId;
+
+      const bSize = document.getElementById('randomiserBlockSizeSelect');
+      const bTargetN = document.getElementById('randomiserBlockTargetN');
+      const bLabelA = document.getElementById('randomiserBlockLabelA');
+      const bLabelB = document.getElementById('randomiserBlockLabelB');
+      if (bSize) bSize.value = String(this.randomiserState.block.blockSize);
+      if (bTargetN) bTargetN.value = this.randomiserState.block.targetN;
+      if (bLabelA) bLabelA.value = this.randomiserState.block.labelA;
+      if (bLabelB) bLabelB.value = this.randomiserState.block.labelB;
+
+      // Event listeners for Simple inputs
+      sLabelA?.addEventListener('input', (e) => {
+        this.randomiserState.simple.labelA = e.target.value.trim() || 'Group A';
+        this.saveRandomiserState('simple');
+      });
+      sLabelB?.addEventListener('input', (e) => {
+        this.randomiserState.simple.labelB = e.target.value.trim() || 'Group B';
+        this.saveRandomiserState('simple');
+      });
+      sNextId?.addEventListener('change', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (!isNaN(val) && val >= 1) {
+          this.randomiserState.simple.nextId = val;
+          const btnId = document.getElementById('randomiserSimpleBtnIdText');
+          if (btnId) btnId.innerText = String(val);
+          this.saveRandomiserState('simple');
+        }
+      });
+
+      // Event listeners for Block inputs
+      bSize?.addEventListener('change', (e) => {
+        const newSize = parseInt(e.target.value, 10);
+        this.randomiserState.block.blockSize = newSize;
+        if (!this.randomiserState.block.activeBlock || this.randomiserState.block.activeBlock.currentIndex === 0) {
+          this.randomiserState.block.activeBlock = null;
+        }
+        this.updateRandomiserBlockUI();
+        this.saveRandomiserState('block');
+      });
+      bTargetN?.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (!isNaN(val) && val >= 2) {
+          this.randomiserState.block.targetN = val;
+          this.updateRandomiserBlockUI();
+          this.saveRandomiserState('block');
+        }
+      });
+      bLabelA?.addEventListener('input', (e) => {
+        this.randomiserState.block.labelA = e.target.value.trim() || 'Group A';
+        this.saveRandomiserState('block');
+      });
+      bLabelB?.addEventListener('input', (e) => {
+        this.randomiserState.block.labelB = e.target.value.trim() || 'Group B';
+        this.saveRandomiserState('block');
+      });
+
+      // Sub-Navigation mode switching
+      const modeSimpleBtn = document.getElementById('randomiserModeSimpleBtn');
+      const modeBlockBtn = document.getElementById('randomiserModeBlockBtn');
+      const simplePanel = document.getElementById('randomiserSimplePanel');
+      const blockPanel = document.getElementById('randomiserBlockPanel');
+
+      const setMode = (mode) => {
+        this.randomiserState.mode = mode;
+        localStorage.setItem('statis_gravity_randomiser_mode', mode);
+
+        if (mode === 'simple') {
+          modeSimpleBtn?.classList.add('active');
+          modeSimpleBtn?.setAttribute('aria-selected', 'true');
+          modeBlockBtn?.classList.remove('active');
+          modeBlockBtn?.setAttribute('aria-selected', 'false');
+          if (simplePanel) simplePanel.style.display = 'block';
+          if (blockPanel) blockPanel.style.display = 'none';
+        } else {
+          modeBlockBtn?.classList.add('active');
+          modeBlockBtn?.setAttribute('aria-selected', 'true');
+          modeSimpleBtn?.classList.remove('active');
+          modeSimpleBtn?.setAttribute('aria-selected', 'false');
+          if (simplePanel) simplePanel.style.display = 'none';
+          if (blockPanel) blockPanel.style.display = 'block';
+        }
+        this.renderRandomiserAuditTable();
+      };
+
+      modeSimpleBtn?.addEventListener('click', () => setMode('simple'));
+      modeBlockBtn?.addEventListener('click', () => setMode('block'));
+
+      // Action Buttons
+      document.getElementById('randomiserSimpleGenerateBtn')?.addEventListener('click', () => {
+        this.generateSimpleAllocationAction();
+      });
+
+      document.getElementById('randomiserBlockAssignBtn')?.addEventListener('click', () => {
+        this.assignBlockAllocationAction();
+      });
+
+      document.getElementById('randomiserExportCsvBtn')?.addEventListener('click', () => {
+        this.exportRandomiserCSV();
+      });
+
+      document.getElementById('randomiserCopyTableBtn')?.addEventListener('click', () => {
+        this.copyRandomiserAuditTable();
+      });
+
+      // Reset Modal Handlers
+      const resetModal = document.getElementById('randomiserResetModal');
+      document.getElementById('randomiserResetBtn')?.addEventListener('click', () => {
+        if (resetModal) resetModal.classList.remove('hidden');
+      });
+      document.getElementById('randomiserResetCancelBtn')?.addEventListener('click', () => {
+        if (resetModal) resetModal.classList.add('hidden');
+      });
+      document.getElementById('randomiserResetConfirmBtn')?.addEventListener('click', () => {
+        this.resetRandomiserSession();
+        if (resetModal) resetModal.classList.add('hidden');
+      });
+
+      // Initial View Setup
+      setMode(this.randomiserState.mode);
+      this.updateRandomiserSimpleUI();
+      this.updateRandomiserBlockUI();
+      this.renderRandomiserAuditTable();
+    }
+
+    generateSimpleAllocationAction() {
+      const pid = this.randomiserState.simple.nextId;
+      const record = Randomiser.generateSimpleAllocation({
+        participantId: pid,
+        labelA: this.randomiserState.simple.labelA,
+        labelB: this.randomiserState.simple.labelB
+      });
+
+      this.randomiserState.simple.history.push(record);
+      this.randomiserState.simple.nextId += 1;
+
+      const sNextIdEl = document.getElementById('randomiserSimpleNextId');
+      if (sNextIdEl) sNextIdEl.value = this.randomiserState.simple.nextId;
+
+      this.saveRandomiserState('simple');
+      this.updateRandomiserSimpleUI(record);
+      this.renderRandomiserAuditTable();
+    }
+
+    updateRandomiserSimpleUI(lastRecord = null) {
+      const sNextId = this.randomiserState.simple.nextId;
+      const btnIdText = document.getElementById('randomiserSimpleBtnIdText');
+      if (btnIdText) btnIdText.innerText = String(sNextId);
+
+      const history = this.randomiserState.simple.history;
+      const rec = lastRecord || (history.length > 0 ? history[history.length - 1] : null);
+
+      const idleView = document.getElementById('randomiserSimpleIdleView');
+      const activeView = document.getElementById('randomiserSimpleActiveView');
+      const revealCard = document.getElementById('randomiserSimpleRevealCard');
+      const badge = document.getElementById('randomiserSimpleBadge');
+      const resId = document.getElementById('randomiserSimpleResultId');
+      const resNum = document.getElementById('randomiserSimpleResultNum');
+      const resParity = document.getElementById('randomiserSimpleResultParity');
+      const resTime = document.getElementById('randomiserSimpleResultTime');
+      const tsText = document.getElementById('randomiserSimpleTimestampText');
+
+      if (rec) {
+        if (idleView) idleView.style.display = 'none';
+        if (activeView) activeView.style.display = 'block';
+        if (resId) resId.innerText = `#${rec.participantId}`;
+        if (badge) {
+          badge.innerText = rec.groupLabel;
+          badge.className = `allocation-badge-large ${rec.groupKey === 'A' ? 'badge-group-a' : 'badge-group-b'}`;
+        }
+        if (revealCard) {
+          revealCard.className = `allocation-reveal-card ${rec.groupKey === 'A' ? 'revealed-a' : 'revealed-b'}`;
+        }
+        if (resNum) resNum.innerText = String(rec.randomNumber);
+        if (resParity) {
+          resParity.innerText = rec.parity;
+          resParity.style.color = rec.groupKey === 'A' ? 'var(--cyan-primary)' : 'var(--emerald-primary)';
+        }
+        if (resTime) resTime.innerText = rec.displayTime || '';
+        if (tsText) tsText.innerText = `Last assigned at ${rec.displayTime || ''}`;
+      } else {
+        if (idleView) idleView.style.display = 'block';
+        if (activeView) activeView.style.display = 'none';
+        if (revealCard) revealCard.className = 'allocation-reveal-card';
+        if (tsText) tsText.innerText = 'No allocation yet';
+      }
+
+      // Summary metrics
+      const summary = Randomiser.computeSummary(history);
+      const totalEl = document.getElementById('randomiserSimpleTotalN');
+      const countAEl = document.getElementById('randomiserSimpleCountA');
+      const countBEl = document.getElementById('randomiserSimpleCountB');
+      const ratioEl = document.getElementById('randomiserSimpleRatio');
+      const pctAEl = document.getElementById('randomiserSimplePctA');
+      const pctBEl = document.getElementById('randomiserSimplePctB');
+      const barA = document.getElementById('randomiserSimpleBarA');
+      const barB = document.getElementById('randomiserSimpleBarB');
+
+      if (totalEl) totalEl.innerText = String(summary.total);
+      if (countAEl) countAEl.innerText = `${summary.countA} (${summary.pctA.toFixed(0)}%)`;
+      if (countBEl) countBEl.innerText = `${summary.countB} (${summary.pctB.toFixed(0)}%)`;
+      if (ratioEl) ratioEl.innerText = summary.ratioStr;
+      if (pctAEl) pctAEl.innerText = `${summary.pctA.toFixed(0)}%`;
+      if (pctBEl) pctBEl.innerText = `${summary.pctB.toFixed(0)}%`;
+
+      const barAWidth = summary.total === 0 ? 50 : Math.max(5, Math.min(95, summary.pctA));
+      const barBWidth = summary.total === 0 ? 50 : (100 - barAWidth);
+      if (barA) barA.style.width = `${barAWidth}%`;
+      if (barB) barB.style.width = `${barBWidth}%`;
+    }
+
+    assignBlockAllocationAction() {
+      const pid = this.randomiserState.block.nextId;
+      const res = Randomiser.assignNextInBlock(
+        this.randomiserState.block.activeBlock,
+        pid,
+        {
+          blockSize: this.randomiserState.block.blockSize,
+          labelA: this.randomiserState.block.labelA,
+          labelB: this.randomiserState.block.labelB
+        }
+      );
+
+      this.randomiserState.block.activeBlock = res.updatedBlock;
+      this.randomiserState.block.history.push(res.allocationRecord);
+      this.randomiserState.block.nextId += 1;
+
+      this.saveRandomiserState('block');
+      this.updateRandomiserBlockUI(res.allocationRecord);
+      this.renderRandomiserAuditTable();
+    }
+
+    updateRandomiserBlockUI(lastRecord = null) {
+      const bNextId = this.randomiserState.block.nextId;
+      const btnIdText = document.getElementById('randomiserBlockBtnIdText');
+      if (btnIdText) btnIdText.innerText = `Participant #${bNextId}`;
+
+      const history = this.randomiserState.block.history;
+      const rec = lastRecord || (history.length > 0 ? history[history.length - 1] : null);
+
+      const idleView = document.getElementById('randomiserBlockIdleView');
+      const activeView = document.getElementById('randomiserBlockActiveView');
+      const revealCard = document.getElementById('randomiserBlockRevealCard');
+      const badge = document.getElementById('randomiserBlockBadge');
+      const resId = document.getElementById('randomiserBlockResultId');
+      const resBlockNum = document.getElementById('randomiserBlockResultBlockNum');
+      const resSlot = document.getElementById('randomiserBlockResultSlot');
+      const resTime = document.getElementById('randomiserBlockResultTime');
+
+      if (rec) {
+        if (idleView) idleView.style.display = 'none';
+        if (activeView) activeView.style.display = 'block';
+        if (resId) resId.innerText = `#${rec.participantId}`;
+        if (badge) {
+          badge.innerText = rec.groupLabel;
+          badge.className = `allocation-badge-large ${rec.groupKey === 'A' ? 'badge-group-a' : 'badge-group-b'}`;
+        }
+        if (revealCard) {
+          revealCard.className = `allocation-reveal-card ${rec.groupKey === 'A' ? 'revealed-a' : 'revealed-b'}`;
+        }
+        if (resBlockNum) resBlockNum.innerText = String(rec.blockNumber);
+        if (resSlot) resSlot.innerText = `${rec.slotInBlock} of ${rec.blockSize}`;
+        if (resTime) resTime.innerText = rec.displayTime || '';
+      } else {
+        if (idleView) idleView.style.display = 'block';
+        if (activeView) activeView.style.display = 'none';
+        if (revealCard) revealCard.className = 'allocation-reveal-card';
+      }
+
+      // Block slots visual tracker
+      const activeBlock = this.randomiserState.block.activeBlock;
+      const bSize = this.randomiserState.block.blockSize;
+      const slotsContainer = document.getElementById('randomiserBlockSlotsContainer');
+      const progressText = document.getElementById('randomiserBlockProgressText');
+      const statusBadge = document.getElementById('randomiserBlockStatusBadge');
+
+      if (slotsContainer) {
+        slotsContainer.innerHTML = '';
+        const currentBlockNum = activeBlock ? activeBlock.blockNumber : (Math.floor(history.length / bSize) + 1);
+        if (statusBadge) statusBadge.innerText = `Block #${currentBlockNum} Active`;
+
+        if (activeBlock && activeBlock.slots) {
+          const assignedCount = activeBlock.currentIndex;
+          if (progressText) progressText.innerText = `Slot ${assignedCount} of ${activeBlock.blockSize} assigned`;
+
+          activeBlock.slots.forEach(slot => {
+            const pill = document.createElement('div');
+            if (slot.assigned) {
+              pill.className = `block-slot-pill ${slot.groupKey === 'A' ? 'assigned-a' : 'assigned-b'}`;
+              pill.innerHTML = `✓ Slot ${slot.slotIndex}: <strong>${slot.groupKey}</strong> (P#${slot.participantId})`;
+            } else if (slot.slotIndex === activeBlock.currentIndex + 1) {
+              pill.className = 'block-slot-pill concealed-slot active-slot';
+              pill.innerHTML = `★ Next Slot ${slot.slotIndex}: 🔒 Concealed`;
+            } else {
+              pill.className = 'block-slot-pill concealed-slot';
+              pill.innerHTML = `Slot ${slot.slotIndex}: 🔒 Pending`;
+            }
+            slotsContainer.appendChild(pill);
+          });
+        } else {
+          if (progressText) progressText.innerText = `Slot 0 of ${bSize} assigned`;
+          for (let i = 1; i <= bSize; i++) {
+            const pill = document.createElement('div');
+            pill.className = 'block-slot-pill concealed-slot';
+            pill.innerHTML = `Slot ${i}: 🔒 Concealed`;
+            slotsContainer.appendChild(pill);
+          }
+        }
+      }
+
+      // Summary metrics
+      const summary = Randomiser.computeSummary(history);
+      const totalBlockEl = document.getElementById('randomiserBlockTotalN');
+      const countABlockEl = document.getElementById('randomiserBlockCountA');
+      const countBBlockEl = document.getElementById('randomiserBlockCountB');
+      const completedBlocksEl = document.getElementById('randomiserBlockCompletedCount');
+      const pctABlockEl = document.getElementById('randomiserBlockPctA');
+      const pctBBlockEl = document.getElementById('randomiserBlockPctB');
+      const barABlock = document.getElementById('randomiserBlockBarA');
+      const barBBlock = document.getElementById('randomiserBlockBarB');
+
+      if (totalBlockEl) totalBlockEl.innerText = `${summary.total} / ${this.randomiserState.block.targetN}`;
+      if (countABlockEl) countABlockEl.innerText = `${summary.countA} (${summary.pctA.toFixed(0)}%)`;
+      if (countBBlockEl) countBBlockEl.innerText = `${summary.countB} (${summary.pctB.toFixed(0)}%)`;
+      const completedBlocks = Math.floor(summary.total / bSize);
+      if (completedBlocksEl) completedBlocksEl.innerText = String(completedBlocks);
+      if (pctABlockEl) pctABlockEl.innerText = `${summary.pctA.toFixed(0)}%`;
+      if (pctBBlockEl) pctBBlockEl.innerText = `${summary.pctB.toFixed(0)}%`;
+
+      const barAWidth = summary.total === 0 ? 50 : Math.max(5, Math.min(95, summary.pctA));
+      const barBWidth = summary.total === 0 ? 50 : (100 - barAWidth);
+      if (barABlock) barABlock.style.width = `${barAWidth}%`;
+      if (barBBlock) barBBlock.style.width = `${barBWidth}%`;
+    }
+
+    renderRandomiserAuditTable() {
+      const mode = this.randomiserState.mode;
+      const history = this.randomiserState[mode].history;
+      const tbody = document.getElementById('randomiserAuditTableBody');
+      const countBadge = document.getElementById('randomiserAuditCountBadge');
+
+      if (!tbody) return;
+
+      if (countBadge) {
+        countBadge.innerText = `${history.length} Record${history.length === 1 ? '' : 's'}`;
+      }
+
+      if (history.length === 0) {
+        tbody.innerHTML = `
+          <tr id="randomiserAuditEmptyRow">
+            <td colspan="6" style="text-align: center; padding: 2.5rem 1rem; color: var(--text-dim);">
+              <div style="font-size: 1.8rem; margin-bottom: 0.4rem;">🎲</div>
+              <div style="font-weight: 600; color: var(--text-muted);">No participants randomized yet in ${mode === 'simple' ? 'Simple' : 'Block'} mode</div>
+              <div style="font-size: 0.78rem; margin-top: 0.2rem;">Click "Generate / Assign Next Participant" above to initiate sequence allocation.</div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = '';
+      // Render in reverse chronological order (newest first)
+      for (let i = history.length - 1; i >= 0; i--) {
+        const item = history[i];
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--border-subtle)';
+
+        const drawCol = mode === 'simple'
+          ? `<span class="badge ${item.parity === 'Odd' ? 'badge-sig' : 'badge-neutral'}">${item.randomNumber} (${item.parity})</span>`
+          : `<span class="badge badge-sig">Block ${item.blockNumber} (Slot ${item.slotInBlock}/${item.blockSize})</span>`;
+
+        tr.innerHTML = `
+          <td style="padding: 0.6rem 0.85rem; font-weight: 800; color: var(--text-main);">#${item.participantId}</td>
+          <td style="padding: 0.6rem 0.85rem; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted);">${item.displayTime || (item.timestamp ? item.timestamp.slice(11, 19) : '--')}</td>
+          <td style="padding: 0.6rem 0.85rem; font-size: 0.8rem; color: var(--text-muted);">${item.method || (mode === 'simple' ? 'Simple (1-100)' : 'Block Permuted')}</td>
+          <td style="padding: 0.6rem 0.85rem;">${drawCol}</td>
+          <td style="padding: 0.6rem 0.85rem; font-weight: 800; color: ${item.groupKey === 'A' ? 'var(--cyan-primary)' : 'var(--emerald-primary)'}; font-size: 1.05rem;">${item.groupKey}</td>
+          <td style="padding: 0.6rem 0.85rem; font-weight: 600; color: var(--text-main);">${item.groupLabel}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    saveRandomiserState(type) {
+      try {
+        if (type === 'simple') {
+          localStorage.setItem('statis_gravity_randomiser_simple', JSON.stringify({
+            history: this.randomiserState.simple.history,
+            nextId: this.randomiserState.simple.nextId,
+            labelA: this.randomiserState.simple.labelA,
+            labelB: this.randomiserState.simple.labelB
+          }));
+        } else if (type === 'block') {
+          localStorage.setItem('statis_gravity_randomiser_block', JSON.stringify({
+            history: this.randomiserState.block.history,
+            nextId: this.randomiserState.block.nextId,
+            blockSize: this.randomiserState.block.blockSize,
+            targetN: this.randomiserState.block.targetN,
+            labelA: this.randomiserState.block.labelA,
+            labelB: this.randomiserState.block.labelB,
+            activeBlock: this.randomiserState.block.activeBlock
+          }));
+        }
+      } catch (err) {
+        console.warn('Error saving randomiser state to localStorage:', err);
+      }
+    }
+
+    exportRandomiserCSV() {
+      const mode = this.randomiserState.mode;
+      const history = this.randomiserState[mode].history;
+
+      if (!history || history.length === 0) {
+        alert(`No randomized records to export in ${mode === 'simple' ? 'Simple' : 'Block'} Randomization mode.`);
+        return;
+      }
+
+      const csvContent = Randomiser.exportToCSV(history, mode);
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      a.download = `statis_gravity_${mode}_randomisation_audit_${dateStr}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    copyRandomiserAuditTable() {
+      const mode = this.randomiserState.mode;
+      const history = this.randomiserState[mode].history;
+      const copyBtn = document.getElementById('randomiserCopyTableBtn');
+
+      if (!history || history.length === 0) {
+        alert('Audit table is empty. Randomize at least one participant first.');
+        return;
+      }
+
+      const headers = mode === 'simple'
+        ? ['Participant ID', 'Timestamp', 'Method', 'Random Draw (1-100)', 'Parity', 'Group Code', 'Group Label']
+        : ['Participant ID', 'Timestamp', 'Method', 'Block Number', 'Block Size', 'Slot in Block', 'Group Code', 'Group Label'];
+
+      const rows = history.map(item => mode === 'simple'
+        ? [item.participantId, item.timestamp, item.method || 'Simple', item.randomNumber, item.parity, item.groupKey, item.groupLabel]
+        : [item.participantId, item.timestamp, item.method || 'Block', item.blockNumber, item.blockSize, item.slotInBlock, item.groupKey, item.groupLabel]
+      );
+
+      const tsv = [headers.join('\t'), ...rows.map(r => r.join('\t'))].join('\n');
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(tsv).then(() => {
+          if (copyBtn) {
+            const orig = copyBtn.innerText;
+            copyBtn.innerText = '✓ Copied!';
+            setTimeout(() => { copyBtn.innerText = orig; }, 1800);
+          }
+        });
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = tsv;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (copyBtn) {
+          const orig = copyBtn.innerText;
+          copyBtn.innerText = '✓ Copied!';
+          setTimeout(() => { copyBtn.innerText = orig; }, 1800);
+        }
+      }
+    }
+
+    resetRandomiserSession() {
+      const mode = this.randomiserState.mode;
+      if (mode === 'simple') {
+        this.randomiserState.simple.history = [];
+        this.randomiserState.simple.nextId = 1;
+        const sNextIdEl = document.getElementById('randomiserSimpleNextId');
+        if (sNextIdEl) sNextIdEl.value = '1';
+        localStorage.removeItem('statis_gravity_randomiser_simple');
+        this.updateRandomiserSimpleUI();
+      } else {
+        this.randomiserState.block.history = [];
+        this.randomiserState.block.nextId = 1;
+        this.randomiserState.block.activeBlock = null;
+        localStorage.removeItem('statis_gravity_randomiser_block');
+        this.updateRandomiserBlockUI();
+      }
+      this.renderRandomiserAuditTable();
     }
   }
 

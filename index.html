@@ -10,6 +10,15 @@
   <meta http-equiv="Expires" content="0">
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/components.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      corePlugins: {
+        preflight: false,
+      },
+      darkMode: ['selector', '[data-theme="dark"]']
+    }
+  </script>
 </head>
 <body>
   <div class="app-container">
@@ -36,6 +45,9 @@
     <nav class="nav-tab-bar" aria-label="Statistical Analysis Categories">
       <button class="tab-btn active" data-target="tab-descriptive">
         📊 Descriptive Stats
+      </button>
+      <button class="tab-btn" data-target="tab-randomiser">
+        🎲 Randomiser
       </button>
       <button class="tab-btn" data-target="tab-hypothesis">
         ⚖️ Hypothesis Testing
@@ -206,6 +218,363 @@
               </div>
               <p id="descReportText" class="report-text">--</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 1.5 Clinical & Research Randomisation Tab -->
+      <section id="tab-randomiser" class="tab-pane">
+        <div class="tab-pane-toolbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.25rem;">
+          <div>
+            <h2 style="font-size: 1.35rem; font-weight: 800; margin: 0; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+              <span>🎲</span> Clinical &amp; Research Randomisation Suite
+            </h2>
+            <p style="margin: 0.25rem 0 0 0; font-size: 0.84rem; color: var(--text-muted);">
+              Zero-modulo-bias cryptographically secure generation &amp; balanced permuted block allocation with allocation concealment
+            </p>
+          </div>
+          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <button id="randomiserExportCsvBtn" class="btn btn-secondary btn-sm" title="Download the full session randomization sequence as CSV">
+              📥 Download CSV
+            </button>
+            <button id="randomiserCopyTableBtn" class="btn btn-secondary btn-sm" title="Copy audit table to clipboard">
+              📋 Copy Table
+            </button>
+            <button id="randomiserResetBtn" class="btn btn-secondary btn-sm" style="color: var(--rose-primary); border-color: rgba(244, 63, 94, 0.3);" title="Reset current randomization session and clear local storage">
+              🗑️ Reset Session
+            </button>
+          </div>
+        </div>
+
+        <!-- Sub-Navigation for the 2 Calculators -->
+        <div class="randomiser-subnav" role="tablist" aria-label="Randomiser Calculators">
+          <button id="randomiserModeSimpleBtn" class="randomiser-subnav-btn active" role="tab" aria-selected="true" data-mode="simple">
+            <span>🎲</span> Calculator 1: Simple Randomization (Odd/Even 1–100)
+          </button>
+          <button id="randomiserModeBlockBtn" class="randomiser-subnav-btn" role="tab" aria-selected="false" data-mode="block">
+            <span>📦</span> Calculator 2: Block Randomization (Balanced Allocation)
+          </button>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- CALCULATOR 1: SIMPLE RANDOMIZATION (ODD/EVEN 1-100) -->
+        <!-- ======================================================== -->
+        <div id="randomiserSimplePanel" class="randomiser-panel">
+          <div class="analysis-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+            <!-- Simple Config & Action Card -->
+            <div class="card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 1.25rem;">
+              <div class="card-header" style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--cyan-primary);">
+                  ⚙️ Simple Randomization Parameters
+                </h3>
+                <span style="font-size: 0.78rem; color: var(--text-dim);">Uniform Odd/Even Mapping</span>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                  <div class="form-group">
+                    <label for="randomiserSimpleLabelA" style="font-size: 0.8rem; font-weight: 600; color: var(--cyan-primary); display: block; margin-bottom: 0.3rem;">
+                      Group A Label (Odd Numbers)
+                    </label>
+                    <input type="text" id="randomiserSimpleLabelA" class="input-field" value="Group A (Treatment)" style="width: 100%; font-size: 0.88rem; padding: 0.45rem 0.65rem;">
+                  </div>
+                  <div class="form-group">
+                    <label for="randomiserSimpleLabelB" style="font-size: 0.8rem; font-weight: 600; color: var(--emerald-primary); display: block; margin-bottom: 0.3rem;">
+                      Group B Label (Even Numbers)
+                    </label>
+                    <input type="text" id="randomiserSimpleLabelB" class="input-field" value="Group B (Control)" style="width: 100%; font-size: 0.88rem; padding: 0.45rem 0.65rem;">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="randomiserSimpleNextId" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">
+                    Next Participant ID (Auto-Incrementing)
+                  </label>
+                  <input type="number" id="randomiserSimpleNextId" class="input-field" value="1" min="1" step="1" style="width: 100%; font-size: 0.88rem; padding: 0.45rem 0.65rem;">
+                </div>
+
+                <!-- Methodological Pitfall Prevention Note -->
+                <div style="background: rgba(0, 210, 255, 0.05); border-left: 3px solid var(--cyan-primary); padding: 0.75rem; border-radius: 0 8px 8px 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+                  <strong style="color: var(--cyan-primary); display: block; margin-bottom: 0.2rem;">🛡️ Bias &amp; Modulo Prevention:</strong>
+                  Uses <code style="color: var(--text-main); background: rgba(255,255,255,0.08); padding: 2px 5px; border-radius: 4px;">window.crypto.getRandomValues()</code> with rejection sampling (rejection threshold 4,294,967,200) to ensure true cryptographic uniformity across 1–100, eliminating modulo bias.
+                </div>
+
+                <button id="randomiserSimpleGenerateBtn" class="btn btn-primary" style="padding: 0.85rem; font-size: 1rem; font-weight: 700; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 15px rgba(0, 210, 255, 0.25);">
+                  <span>🎲</span> Generate / Assign Participant #<span id="randomiserSimpleBtnIdText">1</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Simple Live Feedback & Summary Card -->
+            <div class="card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 1.25rem;">
+              <div class="card-header" style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--text-main);">
+                  🎯 Prominent Assignment &amp; Live Balance
+                </h3>
+                <span id="randomiserSimpleTimestampText" style="font-size: 0.78rem; color: var(--text-dim);">No allocation yet</span>
+              </div>
+
+              <!-- Large Visual Assignment Display -->
+              <div id="randomiserSimpleRevealCard" class="allocation-reveal-card" style="margin-bottom: 1.25rem;">
+                <div id="randomiserSimpleIdleView">
+                  <div style="font-size: 2.4rem; line-height: 1; margin-bottom: 0.5rem;">🎲</div>
+                  <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">
+                    Ready to Randomize
+                  </div>
+                  <p style="margin: 0; font-size: 0.82rem; color: var(--text-muted);">
+                    Click the generate button to assign the next subject via cryptographically secure odd/even number draw.
+                  </p>
+                </div>
+
+                <div id="randomiserSimpleActiveView" style="display: none;">
+                  <div style="font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.5rem;">
+                    Participant <span id="randomiserSimpleResultId" style="color: var(--text-main); font-weight: 800;">#1</span> Assigned To:
+                  </div>
+                  <div id="randomiserSimpleBadge" class="allocation-badge-large badge-group-a">
+                    Group A (Treatment)
+                  </div>
+                  <div style="margin-top: 1rem; display: flex; justify-content: center; align-items: center; gap: 1rem; font-size: 0.85rem; color: var(--text-muted);">
+                    <span>Random Integer: <strong id="randomiserSimpleResultNum" style="color: var(--text-main); font-size: 1.05rem;">47</strong></span>
+                    <span>•</span>
+                    <span>Parity: <strong id="randomiserSimpleResultParity" style="color: var(--cyan-primary);">Odd</strong></span>
+                    <span>•</span>
+                    <span id="randomiserSimpleResultTime">10:30:15 AM</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Real-Time Balance Statistics Grid -->
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-bottom: 1rem;">
+                <div class="metric-card" style="text-align: center; padding: 0.6rem 0.4rem; background: var(--bg-surface-elevated); border-radius: 8px;">
+                  <div style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600;">Total (N)</div>
+                  <div id="randomiserSimpleTotalN" style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin-top: 0.2rem;">0</div>
+                </div>
+                <div class="metric-card" style="text-align: center; padding: 0.6rem 0.4rem; background: rgba(0, 210, 255, 0.06); border: 1px solid rgba(0, 210, 255, 0.2); border-radius: 8px;">
+                  <div style="font-size: 0.72rem; color: var(--cyan-primary); text-transform: uppercase; font-weight: 600;">Group A</div>
+                  <div id="randomiserSimpleCountA" style="font-size: 1.25rem; font-weight: 800; color: var(--cyan-primary); margin-top: 0.2rem;">0 (0%)</div>
+                </div>
+                <div class="metric-card" style="text-align: center; padding: 0.6rem 0.4rem; background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px;">
+                  <div style="font-size: 0.72rem; color: var(--emerald-primary); text-transform: uppercase; font-weight: 600;">Group B</div>
+                  <div id="randomiserSimpleCountB" style="font-size: 1.25rem; font-weight: 800; color: var(--emerald-primary); margin-top: 0.2rem;">0 (0%)</div>
+                </div>
+                <div class="metric-card" style="text-align: center; padding: 0.6rem 0.4rem; background: var(--bg-surface-elevated); border-radius: 8px;">
+                  <div style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600;">Ratio (A:B)</div>
+                  <div id="randomiserSimpleRatio" style="font-size: 1.1rem; font-weight: 800; color: var(--text-main); margin-top: 0.2rem;">1:1</div>
+                </div>
+              </div>
+
+              <!-- Balance Ratio Visual Bar -->
+              <div style="margin-bottom: 0.85rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 0.3rem;">
+                  <span>Group A Balance (<span id="randomiserSimplePctA">50%</span>)</span>
+                  <span>Group B Balance (<span id="randomiserSimplePctB">50%</span>)</span>
+                </div>
+                <div class="balance-bar-track">
+                  <div id="randomiserSimpleBarA" class="balance-bar-a" style="width: 50%;"></div>
+                  <div id="randomiserSimpleBarB" class="balance-bar-b" style="width: 50%;"></div>
+                </div>
+              </div>
+
+              <!-- Clinical Imbalance Notice -->
+              <div style="background: rgba(245, 158, 11, 0.06); border-left: 3px solid var(--amber-primary); padding: 0.6rem 0.75rem; border-radius: 0 6px 6px 0; font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
+                <strong style="color: var(--amber-primary);">Methodological Warning:</strong> In smaller samples (N &lt; 100), simple randomization naturally experiences random drift leading to noticeable sample size imbalances. If strict balance is essential throughout enrolment, switch to <strong>Calculator 2: Block Randomization</strong>.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- CALCULATOR 2: BLOCK RANDOMIZATION (BALANCED ALLOCATION) -->
+        <!-- ======================================================== -->
+        <div id="randomiserBlockPanel" class="randomiser-panel" style="display: none;">
+          <div class="analysis-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+            <!-- Block Config & Controls -->
+            <div class="card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 1.25rem;">
+              <div class="card-header" style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--emerald-primary);">
+                  ⚙️ Block Randomization Parameters
+                </h3>
+                <span style="font-size: 0.78rem; color: var(--text-dim);">Permuted Balanced Sequences</span>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                  <div class="form-group">
+                    <label for="randomiserBlockSizeSelect" style="font-size: 0.8rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.3rem;">
+                      Block Size (Even Number)
+                    </label>
+                    <select id="randomiserBlockSizeSelect" class="input-field" style="width: 100%; font-size: 0.88rem; padding: 0.45rem 0.65rem;">
+                      <option value="4" selected>Block of 4 (2A : 2B)</option>
+                      <option value="6">Block of 6 (3A : 3B)</option>
+                      <option value="8">Block of 8 (4A : 4B)</option>
+                      <option value="10">Block of 10 (5A : 5B)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="randomiserBlockTargetN" style="font-size: 0.8rem; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.3rem;">
+                      Planned Sample Size (Target N)
+                    </label>
+                    <input type="number" id="randomiserBlockTargetN" class="input-field" value="40" min="2" step="2" style="width: 100%; font-size: 0.88rem; padding: 0.45rem 0.65rem;">
+                  </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                  <div class="form-group">
+                    <label for="randomiserBlockLabelA" style="font-size: 0.8rem; font-weight: 600; color: var(--cyan-primary); display: block; margin-bottom: 0.3rem;">
+                      Group A Label
+                    </label>
+                    <input type="text" id="randomiserBlockLabelA" class="input-field" value="Group A (Intervention)" style="width: 100%; font-size: 0.88rem; padding: 0.45rem 0.65rem;">
+                  </div>
+                  <div class="form-group">
+                    <label for="randomiserBlockLabelB" style="font-size: 0.8rem; font-weight: 600; color: var(--emerald-primary); display: block; margin-bottom: 0.3rem;">
+                      Group B Label
+                    </label>
+                    <input type="text" id="randomiserBlockLabelB" class="input-field" value="Group B (Control)" style="width: 100%; font-size: 0.88rem; padding: 0.45rem 0.65rem;">
+                  </div>
+                </div>
+
+                <!-- Allocation Concealment Principle Box -->
+                <div style="background: rgba(16, 185, 129, 0.05); border-left: 3px solid var(--emerald-primary); padding: 0.75rem; border-radius: 0 8px 8px 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+                  <strong style="color: var(--emerald-primary); display: block; margin-bottom: 0.2rem;">🔒 Allocation Concealment Safeguard:</strong>
+                  Assignments are strictly concealed behind a digital veil until the investigator registers the participant. Shuffling inside each block is executed via Fisher-Yates with <code style="color: var(--text-main); background: rgba(255,255,255,0.08); padding: 2px 5px; border-radius: 4px;">crypto.getRandomValues</code> to eliminate selection and ordering bias.
+                </div>
+
+                <button id="randomiserBlockAssignBtn" class="btn btn-primary" style="padding: 0.85rem; font-size: 1rem; font-weight: 700; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-color: #10b981; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);">
+                  <span>🎲</span> Generate / Assign Next Participant (<span id="randomiserBlockBtnIdText">Participant #1</span>)
+                </button>
+              </div>
+            </div>
+
+            <!-- Block Visual Tracker & Concealment Reveal Card -->
+            <div class="card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 1.25rem;">
+              <div class="card-header" style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--text-main);">
+                  🛡️ Allocation Concealment &amp; Block Tracker
+                </h3>
+                <span id="randomiserBlockStatusBadge" style="font-size: 0.78rem; color: var(--emerald-primary); font-weight: 600;">Block #1 Active</span>
+              </div>
+
+              <!-- Allocation Concealment Shield / Reveal Box -->
+              <div id="randomiserBlockRevealCard" class="allocation-reveal-card" style="margin-bottom: 1.25rem;">
+                <!-- Initial Idle State -->
+                <div id="randomiserBlockIdleView">
+                  <div class="concealment-veil">
+                    <div style="font-size: 2.2rem; line-height: 1;">🔒</div>
+                    <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-main);">
+                      Allocation Concealed
+                    </div>
+                    <p style="margin: 0; font-size: 0.82rem; color: var(--text-muted); max-width: 320px;">
+                      Participant #1 is ready for assignment. Allocation is masked to prevent investigator selection bias.
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Revealed State -->
+                <div id="randomiserBlockActiveView" style="display: none;">
+                  <div style="font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.5rem;">
+                    Participant <span id="randomiserBlockResultId" style="color: var(--text-main); font-weight: 800;">#1</span> Assigned To:
+                  </div>
+                  <div id="randomiserBlockBadge" class="allocation-badge-large badge-group-a">
+                    Group A (Intervention)
+                  </div>
+                  <div style="margin-top: 1rem; display: flex; justify-content: center; align-items: center; gap: 0.75rem; font-size: 0.83rem; color: var(--text-muted); flex-wrap: wrap;">
+                    <span>Block: <strong id="randomiserBlockResultBlockNum" style="color: var(--text-main);">1</strong></span>
+                    <span>•</span>
+                    <span>Slot: <strong id="randomiserBlockResultSlot" style="color: var(--emerald-primary);">1 of 4</strong></span>
+                    <span>•</span>
+                    <span id="randomiserBlockResultTime">10:30:15 AM</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Active Block Slot Pills Progress -->
+              <div style="background: var(--bg-surface-elevated); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-subtle); margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.5rem;">
+                  <span>Active Block Allocation Progress:</span>
+                  <span id="randomiserBlockProgressText" style="color: var(--emerald-primary);">Slot 0 of 4</span>
+                </div>
+                <div id="randomiserBlockSlotsContainer" class="block-slot-grid">
+                  <!-- Dynamically rendered slot pills -->
+                </div>
+              </div>
+
+              <!-- Block Summary Metrics -->
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-bottom: 0.85rem;">
+                <div class="metric-card" style="text-align: center; padding: 0.6rem 0.4rem; background: var(--bg-surface-elevated); border-radius: 8px;">
+                  <div style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600;">Enrolled / Target</div>
+                  <div id="randomiserBlockTotalN" style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-top: 0.2rem;">0 / 40</div>
+                </div>
+                <div class="metric-card" style="text-align: center; padding: 0.6rem 0.4rem; background: rgba(0, 210, 255, 0.06); border: 1px solid rgba(0, 210, 255, 0.2); border-radius: 8px;">
+                  <div style="font-size: 0.72rem; color: var(--cyan-primary); text-transform: uppercase; font-weight: 600;">Group A</div>
+                  <div id="randomiserBlockCountA" style="font-size: 1.15rem; font-weight: 800; color: var(--cyan-primary); margin-top: 0.2rem;">0 (0%)</div>
+                </div>
+                <div class="metric-card" style="text-align: center; padding: 0.6rem 0.4rem; background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px;">
+                  <div style="font-size: 0.72rem; color: var(--emerald-primary); text-transform: uppercase; font-weight: 600;">Group B</div>
+                  <div id="randomiserBlockCountB" style="font-size: 1.15rem; font-weight: 800; color: var(--emerald-primary); margin-top: 0.2rem;">0 (0%)</div>
+                </div>
+                <div class="metric-card" style="text-align: center; padding: 0.6rem 0.4rem; background: var(--bg-surface-elevated); border-radius: 8px;">
+                  <div style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600;">Completed Blocks</div>
+                  <div id="randomiserBlockCompletedCount" style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-top: 0.2rem;">0</div>
+                </div>
+              </div>
+
+              <!-- Block Balance Progress Bar -->
+              <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--text-muted); margin-bottom: 0.3rem;">
+                  <span>Group A Balance (<span id="randomiserBlockPctA">50%</span>)</span>
+                  <span>Group B Balance (<span id="randomiserBlockPctB">50%</span>)</span>
+                </div>
+                <div class="balance-bar-track">
+                  <div id="randomiserBlockBarA" class="balance-bar-a" style="width: 50%;"></div>
+                  <div id="randomiserBlockBarB" class="balance-bar-b" style="width: 50%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- SHARED AUDIT TRAIL LOG TABLE & EXPORT -->
+        <!-- ======================================================== -->
+        <div class="card" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 1.25rem;">
+          <div class="card-header" style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+                <span>📋</span> Session Audit Trail &amp; Allocation Log
+              </h3>
+              <p style="margin: 0.2rem 0 0 0; font-size: 0.78rem; color: var(--text-dim);">
+                Permanent verifiable chronological sequence of participant assignments for current session
+              </p>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span id="randomiserAuditCountBadge" class="badge" style="background: var(--bg-surface-elevated); color: var(--text-main); font-weight: 700; font-size: 0.78rem; padding: 0.25rem 0.6rem; border-radius: 6px;">
+                0 Records
+              </span>
+            </div>
+          </div>
+
+          <div class="audit-table-wrapper">
+            <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface-elevated); text-align: left;">
+                  <th style="padding: 0.65rem 0.85rem; font-weight: 700; color: var(--text-muted); width: 80px;"># ID</th>
+                  <th style="padding: 0.65rem 0.85rem; font-weight: 700; color: var(--text-muted); width: 140px;">Timestamp</th>
+                  <th style="padding: 0.65rem 0.85rem; font-weight: 700; color: var(--text-muted); width: 130px;">Method</th>
+                  <th style="padding: 0.65rem 0.85rem; font-weight: 700; color: var(--text-muted);">Random Draw / Slot</th>
+                  <th style="padding: 0.65rem 0.85rem; font-weight: 700; color: var(--text-muted); width: 90px;">Group Code</th>
+                  <th style="padding: 0.65rem 0.85rem; font-weight: 700; color: var(--text-muted);">Assigned Label</th>
+                </tr>
+              </thead>
+              <tbody id="randomiserAuditTableBody">
+                <tr id="randomiserAuditEmptyRow">
+                  <td colspan="6" style="text-align: center; padding: 2.5rem 1rem; color: var(--text-dim);">
+                    <div style="font-size: 1.8rem; margin-bottom: 0.4rem;">🎲</div>
+                    <div style="font-weight: 600; color: var(--text-muted);">No participants randomized yet</div>
+                    <div style="font-size: 0.78rem; margin-top: 0.2rem;">Click "Generate / Assign Next Participant" above to initiate sequence allocation.</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -1996,6 +2365,34 @@
       <div style="display: flex; justify-content: flex-end;">
         <button id="disclaimerDismissBtn" class="btn btn-primary" style="padding: 0.55rem 1.6rem; font-weight: 600; cursor: pointer;">
           I Understand
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Randomiser Reset Session Confirmation Modal -->
+  <div id="randomiserResetModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="randomiserResetHeading">
+    <div class="modal-card" style="max-width: 480px;">
+      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+        <span style="font-size: 1.6rem; line-height: 1;">⚠️</span>
+        <h3 id="randomiserResetHeading" style="font-size: 1.15rem; font-weight: 700; color: var(--rose-primary); margin: 0;">
+          Reset Randomization Session?
+        </h3>
+      </div>
+      <div style="font-size: 0.92rem; line-height: 1.6; color: var(--text-main); margin-bottom: 1.5rem;">
+        <p style="margin: 0 0 0.5rem 0;">
+          Are you sure you want to reset this session? All allocated participant sequences, block counters, and audit logs for this calculator will be permanently cleared from local storage.
+        </p>
+        <p style="margin: 0; font-size: 0.8rem; color: var(--text-dim);">
+          Tip: You can download the current sequence as a CSV before resetting.
+        </p>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.6rem;">
+        <button id="randomiserResetCancelBtn" class="btn btn-secondary btn-sm" style="padding: 0.5rem 1.1rem;">
+          Cancel
+        </button>
+        <button id="randomiserResetConfirmBtn" class="btn btn-primary btn-sm" style="padding: 0.5rem 1.25rem; background: var(--rose-primary); border-color: var(--rose-primary); color: #fff;">
+          Yes, Reset Session
         </button>
       </div>
     </div>
