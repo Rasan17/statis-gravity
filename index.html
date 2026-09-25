@@ -8,8 +8,91 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="stylesheet" href="css/design-system.css">
-  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/design-system.css?v=2.9.9">
+  <link rel="stylesheet" href="css/components.css?v=2.9.9">
+  <style>
+    /* Two-Row Responsive Navigation Bar */
+    .nav-tab-bar {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0.4rem !important;
+      padding: 0.6rem 1.5rem !important;
+      background-color: var(--bg-surface) !important;
+      border-bottom: 1px solid var(--border-subtle) !important;
+      width: 100% !important;
+      overflow: visible !important;
+    }
+    .nav-tab-row {
+      display: flex !important;
+      flex-direction: row !important;
+      flex-wrap: nowrap !important;
+      align-items: center !important;
+      gap: 0.4rem !important;
+      width: 100% !important;
+    }
+    .tab-btn {
+      background: var(--bg-surface-elevated, rgba(255, 255, 255, 0.03)) !important;
+      border: 1px solid var(--border-subtle) !important;
+      color: var(--text-muted) !important;
+      font-size: 0.79rem !important;
+      font-weight: 600 !important;
+      padding: 0.45rem 0.55rem !important;
+      cursor: pointer !important;
+      transition: all var(--transition-fast) !important;
+      white-space: nowrap !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0.35rem !important;
+      border-radius: 6px !important;
+      flex: 1 1 0% !important;
+      min-width: 0 !important;
+      text-align: center !important;
+    }
+    .tab-btn:hover {
+      color: var(--text-main) !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+      border-color: rgba(255, 255, 255, 0.22) !important;
+      transform: translateY(-1px) !important;
+    }
+    .tab-btn.active {
+      color: var(--cyan-primary) !important;
+      background: rgba(0, 210, 255, 0.14) !important;
+      border-color: var(--cyan-primary) !important;
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.25) !important;
+      font-weight: 700 !important;
+    }
+    [data-theme="light"] .tab-btn {
+      background: #f1f5f9 !important;
+      border-color: rgba(0, 0, 0, 0.1) !important;
+      color: #475569 !important;
+    }
+    [data-theme="light"] .tab-btn:hover {
+      background: #e2e8f0 !important;
+      border-color: rgba(0, 0, 0, 0.2) !important;
+    }
+    [data-theme="light"] .tab-btn.active {
+      color: #0284c7 !important;
+      background: rgba(2, 132, 199, 0.14) !important;
+      border-color: #0284c7 !important;
+      box-shadow: 0 0 8px rgba(2, 132, 199, 0.25) !important;
+    }
+    @media (max-width: 1100px) {
+      .nav-tab-row {
+        flex-wrap: wrap !important;
+      }
+      .tab-btn {
+        flex: 1 1 calc(33.333% - 0.4rem) !important;
+        min-width: 140px !important;
+      }
+    }
+    @media (max-width: 640px) {
+      .tab-btn {
+        flex: 1 1 calc(50% - 0.4rem) !important;
+        min-width: 120px !important;
+      }
+    }
+  </style>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -43,8 +126,8 @@
     </header>
 
     <!-- Navigation Tabs (Two Balanced Rows) -->
-    <nav class="nav-tab-bar" aria-label="Statistical Analysis Categories">
-      <div class="nav-tab-row">
+    <nav class="nav-tab-bar" style="display: flex !important; flex-direction: column !important; gap: 0.4rem !important; padding: 0.6rem 1.5rem !important; width: 100% !important; background-color: var(--bg-surface) !important; border-bottom: 1px solid var(--border-subtle) !important; overflow: visible !important;" aria-label="Statistical Analysis Categories">
+      <div class="nav-tab-row" style="display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 0.4rem !important; width: 100% !important;">
         <button class="tab-btn active" data-target="tab-power">
           ⚡ Sample Size &amp; Power
         </button>
@@ -64,7 +147,7 @@
           🎯 Propensity
         </button>
       </div>
-      <div class="nav-tab-row">
+      <div class="nav-tab-row" style="display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 0.4rem !important; width: 100% !important;">
         <button class="tab-btn" data-target="tab-multivariate">
           🌐 Multivariate EDA (PCA / MCA / FAMD)
         </button>
