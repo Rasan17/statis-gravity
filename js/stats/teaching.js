@@ -15,9 +15,8 @@ export const Teaching = {
      * Standard Normal Variate (Box-Muller Transform)
      */
     standardNormal() {
-      let u = 0, v = 0;
-      while (u === 0) u = Math.random();
-      while (v === 0) v = Math.random();
+      const u = Math.max(1e-15, Math.random());
+      const v = Math.random();
       return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
     },
 
@@ -71,8 +70,7 @@ export const Teaching = {
       const data = new Array(n);
       const lambda = rate > 0 ? rate : 1;
       for (let i = 0; i < n; i++) {
-        let u = Math.random();
-        while (u === 0) u = Math.random();
+        const u = Math.max(1e-15, Math.random());
         data[i] = -Math.log(u) / lambda;
       }
       return data;
@@ -295,8 +293,7 @@ export const Teaching = {
         sd: 2.0,
         description: 'Heavily right-skewed time-to-event survival distribution (Skewness G₁ = 2.0).',
         drawOne() {
-          let u = Math.random();
-          while (u === 0) u = Math.random();
+          const u = Math.max(1e-15, Math.random());
           return -Math.log(u) / 0.5;
         },
         pdf(x) {

@@ -28,6 +28,7 @@ export const Randomiser = {
 
     const buffer = new Uint32Array(1);
     let rand;
+    let attempts = 0;
     do {
       let gotRand = false;
       if (typeof crypto !== 'undefined' && crypto && typeof crypto.getRandomValues === 'function') {
@@ -46,7 +47,7 @@ export const Randomiser = {
         buffer[0] = Math.floor(Math.random() * MAX_UINT32);
       }
       rand = buffer[0];
-    } while (rand >= limit);
+    } while (rand >= limit && ++attempts < 20);
 
     return min + (rand % range);
   },

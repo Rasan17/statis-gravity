@@ -2578,9 +2578,8 @@
   const Teaching = {
     generators: {
       standardNormal() {
-        let u = 0, v = 0;
-        while (u === 0) u = Math.random();
-        while (v === 0) v = Math.random();
+        const u = Math.max(1e-15, Math.random());
+        const v = Math.random();
         return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
       },
 
@@ -2620,8 +2619,7 @@
         const data = new Array(n);
         const lambda = rate > 0 ? rate : 1;
         for (let i = 0; i < n; i++) {
-          let u = Math.random();
-          while (u === 0) u = Math.random();
+          const u = Math.max(1e-15, Math.random());
           data[i] = -Math.log(u) / lambda;
         }
         return data;
@@ -2820,8 +2818,7 @@
           sd: 2.0,
           description: 'Heavily right-skewed time-to-event survival distribution (Skewness G₁ = 2.0).',
           drawOne() {
-            let u = Math.random();
-            while (u === 0) u = Math.random();
+            const u = Math.max(1e-15, Math.random());
             return -Math.log(u) / 0.5;
           },
           pdf(x) {
@@ -7627,6 +7624,7 @@ const DocxReports = {
       const limit = MAX_UINT32 - (MAX_UINT32 % range);
       const buffer = new Uint32Array(1);
       let rand;
+      let attempts = 0;
       do {
         let gotRand = false;
         if (typeof crypto !== 'undefined' && crypto && typeof crypto.getRandomValues === 'function') {
@@ -7645,7 +7643,7 @@ const DocxReports = {
           buffer[0] = Math.floor(Math.random() * MAX_UINT32);
         }
         rand = buffer[0];
-      } while (rand >= limit);
+      } while (rand >= limit && ++attempts < 20);
 
       return min + (rand % range);
     },
