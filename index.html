@@ -19,6 +19,7 @@
       darkMode: ['selector', '[data-theme="dark"]']
     }
   </script>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -60,6 +61,9 @@
       </button>
       <button class="tab-btn" data-target="tab-propensity">
         🎯 Propensity
+      </button>
+      <button class="tab-btn" data-target="tab-multivariate">
+        🌐 Multivariate EDA (PCA / MCA / FAMD)
       </button>
       <button class="tab-btn" data-target="tab-categorical">
         🏥 2x2 Risk &amp; Contingency
@@ -1399,6 +1403,243 @@
                 </div>
               </div>
               <p id="psmReportText" class="report-text">--</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. Multivariate Exploratory Data Analysis (PCA / MCA / FAMD) Tab -->
+      <section id="tab-multivariate" class="tab-pane">
+        <div class="tab-pane-toolbar">
+          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="multivariate" title="Export full report, eigenvalues, factor loadings, and reproducible code to Word (.docx)">📄 Export DOCX</button>
+        </div>
+
+        <div class="analysis-grid">
+          <!-- Left Configuration & Data Column -->
+          <div class="card">
+            <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <h2 class="card-title">🌐 Multivariate EDA Controls</h2>
+                <p class="card-subtitle">Dimensionality reduction for Continuous, Categorical, &amp; Mixed Data</p>
+              </div>
+              <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+                <button type="button" id="multivarSampleBtn" class="btn btn-secondary btn-sm" title="Load real-world mixed craniofacial cohort (N=120, continuous + categorical)">Load Mixed Cohort</button>
+                <button type="button" id="multivarClearBtn" class="btn btn-secondary btn-sm" title="Clear current dataset">Clear</button>
+              </div>
+            </div>
+
+            <!-- Method Selection Dropdown -->
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label class="form-label" for="multivarMethodSelect" style="font-weight: 700; font-size: 0.82rem; margin-bottom: 0.35rem; color: var(--cyan-primary);">
+                Dimensionality Reduction Technique:
+              </label>
+              <select id="multivarMethodSelect" class="form-control" style="font-size: 0.84rem; font-weight: 600; height: 34px;">
+                <option value="pca">1. Principal Component Analysis (PCA) — Continuous variables only</option>
+                <option value="mca">2. Multiple Correspondence Analysis (MCA) — Categorical variables only</option>
+                <option value="famd" selected>3. Factor Analysis of Mixed Data (FAMD) — Mixed Continuous &amp; Categorical</option>
+              </select>
+              <span id="multivarMethodHelp" style="font-size: 0.70rem; color: var(--text-dim); display: block; margin-top: 0.25rem;">
+                Balances continuous and categorical blocks via standardized indicator scaling (Pagès 2004).
+              </span>
+            </div>
+
+            <!-- Tabular CSV Input -->
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                <label class="form-label" for="multivarCsvInput" style="font-weight: 600; font-size: 0.82rem; margin: 0;">Dataset Matrix (CSV / TSV):</label>
+                <div style="display: flex; gap: 0.35rem; align-items: center;">
+                  <span id="multivarDatasetBadge" class="badge badge-neutral" style="font-size: 0.72rem;">N = 120 observations</span>
+                  <label for="multivarFileInput" class="btn btn-secondary btn-sm" style="font-size: 0.70rem; padding: 0.15rem 0.45rem; cursor: pointer; margin: 0;" title="Upload local CSV or TSV file">📂 Upload</label>
+                  <input type="file" id="multivarFileInput" accept=".csv,.tsv,.txt" style="display: none;">
+                </div>
+              </div>
+              <textarea id="multivarCsvInput" class="form-control" rows="5" style="font-family: monospace; font-size: 0.74rem; line-height: 1.35;" placeholder="Paste CSV data with headers (e.g. age_months, cranial_index, surgical_approach, transfusion_required)..."></textarea>
+            </div>
+
+            <!-- Active Variables Selection with Type Override -->
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                <label class="form-label" style="font-weight: 600; font-size: 0.80rem; margin: 0;">Active Variables &amp; Types:</label>
+                <div style="display: flex; gap: 0.35rem;">
+                  <button type="button" id="multivarSelectAllBtn" class="btn btn-secondary btn-sm" style="font-size: 0.68rem; padding: 0.1rem 0.4rem;">Select All</button>
+                  <button type="button" id="multivarDeselectAllBtn" class="btn btn-secondary btn-sm" style="font-size: 0.68rem; padding: 0.1rem 0.4rem;">Clear All</button>
+                </div>
+              </div>
+              <div id="multivarVariablesContainer" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.5rem; max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem;">
+                <!-- Dynamically populated variable rows with checkboxes and type tags -->
+              </div>
+            </div>
+
+            <!-- Projection Dimensions & Grouping Settings -->
+            <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 0.85rem; margin-bottom: 1rem;">
+              <div style="font-size: 0.80rem; font-weight: 700; color: var(--cyan-primary); margin-bottom: 0.5rem;">📐 Projection Axes &amp; Grouping</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-bottom: 0.6rem;">
+                <div>
+                  <label class="form-label" for="multivarDimX" style="font-size: 0.74rem; font-weight: 600; margin-bottom: 0.2rem;">X Axis:</label>
+                  <select id="multivarDimX" class="form-control" style="font-size: 0.80rem; height: 30px;">
+                    <option value="1" selected>Dim 1</option>
+                    <option value="2">Dim 2</option>
+                    <option value="3">Dim 3</option>
+                    <option value="4">Dim 4</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label" for="multivarDimY" style="font-size: 0.74rem; font-weight: 600; margin-bottom: 0.2rem;">Y Axis:</label>
+                  <select id="multivarDimY" class="form-control" style="font-size: 0.80rem; height: 30px;">
+                    <option value="1">Dim 1</option>
+                    <option value="2" selected>Dim 2</option>
+                    <option value="3">Dim 3</option>
+                    <option value="4">Dim 4</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label" for="multivarDimZ" style="font-size: 0.74rem; font-weight: 600; margin-bottom: 0.2rem;">Z Axis (3D):</label>
+                  <select id="multivarDimZ" class="form-control" style="font-size: 0.80rem; height: 30px;">
+                    <option value="1">Dim 1</option>
+                    <option value="2">Dim 2</option>
+                    <option value="3" selected>Dim 3</option>
+                    <option value="4">Dim 4</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 0.6rem; align-items: center;">
+                <div>
+                  <label class="form-label" for="multivarGroupSelect" style="font-size: 0.74rem; font-weight: 600; margin-bottom: 0.2rem;">Stratification Color Group:</label>
+                  <select id="multivarGroupSelect" class="form-control" style="font-size: 0.80rem; height: 30px;">
+                    <option value="">None (Single Color)</option>
+                  </select>
+                </div>
+                <div style="padding-top: 0.8rem;">
+                  <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.76rem; font-weight: 600; user-select: none;">
+                    <input type="checkbox" id="multivarBiplotCb" checked style="accent-color: var(--cyan-primary);">
+                    Show Biplot Vectors
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <button id="multivarComputeBtn" class="btn btn-primary" style="width: 100%; padding: 0.55rem; font-weight: 700;">⚡ Run Multivariate Factor Decomposition</button>
+          </div>
+
+          <!-- Right Results & Visualizations Column -->
+          <div>
+            <!-- Top Summary Metric Cards -->
+            <div class="metrics-grid">
+              <div class="card metric-card">
+                <div class="metric-label">Technique &amp; Cohort</div>
+                <div id="multivarMetricMethod" class="metric-value" style="font-size: 1.15rem;">FAMD</div>
+                <span id="multivarMetricN" class="badge badge-neutral" style="margin-top: 0.25rem;">N = 120</span>
+              </div>
+              <div class="card metric-card">
+                <div id="multivarMetricDim1Label" class="metric-label">Dim 1 Variance (λ₁)</div>
+                <div id="multivarMetricDim1Val" class="metric-value">--</div>
+                <span id="multivarMetricDim1Badge" class="badge badge-sig" style="margin-top: 0.25rem;">--</span>
+              </div>
+              <div class="card metric-card">
+                <div id="multivarMetricDim2Label" class="metric-label">Dim 2 Variance (λ₂)</div>
+                <div id="multivarMetricDim2Val" class="metric-value">--</div>
+                <span id="multivarMetricDim2Badge" class="badge badge-neutral" style="margin-top: 0.25rem;">--</span>
+              </div>
+              <div class="card metric-card">
+                <div class="metric-label">Displayed Plane Inertia</div>
+                <div id="multivarMetricCumVal" class="metric-value">--</div>
+                <span id="multivarMetricCumBadge" class="badge badge-sig" style="margin-top: 0.25rem;">--</span>
+              </div>
+            </div>
+
+            <!-- Visualization Tabs / Plotly Card -->
+            <div class="card" style="margin-top: 1.25rem;">
+              <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                  <h3 id="multivarPlotTitle" class="card-title">🔬 Interactive Factor Space</h3>
+                  <p class="card-subtitle">Projection of observations, variable correlation vectors, and modality centroids</p>
+                </div>
+                <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+                  <button type="button" id="multivarView2DBtn" class="btn btn-primary btn-sm" style="font-size: 0.74rem; padding: 0.2rem 0.6rem;">2D Factor Map</button>
+                  <button type="button" id="multivarView3DBtn" class="btn btn-secondary btn-sm" style="font-size: 0.74rem; padding: 0.2rem 0.6rem;">3D Orbit Space</button>
+                  <button type="button" id="multivarViewScreeBtn" class="btn btn-secondary btn-sm" style="font-size: 0.74rem; padding: 0.2rem 0.6rem;">Scree Plot</button>
+                  <button type="button" id="multivarViewLoadingsBtn" class="btn btn-secondary btn-sm" style="font-size: 0.74rem; padding: 0.2rem 0.6rem;">Loadings / Drivers</button>
+                </div>
+              </div>
+
+              <!-- Plotly Visual Containers -->
+              <div id="multivarPlotWrapper" style="position: relative; width: 100%;">
+                <div id="multivar2DPlot" style="min-height: 440px; width: 100%;"></div>
+                <div id="multivar3DPlot" style="min-height: 440px; width: 100%; display: none;"></div>
+                <div id="multivarScreePlot" style="min-height: 440px; width: 100%; display: none;"></div>
+                <div id="multivarLoadingsPlot" style="min-height: 440px; width: 100%; display: none;"></div>
+              </div>
+            </div>
+
+            <!-- Eigenvalues & Scree Decomposition Table -->
+            <div class="card" style="margin-top: 1.25rem;">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">📊 Eigenvalues &amp; Inertia Decomposition</h3>
+                  <p class="card-subtitle">Kaiser-Guttman criterion (λ &gt; 1.0) and cumulative explained variance</p>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Dimension</th>
+                      <th>Eigenvalue (λ)</th>
+                      <th>Variance Explained (%)</th>
+                      <th>Cumulative Variance (%)</th>
+                      <th>Kaiser Criterion</th>
+                    </tr>
+                  </thead>
+                  <tbody id="multivarScreeTableBody">
+                    <tr><td colspan="5" style="text-align: center; color: var(--text-dim);">Run analysis to view eigenvalue decomposition</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Dynamic Automated Interpretation Card -->
+            <div class="card" style="margin-top: 1.25rem; border-color: rgba(56, 189, 248, 0.3);">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">💡 Automated Natural-Language Findings &amp; Drivers</h3>
+                  <p class="card-subtitle">Real-time interpretation of subspace variance, influential drivers, and outlier observations</p>
+                </div>
+              </div>
+              <div id="multivarPedagogyText" style="padding: 0.9rem 1.1rem; font-size: 0.88rem; line-height: 1.6; color: var(--text-main);">
+                Execute factor decomposition to generate automated clinical and statistical interpretation.
+              </div>
+            </div>
+
+            <!-- Reproducible Script Generator Panel [Python / R] -->
+            <div class="card" style="margin-top: 1.25rem; border-color: rgba(0, 210, 255, 0.3);">
+              <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                  <h3 class="card-title">💻 Reproducible Statistical Code Scripts</h3>
+                  <p class="card-subtitle">Production-grade scripts utilizing scikit-learn/prince (Python) and FactoMineR/factoextra (R)</p>
+                </div>
+                <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+                  <button type="button" id="multivarScriptLangPy" class="btn btn-primary btn-sm" style="font-size: 0.74rem; padding: 0.2rem 0.65rem;">🐍 Python</button>
+                  <button type="button" id="multivarScriptLangR" class="btn btn-secondary btn-sm" style="font-size: 0.74rem; padding: 0.2rem 0.65rem;">📊 R</button>
+                  <button type="button" id="multivarCopyScriptBtn" class="btn btn-secondary btn-sm" style="font-size: 0.74rem; padding: 0.2rem 0.65rem;">📋 Copy</button>
+                  <button type="button" id="multivarDownloadScriptBtn" class="btn btn-secondary btn-sm" style="font-size: 0.74rem; padding: 0.2rem 0.65rem;">💾 Download</button>
+                </div>
+              </div>
+              <div style="position: relative;">
+                <pre id="multivarCodeBlock" style="background: var(--bg-surface-elevated); color: #38bdf8; padding: 1rem 1.1rem; border-radius: 6px; border: 1px solid var(--border-subtle); font-family: 'SF Mono', Consolas, Monaco, monospace; font-size: 0.78rem; line-height: 1.5; max-height: 380px; overflow-y: auto; white-space: pre; margin: 0;"># Select a language tab above to generate full reproducible code...</pre>
+              </div>
+            </div>
+
+            <!-- Clinical / Academic Summary Report Narrative -->
+            <div class="report-box" style="margin-top: 1.25rem;">
+              <div class="report-title">
+                <span>Multivariate Dimensionality Reduction Academic Summary</span>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="multivarReportText">Copy</button>
+                  <button class="btn btn-primary btn-sm btn-export-docx" data-tab="multivariate" title="Export full report, eigenvalues, factor loadings, and code to Word (.docx)">📄 Export DOCX</button>
+                </div>
+              </div>
+              <p id="multivarReportText" class="report-text">--</p>
             </div>
           </div>
         </div>
@@ -2796,6 +3037,6 @@
     </div>
   </div>
 
-  <script src="js/statis-gravity.js?v=2.9.7"></script>
+  <script src="js/statis-gravity.js?v=2.9.8"></script>
 </body>
 </html>

@@ -1343,5 +1343,60 @@ export const DocxReports = {
     d.addBullet('Stuart EA (2010). Matching methods for causal inference: A review and a look forward. Statistical Science, 25(1): 1–21.');
 
     return d;
+  },
+
+  createMultivariateDocx(data) {
+    const d = new DocxBuilder();
+    d.addTitle('STATIS-GRAVITY CLINICAL BIOSTATISTICS REPORT')
+      .addSubTitle('Module: Multivariate Exploratory Data Analysis (PCA / MCA / FAMD)')
+      .addAttributionHeader()
+      .addDisclaimerBox();
+
+    d.addHeading1('1. Analysis Specifications & Cohort Summary');
+    const specRows = [
+      ['Multivariate Technique', `${data.methodLabel || data.method || 'PCA'}`],
+      ['Observations Evaluated (N)', `${data.nObservations || data.individuals?.length || 0}`],
+      ['Continuous Variables Count', `${data.continuousCols ? data.continuousCols.length : (data.nContinuous || 0)}`],
+      ['Categorical Variables Count', `${data.categoricalCols ? data.categoricalCols.length : (data.nCategorical || 0)}`],
+      ['Grouping / Stratification Variable', `${data.groupingCol || 'None (Unsupervised)'}`],
+      ['Flagged Outlier Observations', `${data.outlierCount || 0} observations (> 2.5 SD distance)`]
+    ];
+    d.addTable(['Specification Parameter', 'Value'], specRows);
+
+    d.addHeading1('2. Eigenvalues & Variance Explained (Scree Decomposition)');
+    const screeRows = (data.scree || []).map(s => [
+      s.label,
+      s.eigenvalue.toFixed(4),
+      `${s.variancePct.toFixed(2)}%`,
+      `${s.cumulativePct.toFixed(2)}%`
+    ]);
+    d.addTable(['Dimension', 'Eigenvalue (λ)', 'Variance Explained (%)', 'Cumulative Variance (%)'], screeRows);
+
+    d.addHeading1('3. Variable Coordinates, Loadings & Modality Representation');
+    const varRows = (data.allVariables || data.variables || []).slice(0, 15).map(v => [
+      v.name,
+      v.type || 'variable',
+      v.coords[0] !== undefined ? v.coords[0].toFixed(3) : '--',
+      v.coords[1] !== undefined ? v.coords[1].toFixed(3) : '--',
+      v.coords[2] !== undefined ? v.coords[2].toFixed(3) : '--'
+    ]);
+    d.addTable(['Variable / Modality', 'Data Type', 'Dim 1 Coordinate', 'Dim 2 Coordinate', 'Dim 3 Coordinate'], varRows);
+
+    d.addHeading1('4. Automated Epistemological Interpretation & Findings');
+    d.addCalloutBox(
+      'Automated Multivariate Findings & Subspace Topology',
+      data.interpretation || data.reportText || 'Multivariate dimensionality reduction completed.',
+      'F0FDF4',
+      '16A34A'
+    );
+
+    d.addHeading1('5. Key Methodological & Academic References');
+    d.addBullet('Pearson K (1901). On lines and planes of closest fit to systems of points in space. Philosophical Magazine, 2(11): 559–572.');
+    d.addBullet('Hotelling H (1933). Analysis of a complex of statistical variables into principal components. Journal of Educational Psychology, 24(6): 417–441.');
+    d.addBullet('Benzécri JP (1973). L\'Analyse des Données: La Correspondance. Dunod, Paris.');
+    d.addBullet('Pagès J (2004). Analyse factorielle de données mixtes: Principe et exemple d\'application. Revue de Statistique Appliquée, 52(4): 93–111.');
+    d.addBullet('Husson F, Josse J, Lê S (2017). Exploratory Multivariate Analysis by Example Using R. 2nd ed. CRC Press.');
+
+    return d;
   }
 };

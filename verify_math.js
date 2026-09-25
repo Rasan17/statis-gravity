@@ -15,6 +15,7 @@ import { DocxReports } from './js/export/docx-generator.js';
 import { Plots } from './js/visualization/plots.js';
 import { Randomiser } from './js/stats/randomiser.js';
 import { Psm } from './js/stats/psm.js';
+import { Multivariate } from './js/stats/multivariate.js';
 
 let passes = 0;
 let failures = 0;
@@ -1222,6 +1223,124 @@ assert(fullAnalysis.reportText.includes('Average Treatment Effect on the Treated
 // 14.8 DOCX Report Generation
 const docxReport = DocxReports.createPsmDocx(fullAnalysis);
 assert(docxReport && typeof docxReport.generateBlob === 'function', 'DocxReports.createPsmDocx generates valid Word ML builder');
+
+console.log('\n--- Testing Section 15: Multivariate EDA (PCA / MCA / FAMD) Engine ---');
+
+// 15.1 Numerical Linear Algebra: Jacobi Eigenvalue Solver
+const symMatrix = [
+  [4, 2, 1],
+  [2, 5, 3],
+  [1, 3, 6]
+];
+const jacobiRes = Multivariate.LinearAlgebra.jacobi(symMatrix);
+assert(jacobiRes.values.length === 3, 'Jacobi solver extracted 3 eigenvalues');
+// Sorted in descending order
+assert(jacobiRes.values[0] >= jacobiRes.values[1] && jacobiRes.values[1] >= jacobiRes.values[2], 'Eigenvalues are sorted in descending order');
+// Trace invariance: sum of eigenvalues = sum of diagonal elements (4 + 5 + 6 = 15)
+const trace = 4 + 5 + 6;
+const eigenSum = jacobiRes.values.reduce((a, b) => a + b, 0);
+assert(approx(eigenSum, trace, 1e-4), `Trace invariance confirmed: trace = ${trace}, eigenSum = ${eigenSum.toFixed(4)}`);
+
+// Verify eigenvector orthogonality: V^T * V = I
+const VtV = Multivariate.LinearAlgebra.matmul(
+  Multivariate.LinearAlgebra.transpose(jacobiRes.vectors),
+  jacobiRes.vectors
+);
+assert(approx(VtV[0][0], 1.0, 1e-4) && approx(VtV[1][1], 1.0, 1e-4) && approx(VtV[2][2], 1.0, 1e-4), 'Eigenvectors are normalized');
+assert(approx(VtV[0][1], 0.0, 1e-4) && approx(VtV[0][2], 0.0, 1e-4) && approx(VtV[1][2], 0.0, 1e-4), 'Eigenvectors are mutually orthogonal');
+
+// 15.2 Numerical Linear Algebra: Thin SVD
+const rectX = [
+  [1.0, 2.0],
+  [3.0, 4.0],
+  [5.0, 6.0]
+];
+const svdRes = Multivariate.LinearAlgebra.svd(rectX);
+assert(svdRes.s.length === 2, 'Thin SVD identified 2 singular values');
+assert(svdRes.s[0] >= svdRes.s[1], 'Singular values are in descending order');
+assert(svdRes.U.length === 3 && svdRes.U[0].length === 2, 'Left singular vectors matrix U is 3x2');
+assert(svdRes.V.length === 2 && svdRes.V[0].length === 2, 'Right singular vectors matrix V is 2x2');
+
+// Reconstruction check: X ≈ U * diag(s) * V^T
+const U_diagS = svdRes.U.map(row => [row[0] * svdRes.s[0], row[1] * svdRes.s[1]]);
+const reconX = Multivariate.LinearAlgebra.matmul(U_diagS, Multivariate.LinearAlgebra.transpose(svdRes.V));
+assert(approx(reconX[0][0], rectX[0][0], 1e-3) && approx(reconX[1][1], rectX[1][1], 1e-3) && approx(reconX[2][0], rectX[2][0], 1e-3), 'SVD matrix reconstruction X ≈ U * Σ * V^T verified');
+
+// 15.3 Mixed Clinical Cohort Dataset Generation & Parser
+const mixedCohort = Multivariate.getSampleMixedCohort();
+assert(mixedCohort.length === 120, 'Sample mixed craniofacial cohort generates N=120 observations');
+const samplePatient = mixedCohort[0];
+assert(typeof samplePatient.age_months === 'number', 'Contains continuous age_months');
+assert(typeof samplePatient.cranial_index === 'number', 'Contains continuous cranial_index');
+assert(typeof samplePatient.surgical_approach === 'string', 'Contains categorical surgical_approach');
+assert(typeof samplePatient.suture_type === 'string', 'Contains categorical suture_type');
+
+const csvText = [
+  Object.keys(samplePatient).join(','),
+  ...mixedCohort.map(row => Object.keys(samplePatient).map(k => row[k]).join(','))
+].join('\n');
+
+const parsedDataset = Multivariate.parseDataset(csvText);
+assert(!parsedDataset.error, 'CSV dataset parsed successfully');
+assert(parsedDataset.colTypes['age_months'] === 'continuous', 'age_months correctly inferred as continuous');
+assert(parsedDataset.colTypes['cranial_index'] === 'continuous', 'cranial_index correctly inferred as continuous');
+assert(parsedDataset.colTypes['suture_type'] === 'categorical', 'suture_type correctly inferred as categorical');
+assert(parsedDataset.colTypes['surgical_approach'] === 'categorical', 'surgical_approach correctly inferred as categorical');
+
+// 15.4 Principal Component Analysis (PCA)
+const pcaContCols = ['age_months', 'cranial_index', 'operative_time_min', 'blood_loss_ml', 'length_of_stay_days'];
+const pcaRes = Multivariate.runPCA(mixedCohort, pcaContCols);
+assert(!pcaRes.error, 'PCA executed without errors');
+assert(pcaRes.scree.length === pcaContCols.length, `PCA extracted ${pcaContCols.length} components`);
+// Sum of PCA eigenvalues on standardized correlation matrix must equal number of variables p
+const sumPcaEig = pcaRes.scree.reduce((acc, s) => acc + s.eigenvalue, 0);
+assert(approx(sumPcaEig, pcaContCols.length, 1e-3), `PCA sum of eigenvalues equals p = ${pcaContCols.length}, got ${sumPcaEig.toFixed(4)}`);
+// Total variance explained must sum to 100%
+const sumPcaVar = pcaRes.scree.reduce((acc, s) => acc + s.variancePct, 0);
+assert(approx(sumPcaVar, 100.0, 1e-2), `PCA cumulative variance sums to 100%, got ${sumPcaVar.toFixed(2)}%`);
+// Variable correlation circle coordinates must lie within [-1, 1]
+const maxPcaCoord = Math.max(...pcaRes.continuousVariables.flatMap(v => v.coords));
+const minPcaCoord = Math.min(...pcaRes.continuousVariables.flatMap(v => v.coords));
+assert(maxPcaCoord <= 1.0001 && minPcaCoord >= -1.0001, `All PCA variable correlations lie within [-1, 1] unit circle [${minPcaCoord.toFixed(2)}, ${maxPcaCoord.toFixed(2)}]`);
+
+// 15.5 Multiple Correspondence Analysis (MCA)
+const mcaCatCols = ['suture_type', 'surgical_approach', 'comorbidity_grade', 'transfusion_required'];
+const mcaRes = Multivariate.runMCA(mixedCohort, mcaCatCols);
+assert(mcaRes.method.toUpperCase() === 'MCA', 'MCA method tag verified');
+assert(mcaRes.modalities.length > mcaCatCols.length, 'MCA generated indicator modality categories');
+// MCA cumulative variance sums to 100%
+const sumMcaVar = mcaRes.scree.reduce((acc, s) => acc + s.variancePct, 0);
+assert(approx(sumMcaVar, 100.0, 1e-2), `MCA cumulative variance reaches 100%, got ${sumMcaVar.toFixed(2)}%`);
+assert(mcaRes.individuals.length === 120, 'MCA contains 120 individual factor score rows');
+
+// 15.6 Factor Analysis of Mixed Data (FAMD / Pagès 2004)
+const famdRes = Multivariate.runFAMD(mixedCohort, pcaContCols, mcaCatCols);
+assert(!famdRes.error, 'FAMD executed without errors');
+assert(famdRes.method.toUpperCase() === 'FAMD', 'FAMD method tag verified');
+assert(famdRes.continuousCols.length === pcaContCols.length, 'FAMD processed continuous block');
+assert(famdRes.categoricalCols.length === mcaCatCols.length, 'FAMD processed categorical block');
+assert(famdRes.scree.length > 5, 'FAMD extracted mixed latent dimensions');
+assert(famdRes.scree[0].eigenvalue >= famdRes.scree[1].eigenvalue, 'FAMD eigenvalues strictly ordered');
+
+// Check Kaiser-Guttman criterion
+const kaiserDims = famdRes.scree.filter(s => s.eigenvalue >= 1.0);
+assert(kaiserDims.length >= 2, `FAMD identifies at least 2 components meeting Kaiser criterion (λ ≥ 1.0): ${kaiserDims.length} found`);
+
+// 15.7 Master Pipeline Execution & Outlier Detection
+const masterAnalysis = Multivariate.executeAnalysis(mixedCohort, 'FAMD', [...pcaContCols, ...mcaCatCols], {
+  colTypes: parsedDataset.colTypes,
+  groupingCol: 'surgical_approach'
+});
+assert(!masterAnalysis.error, 'Master executeAnalysis pipeline ran without errors');
+assert(masterAnalysis.uniqueGroups.length === 3, 'Identified 3 unique surgical approach groups');
+assert(Array.isArray(masterAnalysis.outliers), 'Outlier array established');
+assert(typeof masterAnalysis.interpretation === 'string' && masterAnalysis.interpretation.length > 200, 'Automated interpretation narrative generated');
+assert(masterAnalysis.scripts.python.includes('import prince') || masterAnalysis.scripts.python.includes('from sklearn.decomposition import PCA'), 'Python reproducible script generated');
+assert(masterAnalysis.scripts.r.includes('library(FactoMineR)') && masterAnalysis.scripts.r.includes('library(factoextra)'), 'R reproducible script with FactoMineR/factoextra generated');
+
+// 15.8 DOCX Report Generation for Multivariate EDA
+const mvDocx = DocxReports.createMultivariateDocx(masterAnalysis);
+assert(mvDocx && typeof mvDocx.generateBlob === 'function', 'DocxReports.createMultivariateDocx generates valid WordprocessingML document builder');
 
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);

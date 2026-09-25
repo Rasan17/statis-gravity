@@ -13,6 +13,7 @@ import { PowerAnalysis } from './stats/power.js';
 import { Teaching } from './stats/teaching.js';
 import { Randomiser } from './stats/randomiser.js';
 import { Psm } from './stats/psm.js';
+import { Multivariate } from './stats/multivariate.js';
 
 import { ChartEngine } from './visualization/chart-engine.js';
 import { Plots } from './visualization/plots.js';
@@ -37,6 +38,7 @@ class StatisGravityApp {
     this.loadInitialSamples();
     this.initRandomiser();
     this.initPsm();
+    this.initMultivariate();
   }
 
   applyTheme(theme) {
@@ -83,6 +85,9 @@ class StatisGravityApp {
           }
           if (targetId === 'tab-teaching-bayesian') {
             if (typeof this.runBayesianSimulation === 'function') this.runBayesianSimulation();
+          }
+          if (targetId === 'tab-multivariate') {
+            if (typeof this.resizeMultivariatePlots === 'function') this.resizeMultivariatePlots();
           }
         }
       });
@@ -2387,6 +2392,8 @@ window.addEventListener('DOMContentLoaded', () => {
         case 'diagnostic': this.runROC(); break;
         case 'power': this.runPower(); break;
         case 'teaching': this.runTeaching(); break;
+        case 'propensity': this.runPsm(); break;
+        case 'multivariate': this.runMultivariate(); break;
       }
     }
     const res = this.results ? this.results[tabId] : null;
@@ -2557,6 +2564,21 @@ window.addEventListener('DOMContentLoaded', () => {
         balance: res.balance,
         outcome: res.outcome,
         reportText: document.getElementById('psmReportText')?.innerText
+      };
+    } else if (tabId === 'multivariate') {
+      const mv = res;
+      exportData = {
+        method: mv.method,
+        methodLabel: mv.method === 'pca' ? 'Principal Component Analysis (PCA)' : (mv.method === 'mca' ? 'Multiple Correspondence Analysis (MCA)' : 'Factor Analysis of Mixed Data (FAMD)'),
+        nObservations: mv.individuals ? mv.individuals.length : 0,
+        continuousCols: mv.continuousCols || [],
+        categoricalCols: mv.categoricalCols || [],
+        groupingCol: mv.groupingCol || null,
+        outlierCount: (mv.outliers || []).length,
+        scree: mv.scree || [],
+        allVariables: mv.allVariables || mv.variables || [],
+        interpretation: document.getElementById('multivarPedagogyText')?.innerText,
+        reportText: document.getElementById('multivarReportText')?.innerText
       };
     }
 
@@ -4683,6 +4705,737 @@ window.addEventListener('DOMContentLoaded', () => {
       const extMap = { python: 'py', r: 'R', stata: 'do' };
       const ext = extMap[this.psmCurrentScriptLang] || 'txt';
       const filename = `psm_clinical_analysis.${ext}`;
+
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    // ==========================================
+    // 15. MULTIVARIATE EDA (PCA / MCA / FAMD) WORKFLOW
+    // ==========================================
+    initMultivariate() {
+      this.multivariateActiveView = '2d';
+      this.multivariateScriptLang = 'python';
+      this.multivariateLastAnalysis = null;
+
+      document.getElementById('multivarSampleBtn')?.addEventListener('click', () => {
+        this.loadMultivariateSample();
+      });
+
+      document.getElementById('multivarClearBtn')?.addEventListener('click', () => {
+        const input = document.getElementById('multivarCsvInput');
+        if (input) input.value = '';
+        this.populateMultivariateVariables(true);
+      });
+
+      document.getElementById('multivarFileInput')?.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const input = document.getElementById('multivarCsvInput');
+          if (input) {
+            input.value = evt.target.result;
+            this.populateMultivariateVariables(true);
+            this.runMultivariate();
+          }
+        };
+        reader.readAsText(file);
+      });
+
+      document.getElementById('multivarMethodSelect')?.addEventListener('change', () => {
+        this.updateMultivariateMethodHelp();
+      });
+
+      document.getElementById('multivarSelectAllBtn')?.addEventListener('click', () => {
+        document.querySelectorAll('.multivar-var-cb').forEach(cb => { cb.checked = true; });
+      });
+
+      document.getElementById('multivarDeselectAllBtn')?.addEventListener('click', () => {
+        document.querySelectorAll('.multivar-var-cb').forEach(cb => { cb.checked = false; });
+      });
+
+      // Axis / grouping / biplot change listeners
+      const reprojectElements = ['multivarDimX', 'multivarDimY', 'multivarDimZ', 'multivarGroupSelect', 'multivarBiplotCb'];
+      reprojectElements.forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => {
+          if (this.multivariateLastAnalysis) {
+            this.updateMultivariateMetricCards(this.multivariateLastAnalysis);
+            this.renderMultivariatePlots();
+          }
+        });
+      });
+
+      document.getElementById('multivarComputeBtn')?.addEventListener('click', () => {
+        this.runMultivariate();
+      });
+
+      // View Switcher buttons
+      const view2DBtn = document.getElementById('multivarView2DBtn');
+      const view3DBtn = document.getElementById('multivarView3DBtn');
+      const viewScreeBtn = document.getElementById('multivarViewScreeBtn');
+      const viewLoadingsBtn = document.getElementById('multivarViewLoadingsBtn');
+
+      view2DBtn?.addEventListener('click', () => this.setMultivariateView('2d'));
+      view3DBtn?.addEventListener('click', () => this.setMultivariateView('3d'));
+      viewScreeBtn?.addEventListener('click', () => this.setMultivariateView('scree'));
+      viewLoadingsBtn?.addEventListener('click', () => this.setMultivariateView('loadings'));
+
+      // Script buttons
+      document.getElementById('multivarScriptLangPy')?.addEventListener('click', () => this.switchMultivariateScript('python'));
+      document.getElementById('multivarScriptLangR')?.addEventListener('click', () => this.switchMultivariateScript('r'));
+      document.getElementById('multivarCopyScriptBtn')?.addEventListener('click', () => this.copyMultivariateScript());
+      document.getElementById('multivarDownloadScriptBtn')?.addEventListener('click', () => this.downloadMultivariateScript());
+
+      // Debounced CSV textarea listener
+      let debounceTimer = null;
+      const csvInput = document.getElementById('multivarCsvInput');
+      csvInput?.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => this.populateMultivariateVariables(), 400);
+      });
+
+      // Load initial sample automatically
+      setTimeout(() => {
+        if (!this.multivariateLastAnalysis) {
+          this.loadMultivariateSample();
+        }
+      }, 100);
+    }
+
+    updateMultivariateMethodHelp() {
+      const method = document.getElementById('multivarMethodSelect')?.value;
+      const help = document.getElementById('multivarMethodHelp');
+      if (!help) return;
+      if (method === 'pca') {
+        help.innerText = 'Mean-centers and scales continuous variables to unit variance (Pearson 1901, Hotelling 1933).';
+      } else if (method === 'mca') {
+        help.innerText = 'Expands categorical modalities into an Indicator/Burt matrix with correspondence scaling (Benzécri 1973).';
+      } else {
+        help.innerText = 'Balances continuous and categorical blocks via standardized indicator scaling (Pagès 2004).';
+      }
+    }
+
+    loadMultivariateSample() {
+      const cohort = Multivariate.getSampleMixedCohort();
+      if (!cohort || cohort.length === 0) return;
+      const headers = Object.keys(cohort[0]);
+      const csvRows = [headers.join(',')];
+      cohort.forEach(row => {
+        csvRows.push(headers.map(h => row[h]).join(','));
+      });
+      const csvText = csvRows.join('\n');
+      const input = document.getElementById('multivarCsvInput');
+      if (input) input.value = csvText;
+
+      this.populateMultivariateVariables(true);
+      this.runMultivariate();
+    }
+
+    populateMultivariateVariables(forceReset = false) {
+      const csvText = document.getElementById('multivarCsvInput')?.value || '';
+      const parsed = Multivariate.parseDataset(csvText);
+      const badge = document.getElementById('multivarDatasetBadge');
+      const container = document.getElementById('multivarVariablesContainer');
+      const groupSelect = document.getElementById('multivarGroupSelect');
+
+      if (parsed.error || !parsed.headers) {
+        if (badge) badge.innerText = '0 observations';
+        if (container) container.innerHTML = '<span style="color: var(--text-dim); font-size: 0.74rem;">Paste valid CSV dataset to view columns</span>';
+        return;
+      }
+
+      if (badge) {
+        badge.innerText = `N = ${parsed.nRows} observations, ${parsed.nCols} cols`;
+      }
+
+      // Populate variable list checkboxes
+      if (container) {
+        container.innerHTML = '';
+        parsed.headers.forEach(h => {
+          const isId = h.toLowerCase().includes('id') || h.toLowerCase() === 'row';
+          const inferredType = parsed.colTypes[h] || 'continuous';
+          const defaultChecked = !isId;
+
+          const row = document.createElement('div');
+          row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 0.25rem 0.4rem; background: var(--bg-surface); border-radius: 4px; border: 1px solid var(--border-subtle);';
+
+          row.innerHTML = `
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; margin: 0; font-size: 0.76rem; user-select: none; font-weight: 500;">
+              <input type="checkbox" class="multivar-var-cb" value="${h}" ${defaultChecked ? 'checked' : ''} style="accent-color: var(--cyan-primary);">
+              <span title="${h}">${h.length > 20 ? h.substring(0, 18) + '...' : h}</span>
+            </label>
+            <select class="multivar-var-type-select" data-col="${h}" style="font-size: 0.68rem; height: 22px; padding: 0 0.25rem; border-radius: 4px; background: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle);">
+              <option value="continuous" ${inferredType === 'continuous' ? 'selected' : ''}>Continuous</option>
+              <option value="categorical" ${inferredType === 'categorical' ? 'selected' : ''}>Categorical</option>
+            </select>
+          `;
+          container.appendChild(row);
+        });
+      }
+
+      // Populate grouping dropdown
+      if (groupSelect) {
+        const currentGroup = groupSelect.value;
+        groupSelect.innerHTML = '<option value="">None (Single Color)</option>';
+        parsed.headers.forEach(h => {
+          if (parsed.colTypes[h] === 'categorical' || (parsed.colStats[h] && parsed.colStats[h].uniqueCount <= 12)) {
+            const opt = document.createElement('option');
+            opt.value = h;
+            opt.textContent = h;
+            if (h === 'surgical_approach' || h === 'suture_type' || h.toLowerCase().includes('group')) {
+              opt.selected = true;
+            }
+            groupSelect.appendChild(opt);
+          }
+        });
+        if (currentGroup && Array.from(groupSelect.options).some(o => o.value === currentGroup)) {
+          groupSelect.value = currentGroup;
+        }
+      }
+    }
+
+    setMultivariateView(view) {
+      this.multivariateActiveView = view;
+      const btns = {
+        '2d': document.getElementById('multivarView2DBtn'),
+        '3d': document.getElementById('multivarView3DBtn'),
+        'scree': document.getElementById('multivarViewScreeBtn'),
+        'loadings': document.getElementById('multivarViewLoadingsBtn')
+      };
+      Object.entries(btns).forEach(([k, btn]) => {
+        if (!btn) return;
+        if (k === view) {
+          btn.classList.replace('btn-secondary', 'btn-primary');
+        } else {
+          btn.classList.replace('btn-primary', 'btn-secondary');
+        }
+      });
+
+      const plots = {
+        '2d': document.getElementById('multivar2DPlot'),
+        '3d': document.getElementById('multivar3DPlot'),
+        'scree': document.getElementById('multivarScreePlot'),
+        'loadings': document.getElementById('multivarLoadingsPlot')
+      };
+      Object.entries(plots).forEach(([k, el]) => {
+        if (el) el.style.display = k === view ? 'block' : 'none';
+      });
+
+      this.renderMultivariatePlots();
+    }
+
+    runMultivariate() {
+      const csvText = document.getElementById('multivarCsvInput')?.value || '';
+      const parsed = Multivariate.parseDataset(csvText);
+      if (parsed.error) {
+        alert(parsed.error);
+        return;
+      }
+
+      const activeCheckboxes = Array.from(document.querySelectorAll('.multivar-var-cb:checked'));
+      const activeCols = activeCheckboxes.map(cb => cb.value);
+
+      if (activeCols.length < 2) {
+        alert('Please select at least 2 active variables for dimensionality reduction.');
+        return;
+      }
+
+      const colTypes = {};
+      document.querySelectorAll('.multivar-var-type-select').forEach(sel => {
+        colTypes[sel.dataset.col] = sel.value;
+      });
+
+      const methodSelect = document.getElementById('multivarMethodSelect')?.value || 'famd';
+      const method = methodSelect.toUpperCase();
+      const groupingCol = document.getElementById('multivarGroupSelect')?.value || null;
+
+      // Method input validation
+      const contCols = activeCols.filter(c => (colTypes[c] || 'continuous') === 'continuous');
+      const catCols = activeCols.filter(c => colTypes[c] === 'categorical');
+
+      if (method === 'PCA' && contCols.length < 2) {
+        alert('Principal Component Analysis (PCA) requires at least 2 continuous variables. Change variable types or select FAMD.');
+        return;
+      }
+      if (method === 'MCA' && catCols.length < 2) {
+        alert('Multiple Correspondence Analysis (MCA) requires at least 2 categorical variables. Change variable types or select FAMD.');
+        return;
+      }
+
+      const analysis = Multivariate.executeAnalysis(parsed.records, method, activeCols, { colTypes, groupingCol });
+      if (analysis.error) {
+        alert(`Multivariate Analysis Error: ${analysis.error}`);
+        return;
+      }
+
+      this.multivariateLastAnalysis = analysis;
+      if (!this.results) this.results = {};
+      this.results.multivariate = analysis;
+
+      // Update dimension select options
+      this.updateMultivariateDimSelectors(analysis.nComponents);
+
+      // Update Top Metrics
+      this.updateMultivariateMetricCards(analysis);
+
+      // Populate Scree Table
+      this.populateMultivariateScreeTable(analysis.scree);
+
+      // Populate Automated Findings Card
+      const pedagogyEl = document.getElementById('multivarPedagogyText');
+      if (pedagogyEl) {
+        pedagogyEl.innerHTML = analysis.interpretation;
+      }
+
+      // Populate Script Display
+      this.updateMultivariateScriptDisplay();
+
+      // Populate Narrative Academic Report
+      const reportEl = document.getElementById('multivarReportText');
+      if (reportEl) {
+        const top1 = analysis.scree[0]?.variancePct.toFixed(1);
+        const top2 = analysis.scree[1]?.variancePct.toFixed(1);
+        const cum2 = ((analysis.scree[0]?.variancePct || 0) + (analysis.scree[1]?.variancePct || 0)).toFixed(1);
+        reportEl.innerText = `Multivariate Exploratory Data Analysis (${analysis.method.toUpperCase()}) was performed on N = ${analysis.individuals.length} observations across ${activeCols.length} variables (${analysis.continuousCols ? analysis.continuousCols.length : 0} continuous, ${analysis.categoricalCols ? analysis.categoricalCols.length : 0} categorical). The first two principal dimensions accounted for ${cum2}% of total inertia (Dim 1: ${top1}%, λ = ${analysis.scree[0]?.eigenvalue.toFixed(3)}; Dim 2: ${top2}%, λ = ${analysis.scree[1]?.eigenvalue.toFixed(3)}). ${analysis.outliers.length} statistical outliers (> 2.5 SD factor distance) were flagged in the latent coordinate space. Full numerical linear algebra decomposition was executed client-side via Jacobi cyclic diagonalization and thin SVD.`;
+      }
+
+      // Render Active Plotly Graph
+      this.renderMultivariatePlots();
+    }
+
+    updateMultivariateDimSelectors(nComponents) {
+      const maxDim = Math.min(nComponents, 8);
+      ['multivarDimX', 'multivarDimY', 'multivarDimZ'].forEach((id, axisIdx) => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const currentVal = parseInt(sel.value) || (axisIdx + 1);
+        sel.innerHTML = '';
+        for (let d = 1; d <= maxDim; d++) {
+          const opt = document.createElement('option');
+          opt.value = d;
+          opt.textContent = `Dim ${d}`;
+          if (d === currentVal) opt.selected = true;
+          sel.appendChild(opt);
+        }
+        if (!Array.from(sel.options).some(o => parseInt(o.value) === currentVal)) {
+          sel.value = String(Math.min(axisIdx + 1, maxDim));
+        }
+      });
+    }
+
+    updateMultivariateMetricCards(analysis) {
+      const dimX = parseInt(document.getElementById('multivarDimX')?.value) || 1;
+      const dimY = parseInt(document.getElementById('multivarDimY')?.value) || 2;
+
+      const varX = analysis.scree[dimX - 1]?.variancePct || 0;
+      const eigX = analysis.scree[dimX - 1]?.eigenvalue || 0;
+      const varY = analysis.scree[dimY - 1]?.variancePct || 0;
+      const eigY = analysis.scree[dimY - 1]?.eigenvalue || 0;
+      const cumPlane = varX + varY;
+
+      const methodEl = document.getElementById('multivarMetricMethod');
+      const nEl = document.getElementById('multivarMetricN');
+      if (methodEl) methodEl.innerText = `${analysis.method.toUpperCase()}`;
+      if (nEl) nEl.innerText = `N = ${analysis.individuals.length} obs`;
+
+      const dim1Label = document.getElementById('multivarMetricDim1Label');
+      const dim1Val = document.getElementById('multivarMetricDim1Val');
+      const dim1Badge = document.getElementById('multivarMetricDim1Badge');
+      if (dim1Label) dim1Label.innerText = `Dim ${dimX} Variance (λ_${dimX})`;
+      if (dim1Val) dim1Val.innerText = `${varX.toFixed(1)}%`;
+      if (dim1Badge) dim1Badge.innerText = `λ = ${eigX.toFixed(3)}`;
+
+      const dim2Label = document.getElementById('multivarMetricDim2Label');
+      const dim2Val = document.getElementById('multivarMetricDim2Val');
+      const dim2Badge = document.getElementById('multivarMetricDim2Badge');
+      if (dim2Label) dim2Label.innerText = `Dim ${dimY} Variance (λ_${dimY})`;
+      if (dim2Val) dim2Val.innerText = `${varY.toFixed(1)}%`;
+      if (dim2Badge) dim2Badge.innerText = `λ = ${eigY.toFixed(3)}`;
+
+      const cumVal = document.getElementById('multivarMetricCumVal');
+      const cumBadge = document.getElementById('multivarMetricCumBadge');
+      if (cumVal) cumVal.innerText = `${cumPlane.toFixed(1)}%`;
+      if (cumBadge) cumBadge.innerText = `Plane (Dim ${dimX} + Dim ${dimY})`;
+    }
+
+    populateMultivariateScreeTable(scree) {
+      const tbody = document.getElementById('multivarScreeTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      (scree || []).forEach(row => {
+        const tr = document.createElement('tr');
+        const kaiserPassed = row.eigenvalue >= 1.0;
+        const kaiserBadge = kaiserPassed
+          ? `<span class="badge badge-sig" style="font-size: 0.70rem;">✓ Retain (λ ≥ 1.0)</span>`
+          : `<span class="badge badge-neutral" style="font-size: 0.70rem;">Drop (λ &lt; 1.0)</span>`;
+
+        tr.innerHTML = `
+          <td style="font-weight: 600;">${row.label}</td>
+          <td style="font-family: monospace;">${row.eigenvalue.toFixed(4)}</td>
+          <td style="color: var(--cyan-primary); font-weight: 600;">${row.variancePct.toFixed(2)}%</td>
+          <td style="font-weight: 600;">${row.cumulativePct.toFixed(2)}%</td>
+          <td>${kaiserBadge}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    renderMultivariatePlots() {
+      if (!this.multivariateLastAnalysis || typeof window.Plotly === 'undefined') return;
+
+      const analysis = this.multivariateLastAnalysis;
+      const view = this.multivariateActiveView || '2d';
+      const dimX = parseInt(document.getElementById('multivarDimX')?.value) || 1;
+      const dimY = parseInt(document.getElementById('multivarDimY')?.value) || 2;
+      const dimZ = parseInt(document.getElementById('multivarDimZ')?.value) || 3;
+
+      const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+      const textColor = isDark ? '#e2e8f0' : '#1e293b';
+      const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+      const zeroLineColor = isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)';
+
+      const colorPalette = [
+        '#00d2ff', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6',
+        '#3b82f6', '#14b8a6', '#f97316', '#a855f7', '#64748b'
+      ];
+
+      if (view === '2d') {
+        const showBiplot = document.getElementById('multivarBiplotCb')?.checked ?? true;
+        const traces = [];
+
+        // Group observations
+        const groups = analysis.uniqueGroups && analysis.uniqueGroups.length > 0
+          ? analysis.uniqueGroups
+          : ['Observation'];
+
+        groups.forEach((grp, gIdx) => {
+          const members = analysis.individuals.filter(ind => ind.group === grp);
+          if (members.length === 0) return;
+
+          traces.push({
+            x: members.map(m => m.coords[dimX - 1] || 0),
+            y: members.map(m => m.coords[dimY - 1] || 0),
+            mode: 'markers',
+            type: 'scatter',
+            name: grp,
+            text: members.map(m => `${m.id}<br>Group: ${grp}<br>Coords: (${(m.coords[dimX - 1] || 0).toFixed(2)}, ${(m.coords[dimY - 1] || 0).toFixed(2)})`),
+            hoverinfo: 'text',
+            marker: {
+              size: 7,
+              color: colorPalette[gIdx % colorPalette.length],
+              opacity: 0.85
+            }
+          });
+        });
+
+        // Compute max absolute coordinate to scale biplot arrows
+        const allX = analysis.individuals.map(m => Math.abs(m.coords[dimX - 1] || 0));
+        const allY = analysis.individuals.map(m => Math.abs(m.coords[dimY - 1] || 0));
+        const maxDataX = Math.max(...allX, 1);
+        const maxDataY = Math.max(...allY, 1);
+        const maxRange = Math.max(maxDataX, maxDataY);
+
+        const annotations = [];
+
+        // Biplot arrows and modality centroids
+        if (showBiplot) {
+          // 1. Continuous Variable Loading Arrows
+          if (analysis.continuousVariables && analysis.continuousVariables.length > 0) {
+            analysis.continuousVariables.forEach(v => {
+              const vx = (v.coords[dimX - 1] || 0) * (maxRange * 0.85);
+              const vy = (v.coords[dimY - 1] || 0) * (maxRange * 0.85);
+
+              annotations.push({
+                x: vx,
+                y: vy,
+                ax: 0,
+                ay: 0,
+                axref: 'x',
+                ayref: 'y',
+                xref: 'x',
+                yref: 'y',
+                showarrow: true,
+                arrowhead: 2,
+                arrowsize: 1.1,
+                arrowwidth: 1.8,
+                arrowcolor: '#f59e0b',
+                text: v.name,
+                font: { color: '#f59e0b', size: 10.5 },
+                xanchor: vx >= 0 ? 'left' : 'right',
+                yanchor: vy >= 0 ? 'bottom' : 'top'
+              });
+            });
+          }
+
+          // 2. Categorical Modality Centroids
+          if (analysis.modalities && analysis.modalities.length > 0) {
+            traces.push({
+              x: analysis.modalities.map(m => m.coords[dimX - 1] || 0),
+              y: analysis.modalities.map(m => m.coords[dimY - 1] || 0),
+              mode: 'markers+text',
+              type: 'scatter',
+              name: 'Categories (Centroids)',
+              text: analysis.modalities.map(m => m.label),
+              textposition: 'top right',
+              hoverinfo: 'text',
+              marker: {
+                size: 9,
+                symbol: 'diamond',
+                color: '#ec4899',
+                line: { color: '#ffffff', width: 1 }
+              }
+            });
+          }
+        }
+
+        const varPctX = analysis.scree[dimX - 1]?.variancePct || 0;
+        const varPctY = analysis.scree[dimY - 1]?.variancePct || 0;
+
+        const layout = {
+          title: {
+            text: `${analysis.method.toUpperCase()} Factor Map — Dim ${dimX} vs Dim ${dimY}`,
+            font: { color: textColor, size: 14 }
+          },
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          plot_bgcolor: 'rgba(0,0,0,0)',
+          font: { color: textColor, family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+          margin: { l: 55, r: 40, t: 45, b: 50 },
+          xaxis: {
+            title: `Dimension ${dimX} (${varPctX.toFixed(1)}% variance)`,
+            zeroline: true,
+            zerolinecolor: zeroLineColor,
+            gridcolor: gridColor
+          },
+          yaxis: {
+            title: `Dimension ${dimY} (${varPctY.toFixed(1)}% variance)`,
+            zeroline: true,
+            zerolinecolor: zeroLineColor,
+            gridcolor: gridColor
+          },
+          annotations,
+          legend: { orientation: 'h', y: -0.2 }
+        };
+
+        Plotly.newPlot('multivar2DPlot', traces, layout, { responsive: true, displayModeBar: true, displaylogo: false });
+
+      } else if (view === '3d') {
+        const traces = [];
+        const groups = analysis.uniqueGroups && analysis.uniqueGroups.length > 0
+          ? analysis.uniqueGroups
+          : ['Observation'];
+
+        groups.forEach((grp, gIdx) => {
+          const members = analysis.individuals.filter(ind => ind.group === grp);
+          if (members.length === 0) return;
+
+          traces.push({
+            x: members.map(m => m.coords[dimX - 1] || 0),
+            y: members.map(m => m.coords[dimY - 1] || 0),
+            z: members.map(m => m.coords[dimZ - 1] || 0),
+            mode: 'markers',
+            type: 'scatter3d',
+            name: grp,
+            text: members.map(m => `${m.id}<br>Group: ${grp}<br>Coords: (${(m.coords[dimX-1]||0).toFixed(2)}, ${(m.coords[dimY-1]||0).toFixed(2)}, ${(m.coords[dimZ-1]||0).toFixed(2)})`),
+            hoverinfo: 'text',
+            marker: {
+              size: 4,
+              color: colorPalette[gIdx % colorPalette.length],
+              opacity: 0.85
+            }
+          });
+        });
+
+        const varX = analysis.scree[dimX - 1]?.variancePct || 0;
+        const varY = analysis.scree[dimY - 1]?.variancePct || 0;
+        const varZ = analysis.scree[dimZ - 1]?.variancePct || 0;
+
+        const layout3D = {
+          title: {
+            text: `3D Factor Space (Dim ${dimX} vs Dim ${dimY} vs Dim ${dimZ})`,
+            font: { color: textColor, size: 14 }
+          },
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          plot_bgcolor: 'rgba(0,0,0,0)',
+          font: { color: textColor, family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+          margin: { l: 20, r: 20, t: 40, b: 20 },
+          scene: {
+            xaxis: { title: `Dim ${dimX} (${varX.toFixed(1)}%)`, gridcolor: gridColor },
+            yaxis: { title: `Dim ${dimY} (${varY.toFixed(1)}%)`, gridcolor: gridColor },
+            zaxis: { title: `Dim ${dimZ} (${varZ.toFixed(1)}%)`, gridcolor: gridColor }
+          },
+          legend: { orientation: 'h', y: -0.1 }
+        };
+
+        Plotly.newPlot('multivar3DPlot', traces, layout3D, { responsive: true, displaylogo: false });
+
+      } else if (view === 'scree') {
+        const labels = analysis.scree.map(s => s.label);
+        const variancePcts = analysis.scree.map(s => s.variancePct);
+        const cumulativePcts = analysis.scree.map(s => s.cumulativePct);
+
+        const traceBar = {
+          x: labels,
+          y: variancePcts,
+          name: 'Variance Explained (%)',
+          type: 'bar',
+          marker: { color: '#00d2ff' }
+        };
+
+        const traceLine = {
+          x: labels,
+          y: cumulativePcts,
+          name: 'Cumulative Variance (%)',
+          type: 'scatter',
+          mode: 'lines+markers',
+          yaxis: 'y2',
+          line: { color: '#10b981', width: 2.5 },
+          marker: { size: 6, color: '#10b981' }
+        };
+
+        const screeLayout = {
+          title: { text: 'Scree Plot — Percentage of Explained Variance per Dimension', font: { color: textColor, size: 14 } },
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          plot_bgcolor: 'rgba(0,0,0,0)',
+          font: { color: textColor, family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+          margin: { l: 55, r: 55, t: 45, b: 50 },
+          xaxis: { title: 'Principal Dimensions', gridcolor: gridColor },
+          yaxis: { title: 'Variance Explained (%)', range: [0, Math.max(40, Math.max(...variancePcts) * 1.25)], gridcolor: gridColor },
+          yaxis2: {
+            title: 'Cumulative (%)',
+            overlaying: 'y',
+            side: 'right',
+            range: [0, 105],
+            gridcolor: 'transparent'
+          },
+          legend: { orientation: 'h', y: -0.2 }
+        };
+
+        Plotly.newPlot('multivarScreePlot', [traceBar, traceLine], screeLayout, { responsive: true, displaylogo: false });
+
+      } else if (view === 'loadings') {
+        const variables = analysis.allVariables || analysis.variables || [];
+        const sorted = [...variables].sort((a, b) => Math.abs(b.coords[dimX - 1] || 0) - Math.abs(a.coords[dimX - 1] || 0)).slice(0, 15);
+
+        const varNames = sorted.map(v => v.name).reverse();
+        const loadingsX = sorted.map(v => v.coords[dimX - 1] || 0).reverse();
+        const loadingsY = sorted.map(v => v.coords[dimY - 1] || 0).reverse();
+
+        const traceX = {
+          x: loadingsX,
+          y: varNames,
+          type: 'bar',
+          orientation: 'h',
+          name: `Dim ${dimX} Loading / Correlation`,
+          marker: { color: '#00d2ff' }
+        };
+
+        const traceY = {
+          x: loadingsY,
+          y: varNames,
+          type: 'bar',
+          orientation: 'h',
+          name: `Dim ${dimY} Loading / Correlation`,
+          marker: { color: '#f59e0b' }
+        };
+
+        const loadingsLayout = {
+          title: { text: `Top Variable Loadings / Modality Contributions on Dim ${dimX} & Dim ${dimY}`, font: { color: textColor, size: 14 } },
+          paper_bgcolor: 'rgba(0,0,0,0)',
+          plot_bgcolor: 'rgba(0,0,0,0)',
+          font: { color: textColor, family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+          margin: { l: 140, r: 40, t: 45, b: 50 },
+          barmode: 'group',
+          xaxis: { title: 'Factor Loading / Coordinate', zeroline: true, zerolinecolor: zeroLineColor, gridcolor: gridColor },
+          yaxis: { automargin: true },
+          legend: { orientation: 'h', y: -0.2 }
+        };
+
+        Plotly.newPlot('multivarLoadingsPlot', [traceX, traceY], loadingsLayout, { responsive: true, displaylogo: false });
+      }
+    }
+
+    resizeMultivariatePlots() {
+      if (typeof window.Plotly === 'undefined') return;
+      const plotIds = ['multivar2DPlot', 'multivar3DPlot', 'multivarScreePlot', 'multivarLoadingsPlot'];
+      plotIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.style.display !== 'none') {
+          window.Plotly.Plots.resize(el);
+        }
+      });
+    }
+
+    switchMultivariateScript(lang) {
+      this.multivariateScriptLang = lang;
+      const pyBtn = document.getElementById('multivarScriptLangPy');
+      const rBtn = document.getElementById('multivarScriptLangR');
+
+      if (lang === 'python') {
+        pyBtn?.classList.replace('btn-secondary', 'btn-primary');
+        rBtn?.classList.replace('btn-primary', 'btn-secondary');
+      } else {
+        rBtn?.classList.replace('btn-secondary', 'btn-primary');
+        pyBtn?.classList.replace('btn-primary', 'btn-secondary');
+      }
+      this.updateMultivariateScriptDisplay();
+    }
+
+    updateMultivariateScriptDisplay() {
+      const codeBlock = document.getElementById('multivarCodeBlock');
+      if (!codeBlock) return;
+      if (!this.multivariateLastAnalysis || !this.multivariateLastAnalysis.scripts) {
+        codeBlock.innerText = '# Run factor decomposition to generate reproducible code.';
+        return;
+      }
+      const lang = this.multivariateScriptLang || 'python';
+      codeBlock.innerText = this.multivariateLastAnalysis.scripts[lang] || '# Script not generated.';
+    }
+
+    copyMultivariateScript() {
+      const codeBlock = document.getElementById('multivarCodeBlock');
+      const copyBtn = document.getElementById('multivarCopyScriptBtn');
+      if (!codeBlock) return;
+      const text = codeBlock.innerText;
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          if (copyBtn) {
+            const orig = copyBtn.innerText;
+            copyBtn.innerText = '✓ Copied!';
+            setTimeout(() => { copyBtn.innerText = orig; }, 1800);
+          }
+        });
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (copyBtn) {
+          const orig = copyBtn.innerText;
+          copyBtn.innerText = '✓ Copied!';
+          setTimeout(() => { copyBtn.innerText = orig; }, 1800);
+        }
+      }
+    }
+
+    downloadMultivariateScript() {
+      const codeBlock = document.getElementById('multivarCodeBlock');
+      if (!codeBlock) return;
+      const text = codeBlock.innerText;
+      const ext = this.multivariateScriptLang === 'python' ? 'py' : 'R';
+      const filename = `multivariate_eda_analysis.${ext}`;
 
       const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);

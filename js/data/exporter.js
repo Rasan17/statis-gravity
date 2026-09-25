@@ -187,6 +187,9 @@ export const Exporter = {
       case 'propensity':
         builder = DocxReports.createPsmDocx(data);
         break;
+      case 'multivariate':
+        builder = DocxReports.createMultivariateDocx(data);
+        break;
       default:
         console.error('Unknown tab for DOCX export:', tabId);
         return;
