@@ -6,7 +6,7 @@ Conceived, supervised design and testing: **Dr G Narenthiran** MB ChB BSc(MedSci
 Copyright, G Narenthiran FEBS FRCS(SN), `g_narenthiran@hotmail.com`.  
 Dedicated to **Mrs Nirmaladevy Ganesalingam BSc (mother)**.
 
-> ⚠️ **Notice**: The 'Statis-Gravity' is a companion statistical software for Statis. The calculations on this software are primary for prospective studies, data exploration and teaching. The software is for data and statistical exploration and education. ***Please do not use the software for Clinical, Research studies for publication or for decision making.***
+> ⚠️ **Notice**: The 'Statis-Gravity' is a companion statistical software for Statis (https://rasan17.github.io/statis-28/). The calculations on this software are primarily for prospective studies, data exploration and teaching. ***Please do not use the software for Clinical, Research studies for publication or for decision making.***
 
 ---
 
