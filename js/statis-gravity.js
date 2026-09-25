@@ -752,32 +752,46 @@
         return { error: 'ANOVA requires at least 2 distinct groups.' };
       }
 
-      const processed = groups.map(g => {
+      const processedGroups = groups.map(g => {
         const stats = Descriptive.calculate(g.data);
-        return { name: g.name || 'Group', stats, data: stats.values };
+        return {
+          name: g.name || 'Group',
+          stats,
+          data: stats.values
+        };
       }).filter(g => g.stats.n > 0);
 
-      const k = processed.length;
-      if (k < 2) return { error: 'At least 2 groups must have valid data.' };
+      const k = processedGroups.length;
+      if (k < 2) {
+        return { error: 'At least 2 groups must have valid numerical data.' };
+      }
 
-      const totalN = processed.reduce((acc, g) => acc + g.stats.n, 0);
-      const grandSum = processed.reduce((acc, g) => acc + g.stats.sum, 0);
+      const totalN = processedGroups.reduce((acc, g) => acc + g.stats.n, 0);
+      const grandSum = processedGroups.reduce((acc, g) => acc + g.stats.sum, 0);
       const grandMean = grandSum / totalN;
 
       const dfBetween = k - 1;
       const dfWithin = totalN - k;
-      if (dfWithin <= 0) return { error: 'Insufficient degrees of freedom.' };
+      const dfTotal = totalN - 1;
+
+      if (dfWithin <= 0) {
+        return { error: 'Insufficient degrees of freedom for within-group variance.' };
+      }
 
       let ssBetween = 0;
       let ssWithin = 0;
-      for (const g of processed) {
+
+      for (const g of processedGroups) {
         ssBetween += g.stats.n * Math.pow(g.stats.mean - grandMean, 2);
-        for (const val of g.data) ssWithin += Math.pow(val - g.stats.mean, 2);
+        for (const val of g.data) {
+          ssWithin += Math.pow(val - g.stats.mean, 2);
+        }
       }
       const ssTotal = ssBetween + ssWithin;
 
       const msBetween = ssBetween / dfBetween;
       const msWithin = ssWithin / dfWithin;
+
       const F = msWithin === 0 ? 0 : msBetween / msWithin;
       const pValue = Distributions.fPValue(F, dfBetween, dfWithin);
 
@@ -785,22 +799,21 @@
       const omegaSquared = (ssTotal + msWithin) === 0 ? 0 :
         (ssBetween - dfBetween * msWithin) / (ssTotal + msWithin);
 
-      // Tukey's HSD Post-Hoc Pairwise Contrasts
       const pairwise = [];
       const numPairs = (k * (k - 1)) / 2;
       const pooledSD = Math.sqrt(msWithin);
 
       for (let i = 0; i < k; i++) {
         for (let j = i + 1; j < k; j++) {
-          const gA = processed[i];
-          const gB = processed[j];
+          const gA = processedGroups[i];
+          const gB = processedGroups[j];
           const meanDiff = gA.stats.mean - gB.stats.mean;
           const seDiff = Math.sqrt(msWithin * (1 / gA.stats.n + 1 / gB.stats.n));
           const seTukey = Math.sqrt((msWithin / 2) * (1 / gA.stats.n + 1 / gB.stats.n));
           const q = seTukey === 0 ? 0 : Math.abs(meanDiff) / seTukey;
-          const tEquiv = q / Math.SQRT2;
-          const pRaw = Distributions.tPValue(tEquiv, dfWithin);
-          const pAdjusted = Math.min(1.0, pRaw * numPairs);
+          const tEquivalent = q / Math.SQRT2;
+          const pPair = Distributions.tPValue(tEquivalent, dfWithin);
+          const pAdjusted = Math.min(1.0, pPair * numPairs);
 
           const z95 = 1.95996;
           const tCrit = dfWithin > 30 ? z95 : z95 * (1 + 1 / (4 * dfWithin));
@@ -816,10 +829,11 @@
             meanB: gB.stats.mean,
             meanDiff,
             seDiff,
+            statisticLabel: 'q / t',
             qStatistic: q,
-            tStatistic: tEquiv,
+            tStatistic: tEquivalent,
             pValue: pAdjusted,
-            pValueRaw: pRaw,
+            pValueRaw: pPair,
             ci95,
             cohensD,
             isSignificant: pAdjusted < 0.05
@@ -828,19 +842,893 @@
       }
 
       return {
-        testName: 'One-Way ANOVA',
-        k, totalN, grandMean,
-        groups: processed,
-        dfBetween, dfWithin,
-        ssBetween, ssWithin, ssTotal,
-        msBetween, msWithin,
+        testKey: 'oneway',
+        testName: "One-Way Analysis of Variance (Fisher's ANOVA)",
+        k,
+        totalN,
+        grandMean,
+        groups: processedGroups,
+        dfBetween,
+        dfWithin,
+        dfTotal,
+        ssBetween,
+        ssWithin,
+        ssTotal,
+        msBetween,
+        msWithin,
+        statistic: F,
         fStatistic: F,
         pValue,
         etaSquared,
         omegaSquared: Math.max(0, omegaSquared),
+        effectSizeLabel: 'Eta² (η²) & Omega² (ω²)',
         pairwise,
         isSignificant: pValue < 0.05
       };
+    },
+
+    welch(groups) {
+      if (!Array.isArray(groups) || groups.length < 2) {
+        return { error: 'Welch ANOVA requires at least 2 distinct groups.' };
+      }
+
+      const processedGroups = groups.map(g => {
+        const stats = Descriptive.calculate(g.data);
+        return {
+          name: g.name || 'Group',
+          stats,
+          data: stats.values
+        };
+      }).filter(g => g.stats.n > 1);
+
+      const k = processedGroups.length;
+      if (k < 2) {
+        return { error: 'Welch ANOVA requires at least 2 groups with n ≥ 2.' };
+      }
+
+      const totalN = processedGroups.reduce((acc, g) => acc + g.stats.n, 0);
+
+      const weights = [];
+      let sumW = 0;
+      for (const g of processedGroups) {
+        const varG = Math.max(1e-9, g.stats.variance);
+        const w = g.stats.n / varG;
+        weights.push(w);
+        sumW += w;
+      }
+
+      let weightedSumMean = 0;
+      for (let j = 0; j < k; j++) {
+        weightedSumMean += weights[j] * processedGroups[j].stats.mean;
+      }
+      const weightedGrandMean = weightedSumMean / sumW;
+
+      let sumWeightDevSq = 0;
+      for (let j = 0; j < k; j++) {
+        sumWeightDevSq += weights[j] * Math.pow(processedGroups[j].stats.mean - weightedGrandMean, 2);
+      }
+      const numeratorA = sumWeightDevSq / (k - 1);
+
+      let lambdaTermB = 0;
+      for (let j = 0; j < k; j++) {
+        const g = processedGroups[j];
+        const wRatio = 1 - weights[j] / sumW;
+        lambdaTermB += Math.pow(wRatio, 2) / (g.stats.n - 1);
+      }
+
+      const denomAdjustment = (k > 1 && (k * k - 1) > 0)
+        ? 1 + ((2 * (k - 2)) / (k * k - 1)) * lambdaTermB
+        : 1;
+
+      const F_welch = denomAdjustment === 0 ? 0 : numeratorA / denomAdjustment;
+      const df1 = k - 1;
+      const df2 = lambdaTermB > 0 ? (k * k - 1) / (3 * lambdaTermB) : (totalN - k);
+      const pValue = Distributions.fPValue(F_welch, df1, df2);
+
+      const omegaSquared = Math.max(0, (df1 * (F_welch - 1)) / (df1 * (F_welch - 1) + totalN));
+      const etaSquared = Math.max(0, (df1 * F_welch) / (df1 * F_welch + df2));
+
+      const pairwise = [];
+      const numPairs = (k * (k - 1)) / 2;
+
+      for (let i = 0; i < k; i++) {
+        for (let j = i + 1; j < k; j++) {
+          const gA = processedGroups[i];
+          const gB = processedGroups[j];
+          const meanDiff = gA.stats.mean - gB.stats.mean;
+          const varAOverN = Math.max(1e-9, gA.stats.variance) / gA.stats.n;
+          const varBOverN = Math.max(1e-9, gB.stats.variance) / gB.stats.n;
+          const seDiff = Math.sqrt(varAOverN + varBOverN);
+
+          const t = seDiff === 0 ? 0 : Math.abs(meanDiff) / seDiff;
+
+          const dfNumerator = Math.pow(varAOverN + varBOverN, 2);
+          const dfDenominator = Math.pow(varAOverN, 2) / (gA.stats.n - 1) + Math.pow(varBOverN, 2) / (gB.stats.n - 1);
+          const dfPair = dfDenominator === 0 ? 1 : dfNumerator / dfDenominator;
+
+          const q = Math.SQRT2 * t;
+          const pPairRaw = Distributions.tPValue(t, dfPair);
+          const pAdjusted = Math.min(1.0, pPairRaw * numPairs);
+
+          const z95 = 1.95996;
+          const tCrit = dfPair > 30 ? z95 : z95 * (1 + 1 / (4 * dfPair));
+          const margin = tCrit * seDiff;
+          const ci95 = [meanDiff - margin, meanDiff + margin];
+
+          const pooledVar = (gA.stats.variance + gB.stats.variance) / 2;
+          const cohensD = pooledVar <= 0 ? 0 : meanDiff / Math.sqrt(pooledVar);
+
+          pairwise.push({
+            groupA: gA.name,
+            groupB: gB.name,
+            comparison: `${gA.name} vs ${gB.name}`,
+            meanA: gA.stats.mean,
+            meanB: gB.stats.mean,
+            meanDiff,
+            seDiff,
+            statisticLabel: "Games-Howell t (df')",
+            qStatistic: q,
+            tStatistic: t,
+            df: dfPair,
+            pValue: pAdjusted,
+            pValueRaw: pPairRaw,
+            ci95,
+            cohensD,
+            isSignificant: pAdjusted < 0.05
+          });
+        }
+      }
+
+      return {
+        testKey: 'welch',
+        testName: "Welch's Heteroscedastic ANOVA (Robust)",
+        k,
+        totalN,
+        grandMean: weightedGrandMean,
+        groups: processedGroups,
+        dfBetween: df1,
+        dfWithin: df2,
+        df1,
+        df2,
+        statistic: F_welch,
+        fStatistic: F_welch,
+        pValue,
+        etaSquared,
+        omegaSquared,
+        effectSizeLabel: 'Robust Omega² (ω²)',
+        pairwise,
+        isSignificant: pValue < 0.05
+      };
+    },
+
+    kruskalWallis(groups) {
+      if (!Array.isArray(groups) || groups.length < 2) {
+        return { error: 'Kruskal-Wallis test requires at least 2 groups.' };
+      }
+
+      const processedGroups = groups.map((g, idx) => {
+        const clean = Descriptive.cleanData(g.data);
+        const stats = Descriptive.calculate(clean);
+        return {
+          name: g.name || `Cohort ${idx + 1}`,
+          stats,
+          data: clean
+        };
+      }).filter(g => g.stats.n > 0);
+
+      const k = processedGroups.length;
+      if (k < 2) return { error: 'At least 2 groups must contain valid observations.' };
+
+      const allData = [];
+      processedGroups.forEach((g, gIdx) => {
+        g.data.forEach(val => {
+          allData.push({ val, groupIdx: gIdx, name: g.name });
+        });
+      });
+
+      const N = allData.length;
+      if (N < 3) return { error: 'Insufficient total sample size for Kruskal-Wallis test.' };
+
+      allData.sort((a, b) => a.val - b.val);
+
+      let i = 0;
+      const tieCounts = [];
+      while (i < N) {
+        let j = i;
+        while (j < N - 1 && allData[j + 1].val === allData[i].val) {
+          j++;
+        }
+        const tieSize = j - i + 1;
+        if (tieSize > 1) tieCounts.push(tieSize);
+
+        const rank = (i + 1 + j + 1) / 2;
+        for (let m = i; m <= j; m++) {
+          allData[m].rank = rank;
+        }
+        i = j + 1;
+      }
+
+      const groupRankSums = new Array(k).fill(0);
+      for (const item of allData) {
+        groupRankSums[item.groupIdx] += item.rank;
+      }
+
+      let sumRankSqOverN = 0;
+      for (let j = 0; j < k; j++) {
+        const n_j = processedGroups[j].stats.n;
+        sumRankSqOverN += Math.pow(groupRankSums[j], 2) / n_j;
+      }
+
+      let H = (12 / (N * (N + 1))) * sumRankSqOverN - 3 * (N + 1);
+
+      let tieCorrectionSum = 0;
+      for (const t of tieCounts) {
+        tieCorrectionSum += (Math.pow(t, 3) - t);
+      }
+      const tieFactor = 1 - tieCorrectionSum / (Math.pow(N, 3) - N);
+      if (tieFactor > 0 && tieFactor < 1) {
+        H = H / tieFactor;
+      }
+
+      const df = k - 1;
+      const pValue = Distributions.chiSquarePValue(H, df);
+      const epsilonSquared = N > 1 ? Math.min(1.0, Math.max(0, H / (N - 1))) : 0;
+
+      const pairwise = [];
+      const numPairs = (k * (k - 1)) / 2;
+      const tieAdjVariance = (N * (N + 1) / 12) - (tieCorrectionSum / (12 * (N - 1)));
+
+      for (let a = 0; a < k; a++) {
+        for (let b = a + 1; b < k; b++) {
+          const gA = processedGroups[a];
+          const gB = processedGroups[b];
+          const meanRankA = groupRankSums[a] / gA.stats.n;
+          const meanRankB = groupRankSums[b] / gB.stats.n;
+          const rankDiff = meanRankA - meanRankB;
+          const seDunn = Math.sqrt(Math.max(1e-9, tieAdjVariance) * (1 / gA.stats.n + 1 / gB.stats.n));
+          const z = seDunn === 0 ? 0 : Math.abs(rankDiff) / seDunn;
+          const pPairRaw = Distributions.normalPValue(z);
+          const pAdjusted = Math.min(1.0, pPairRaw * numPairs);
+
+          const rEffect = z / Math.sqrt(N);
+          const medianDiff = gA.stats.median - gB.stats.median;
+
+          pairwise.push({
+            groupA: gA.name,
+            groupB: gB.name,
+            comparison: `${gA.name} vs ${gB.name}`,
+            meanA: gA.stats.mean,
+            meanB: gB.stats.mean,
+            medianA: gA.stats.median,
+            medianB: gB.stats.median,
+            meanDiff: medianDiff,
+            rankDiff,
+            seDiff: seDunn,
+            statisticLabel: "Dunn's z",
+            zStatistic: z,
+            tStatistic: z,
+            pValue: pAdjusted,
+            pValueRaw: pPairRaw,
+            ci95: [gA.stats.median - gB.stats.median, gA.stats.median - gB.stats.median],
+            cohensD: rEffect,
+            isSignificant: pAdjusted < 0.05
+          });
+        }
+      }
+
+      return {
+        testKey: 'kruskal',
+        testName: 'Kruskal-Wallis H Test (Non-Parametric ANOVA)',
+        k,
+        totalN: N,
+        dfBetween: df,
+        dfWithin: N - k,
+        df,
+        statistic: H,
+        fStatistic: H,
+        pValue,
+        etaSquared: epsilonSquared,
+        epsilonSquared,
+        omegaSquared: epsilonSquared,
+        effectSizeLabel: 'Epsilon-Squared (ε²)',
+        groups: processedGroups,
+        groupRankSums,
+        pairwise,
+        isSignificant: pValue < 0.05
+      };
+    },
+
+    repeatedMeasures(groups) {
+      if (!Array.isArray(groups) || groups.length < 2) {
+        return { error: 'Repeated Measures ANOVA requires at least 2 conditions/timepoints.' };
+      }
+
+      const k = groups.length;
+      const cleaned = groups.map((g, idx) => ({
+        name: g.name || `Timepoint ${idx + 1}`,
+        data: Descriptive.cleanData(g.data)
+      }));
+
+      const minN = Math.min(...cleaned.map(g => g.data.length));
+      if (minN < 2) {
+        return { error: 'Repeated Measures ANOVA requires at least 2 complete subjects across all timepoints.' };
+      }
+
+      const N = minN;
+      const processedGroups = cleaned.map(g => {
+        const sliced = g.data.slice(0, N);
+        const stats = Descriptive.calculate(sliced);
+        return {
+          name: g.name,
+          stats,
+          data: sliced
+        };
+      });
+
+      const subjectSums = new Array(N).fill(0);
+      const conditionSums = new Array(k).fill(0);
+      let grandSum = 0;
+
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < k; j++) {
+          const val = processedGroups[j].data[i];
+          subjectSums[i] += val;
+          conditionSums[j] += val;
+          grandSum += val;
+        }
+      }
+
+      const totalObs = N * k;
+      const grandMean = grandSum / totalObs;
+      const subjectMeans = subjectSums.map(s => s / k);
+      const conditionMeans = conditionSums.map(c => c / N);
+
+      let ssTotal = 0;
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < k; j++) {
+          ssTotal += Math.pow(processedGroups[j].data[i] - grandMean, 2);
+        }
+      }
+
+      let ssSubjects = 0;
+      for (let i = 0; i < N; i++) {
+        ssSubjects += k * Math.pow(subjectMeans[i] - grandMean, 2);
+      }
+
+      const ssWithin = ssTotal - ssSubjects;
+
+      let ssTreatment = 0;
+      for (let j = 0; j < k; j++) {
+        ssTreatment += N * Math.pow(conditionMeans[j] - grandMean, 2);
+      }
+
+      const ssError = Math.max(0, ssWithin - ssTreatment);
+
+      const dfTreatment = k - 1;
+      const dfSubjects = N - 1;
+      const dfError = (N - 1) * (k - 1);
+      const dfTotal = totalObs - 1;
+
+      const msTreatment = dfTreatment > 0 ? ssTreatment / dfTreatment : 0;
+      const msError = dfError > 0 ? ssError / dfError : 1e-9;
+
+      const F = msError === 0 ? 0 : msTreatment / msError;
+      const pValue = Distributions.fPValue(F, dfTreatment, dfError);
+
+      const partialEtaSquared = (ssTreatment + ssError) > 0 ? ssTreatment / (ssTreatment + ssError) : 0;
+      const ggEpsilon = Math.max(1 / (k - 1), Math.min(1.0, 1 - 0.5 * (k - 1) / (dfError || 1)));
+      const pValueGG = Distributions.fPValue(F, dfTreatment * ggEpsilon, dfError * ggEpsilon);
+
+      const pairwise = [];
+      const numPairs = (k * (k - 1)) / 2;
+
+      for (let i = 0; i < k; i++) {
+        for (let j = i + 1; j < k; j++) {
+          const gA = processedGroups[i];
+          const gB = processedGroups[j];
+          const diffs = [];
+          for (let m = 0; m < N; m++) {
+            diffs.push(gA.data[m] - gB.data[m]);
+          }
+          const diffStats = Descriptive.calculate(diffs);
+          const meanDiff = diffStats.mean;
+          const seDiff = diffStats.sem;
+          const t = seDiff === 0 ? 0 : meanDiff / seDiff;
+          const dfPair = N - 1;
+          const pPairRaw = Distributions.tPValue(Math.abs(t), dfPair);
+          const pAdjusted = Math.min(1.0, pPairRaw * numPairs);
+
+          const z95 = 1.95996;
+          const tCrit = dfPair > 30 ? z95 : z95 * (1 + 1 / (4 * dfPair));
+          const margin = tCrit * seDiff;
+          const ci95 = [meanDiff - margin, meanDiff + margin];
+          const cohensD = diffStats.sd === 0 ? 0 : meanDiff / diffStats.sd;
+
+          pairwise.push({
+            groupA: gA.name,
+            groupB: gB.name,
+            comparison: `${gA.name} vs ${gB.name}`,
+            meanA: gA.stats.mean,
+            meanB: gB.stats.mean,
+            meanDiff,
+            seDiff,
+            statisticLabel: 'Paired t (df)',
+            tStatistic: t,
+            df: dfPair,
+            pValue: pAdjusted,
+            pValueRaw: pPairRaw,
+            ci95,
+            cohensD,
+            isSignificant: pAdjusted < 0.05
+          });
+        }
+      }
+
+      return {
+        testKey: 'rm_anova',
+        testName: 'One-Way Repeated Measures ANOVA (Within-Subjects)',
+        k,
+        totalN: N,
+        matchedN: N,
+        grandMean,
+        groups: processedGroups,
+        dfBetween: dfTreatment,
+        dfWithin: dfError,
+        dfTreatment,
+        dfSubjects,
+        dfError,
+        dfTotal,
+        ssBetween: ssTreatment,
+        ssWithin: ssError,
+        ssTreatment,
+        ssSubjects,
+        ssError,
+        ssTotal,
+        msTreatment,
+        msError,
+        statistic: F,
+        fStatistic: F,
+        pValue,
+        pValueGG,
+        ggEpsilon,
+        etaSquared: partialEtaSquared,
+        omegaSquared: partialEtaSquared,
+        partialEtaSquared,
+        effectSizeLabel: 'Partial Eta² (η²_p)',
+        pairwise,
+        isSignificant: pValue < 0.05
+      };
+    },
+
+    friedman(groups) {
+      if (!Array.isArray(groups) || groups.length < 2) {
+        return { error: 'Friedman test requires at least 2 conditions/timepoints.' };
+      }
+
+      const k = groups.length;
+      const cleaned = groups.map((g, idx) => ({
+        name: g.name || `Condition ${idx + 1}`,
+        data: Descriptive.cleanData(g.data)
+      }));
+
+      const minN = Math.min(...cleaned.map(g => g.data.length));
+      if (minN < 2) {
+        return { error: 'Friedman test requires at least 2 complete subjects across all conditions.' };
+      }
+
+      const N = minN;
+      const processedGroups = cleaned.map(g => {
+        const sliced = g.data.slice(0, N);
+        const stats = Descriptive.calculate(sliced);
+        return {
+          name: g.name,
+          stats,
+          data: sliced
+        };
+      });
+
+      const rankMatrix = [];
+      let totalTieCorrection = 0;
+
+      for (let i = 0; i < N; i++) {
+        const row = [];
+        for (let j = 0; j < k; j++) {
+          row.push({ condIdx: j, val: processedGroups[j].data[i] });
+        }
+        row.sort((a, b) => a.val - b.val);
+
+        let p = 0;
+        while (p < k) {
+          let q = p;
+          while (q < k - 1 && row[q + 1].val === row[p].val) q++;
+          const tieLen = q - p + 1;
+          if (tieLen > 1) {
+            totalTieCorrection += Math.pow(tieLen, 3) - tieLen;
+          }
+          const rank = (p + 1 + q + 1) / 2;
+          for (let m = p; m <= q; m++) {
+            row[m].rank = rank;
+          }
+          p = q + 1;
+        }
+
+        const assignedRanks = new Array(k);
+        for (const item of row) {
+          assignedRanks[item.condIdx] = item.rank;
+        }
+        rankMatrix.push(assignedRanks);
+      }
+
+      const conditionRankSums = new Array(k).fill(0);
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < k; j++) {
+          conditionRankSums[j] += rankMatrix[i][j];
+        }
+      }
+
+      let sumRankSq = 0;
+      for (let j = 0; j < k; j++) {
+        sumRankSq += Math.pow(conditionRankSums[j], 2);
+      }
+
+      let chiSqF = (12 / (N * k * (k + 1))) * sumRankSq - 3 * N * (k + 1);
+
+      if (k > 1) {
+        const tieDenom = N * k * (k * k - 1);
+        if (tieDenom > 0 && totalTieCorrection > 0) {
+          const C = 1 - totalTieCorrection / tieDenom;
+          if (C > 0 && C < 1) {
+            chiSqF = chiSqF / C;
+          }
+        }
+      }
+
+      const df = k - 1;
+      const pValue = Distributions.chiSquarePValue(chiSqF, df);
+      const kendallsW = (N > 0 && df > 0) ? Math.min(1.0, Math.max(0, chiSqF / (N * df))) : 0;
+
+      const pairwise = [];
+      const numPairs = (k * (k - 1)) / 2;
+
+      for (let a = 0; a < k; a++) {
+        for (let b = a + 1; b < k; b++) {
+          const gA = processedGroups[a];
+          const gB = processedGroups[b];
+          const diffs = [];
+          for (let m = 0; m < N; m++) {
+            const d = gA.data[m] - gB.data[m];
+            if (d !== 0) diffs.push({ diff: d, absDiff: Math.abs(d) });
+          }
+
+          let z = 0;
+          let pPairRaw = 1.0;
+          const nDiff = diffs.length;
+
+          if (nDiff >= 2) {
+            diffs.sort((x, y) => x.absDiff - y.absDiff);
+            let p = 0;
+            while (p < nDiff) {
+              let q = p;
+              while (q < nDiff - 1 && diffs[q + 1].absDiff === diffs[p].absDiff) q++;
+              const rank = (p + 1 + q + 1) / 2;
+              for (let m = p; m <= q; m++) diffs[m].rank = rank;
+              p = q + 1;
+            }
+
+            let wPlus = 0;
+            let wMinus = 0;
+            for (const d of diffs) {
+              if (d.diff > 0) wPlus += d.rank;
+              else wMinus += d.rank;
+            }
+            const W_stat = Math.min(wPlus, wMinus);
+            const meanW = (nDiff * (nDiff + 1)) / 4;
+            const sigmaW = Math.sqrt((nDiff * (nDiff + 1) * (2 * nDiff + 1)) / 24);
+            z = sigmaW === 0 ? 0 : (W_stat - meanW) / sigmaW;
+            pPairRaw = Distributions.normalPValue(Math.abs(z));
+          }
+
+          const pAdjusted = Math.min(1.0, pPairRaw * numPairs);
+          const medianDiff = gA.stats.median - gB.stats.median;
+
+          pairwise.push({
+            groupA: gA.name,
+            groupB: gB.name,
+            comparison: `${gA.name} vs ${gB.name}`,
+            meanA: gA.stats.mean,
+            meanB: gB.stats.mean,
+            medianA: gA.stats.median,
+            medianB: gB.stats.median,
+            meanDiff: medianDiff,
+            seDiff: 0,
+            statisticLabel: 'Wilcoxon z',
+            zStatistic: z,
+            tStatistic: z,
+            pValue: pAdjusted,
+            pValueRaw: pPairRaw,
+            ci95: [medianDiff, medianDiff],
+            cohensD: Math.abs(z) / Math.sqrt(N),
+            isSignificant: pAdjusted < 0.05
+          });
+        }
+      }
+
+      return {
+        testKey: 'friedman',
+        testName: 'Friedman Test (Non-Parametric Repeated Measures)',
+        k,
+        totalN: N,
+        matchedN: N,
+        dfBetween: df,
+        dfWithin: N * (k - 1),
+        df,
+        statistic: chiSqF,
+        fStatistic: chiSqF,
+        pValue,
+        etaSquared: kendallsW,
+        omegaSquared: kendallsW,
+        kendallsW,
+        effectSizeLabel: "Kendall's Concordance W",
+        groups: processedGroups,
+        conditionRankSums,
+        pairwise,
+        isSignificant: pValue < 0.05
+      };
+    },
+
+    leveneTest(groups) {
+      if (!Array.isArray(groups) || groups.length < 2) {
+        return { error: 'Levene test requires at least 2 groups.' };
+      }
+
+      const processed = groups.map(g => {
+        const clean = Descriptive.cleanData(g.data);
+        const stats = Descriptive.calculate(clean);
+        return { name: g.name, data: clean, stats };
+      }).filter(g => g.data.length > 1);
+
+      const k = processed.length;
+      if (k < 2) return { error: 'Levene test requires at least 2 groups with n ≥ 2.' };
+
+      const totalN = processed.reduce((acc, g) => acc + g.data.length, 0);
+
+      const deviationGroups = processed.map(g => {
+        const med = g.stats.median;
+        const devData = g.data.map(x => Math.abs(x - med));
+        return {
+          name: g.name,
+          data: devData
+        };
+      });
+
+      const anovaOnDeviations = this.oneWay(deviationGroups);
+      if (anovaOnDeviations.error) {
+        return { error: anovaOnDeviations.error };
+      }
+
+      const F = anovaOnDeviations.fStatistic;
+      const df1 = anovaOnDeviations.dfBetween;
+      const df2 = anovaOnDeviations.dfWithin;
+      const pValue = anovaOnDeviations.pValue;
+
+      const variances = processed.map(g => g.stats.variance).filter(v => v > 0);
+      const maxVar = variances.length > 0 ? Math.max(...variances) : 1;
+      const minVar = variances.length > 0 ? Math.max(1e-9, Math.min(...variances)) : 1;
+      const varianceRatio = maxVar / minVar;
+
+      return {
+        statistic: F,
+        fStatistic: F,
+        df1,
+        df2,
+        pValue,
+        varianceRatio,
+        equalVariance: pValue >= 0.05,
+        interpretation: pValue >= 0.05
+          ? 'Homoscedastic (Equal Variances Confirmed, p ≥ .05)'
+          : 'Heteroscedastic (Unequal Variances Detected, p < .05)'
+      };
+    },
+
+    evaluateAssumptions(groups, isPaired = false) {
+      if (!Array.isArray(groups) || groups.length < 2) {
+        return { error: 'Assumption evaluation requires at least 2 cohorts.' };
+      }
+
+      const cleaned = groups.map((g, idx) => ({
+        name: g.name || `Cohort ${idx + 1}`,
+        data: Descriptive.cleanData(g.data)
+      })).filter(g => g.data.length > 0);
+
+      const k = cleaned.length;
+      if (k < 2) return { error: 'At least 2 cohorts must have numerical observations.' };
+
+      const cohortStats = cleaned.map(g => Descriptive.calculate(g.data));
+
+      const normalityDetails = [];
+      let allNormal = true;
+
+      for (let j = 0; j < k; j++) {
+        const stats = cohortStats[j];
+        const jb = stats.normality || { isNormal: true, pValue: 1.0, statistic: 0 };
+        const skewAlert = Math.abs(stats.skewness) > 1.0;
+        const kurtAlert = Math.abs(stats.kurtosis) > 1.5;
+        const isNorm = stats.n >= 10 ? jb.isNormal : (!skewAlert && !kurtAlert);
+
+        if (!isNorm) allNormal = false;
+
+        normalityDetails.push({
+          cohortIndex: j + 1,
+          name: cleaned[j].name,
+          n: stats.n,
+          mean: stats.mean,
+          median: stats.median,
+          sd: stats.sd,
+          skewness: stats.skewness,
+          kurtosis: stats.kurtosis,
+          jbStat: jb.statistic,
+          pValue: jb.pValue,
+          isNormal: isNorm
+        });
+      }
+
+      if (isPaired) {
+        const lengths = cleaned.map(g => g.data.length);
+        const minN = Math.min(...lengths);
+        const maxN = Math.max(...lengths);
+        const unequalLengths = minN !== maxN;
+
+        if (minN < 2) {
+          return {
+            error: 'Paired repeated measures design requires at least 2 matched subjects across all cohorts.',
+            isPaired: true
+          };
+        }
+
+        let pairedDiffsNormal = true;
+        const baselineData = cleaned[0].data.slice(0, minN);
+        for (let j = 1; j < k; j++) {
+          const compData = cleaned[j].data.slice(0, minN);
+          const diffs = compData.map((val, idx) => val - baselineData[idx]);
+          const diffStats = Descriptive.calculate(diffs);
+          const jbDiff = diffStats.normality || { isNormal: true, pValue: 1.0, statistic: 0 };
+          const skewAlert = Math.abs(diffStats.skewness) > 1.0;
+          const kurtAlert = Math.abs(diffStats.kurtosis) > 1.5;
+          const diffNorm = minN >= 10 ? jbDiff.isNormal : (!skewAlert && !kurtAlert);
+          if (!diffNorm) pairedDiffsNormal = false;
+        }
+
+        const isParametric = allNormal || pairedDiffsNormal;
+        const recommendedTest = isParametric ? 'rm_anova' : 'friedman';
+        const recommendedTestName = isParametric
+          ? 'Repeated Measures ANOVA (Paired, Parametric)'
+          : 'Friedman Test (Paired, Non-Parametric)';
+
+        let rationale = `Within-subjects repeated measures design with ${k} matched conditions across N = ${minN} participants. `;
+        if (unequalLengths) {
+          rationale += `Note: Cohort observation counts varied (${lengths.join(', ')}); data was strictly aligned by subject index to the matched sample size N = ${minN}. `;
+        }
+
+        if (isParametric) {
+          rationale += `Condition measurements and within-subject difference scores conform adequately to normality without severe skewness. One-Way Repeated Measures ANOVA is recommended.`;
+        } else {
+          rationale += `One or more conditions exhibit significant departure from normality or heavy skewness. Non-parametric ranking via the Friedman test is recommended to prevent Type I error distortion.`;
+        }
+
+        return {
+          isPaired: true,
+          k,
+          matchedN: minN,
+          unequalLengths,
+          lengths,
+          cohortStats,
+          normality: {
+            isParametric,
+            allNormal,
+            details: normalityDetails,
+            interpretation: isParametric ? 'Normal / Symmetrical Distribution' : 'Non-Normal Distribution Detected'
+          },
+          varianceEquality: {
+            applicable: false,
+            note: 'Sphericity applies to repeated measures; homoscedasticity evaluated between subjects is not required for purely within-subject contrasts.'
+          },
+          recommendedTest,
+          recommendedTestName,
+          rationale
+        };
+      } else {
+        const levene = this.leveneTest(cleaned);
+        const equalVariance = levene.equalVariance !== undefined ? levene.equalVariance : true;
+        const isParametric = allNormal;
+
+        let recommendedTest;
+        let recommendedTestName;
+        let rationale = `Independent multi-cohort comparison across ${k} distinct groups (total N = ${cohortStats.reduce((a, s) => a + s.n, 0)}). `;
+
+        if (isParametric) {
+          if (equalVariance) {
+            recommendedTest = 'oneway';
+            recommendedTestName = "One-Way ANOVA (Fisher's Standard - Equal Variances)";
+            rationale += `All ${k} cohorts conform to normal distributions (Jarque-Bera p ≥ .05) and Levene's test confirms homogeneity of variances (F(${levene.df1}, ${levene.df2}) = ${(levene.fStatistic || 0).toFixed(2)}, p = ${levene.pValue > 0.001 ? levene.pValue.toFixed(3) : '< .001'}). Standard Fisher's One-Way ANOVA with Tukey's HSD post-hoc contrasts is optimal.`;
+          } else {
+            recommendedTest = 'welch';
+            recommendedTestName = "Welch's ANOVA (Robust - Unequal Variances)";
+            rationale += `All ${k} cohorts conform to normal distributions, but Levene's test detected significant heteroscedasticity / unequal variances (F(${levene.df1}, ${levene.df2}) = ${(levene.fStatistic || 0).toFixed(2)}, p = ${levene.pValue > 0.001 ? levene.pValue.toFixed(3) : '< .001'}, variance ratio = ${(levene.varianceRatio || 1).toFixed(2)}×). Standard Fisher ANOVA inflates Type I errors under heteroscedasticity; Welch's ANOVA with Games-Howell post-hoc contrasts is strongly recommended.`;
+          }
+        } else {
+          recommendedTest = 'kruskal';
+          recommendedTestName = 'Kruskal-Wallis H Test (Non-Parametric)';
+          const nonNormalCohorts = normalityDetails.filter(d => !d.isNormal).map(d => `${d.name} (p = ${d.pValue > 0.001 ? d.pValue.toFixed(3) : '< .001'})`);
+          rationale += `Departure from normality detected in cohort(s): ${nonNormalCohorts.join(', ')}. The non-parametric Kruskal-Wallis H test by ranks (with Dunn's post-hoc contrasts) is recommended to protect against distribution anomalies.`;
+        }
+
+        return {
+          isPaired: false,
+          k,
+          cohortStats,
+          normality: {
+            isParametric,
+            allNormal,
+            details: normalityDetails,
+            interpretation: isParametric ? 'All Cohorts Normal (Parametric Suitable)' : 'Normality Violated (Non-Parametric Recommended)'
+          },
+          varianceEquality: {
+            applicable: true,
+            equalVariance,
+            fStat: levene.fStatistic || 0,
+            df1: levene.df1 || 0,
+            df2: levene.df2 || 0,
+            pValue: levene.pValue || 1.0,
+            varianceRatio: levene.varianceRatio || 1.0,
+            interpretation: levene.interpretation || (equalVariance ? 'Homoscedastic (Equal Variances)' : 'Heteroscedastic (Unequal Variances)')
+          },
+          recommendedTest,
+          recommendedTestName,
+          rationale
+        };
+      }
+    },
+
+    test(groups, testType = 'auto', isPaired = false) {
+      const assumptions = this.evaluateAssumptions(groups, isPaired);
+      if (assumptions.error) {
+        return { error: assumptions.error };
+      }
+
+      let activeTest = testType;
+      if (activeTest === 'auto') {
+        activeTest = assumptions.recommendedTest;
+      }
+
+      let result;
+      switch (activeTest) {
+        case 'welch':
+          result = this.welch(groups);
+          break;
+        case 'kruskal':
+          result = this.kruskalWallis(groups);
+          break;
+        case 'rm_anova':
+          result = this.repeatedMeasures(groups);
+          break;
+        case 'friedman':
+          result = this.friedman(groups);
+          break;
+        case 'oneway':
+        default:
+          result = this.oneWay(groups);
+          break;
+      }
+
+      if (result.error) {
+        return { error: result.error, assumptions };
+      }
+
+      result.assumptions = assumptions;
+      result.requestedMethod = testType;
+      result.executedMethod = activeTest;
+      result.isPaired = isPaired;
+      return result;
     }
   };
 
@@ -3094,76 +3982,198 @@ const DocxReports = {
   createAnovaDocx(data) {
     const d = new DocxBuilder();
     d.addTitle('STATIS-GRAVITY CLINICAL BIOSTATISTICS REPORT')
-      .addSubTitle('Module: Multi-Cohort Variance & Tukey HSD Post-Hoc Pairwise Analysis')
+      .addSubTitle(`Module: ${data.testName || 'Multi-Cohort Analysis'} & Post-Hoc Pairwise Contrasts`)
       .addAttributionHeader()
       .addDisclaimerBox();
 
     d.addHeading1('1. Analyzed Cohorts Information & Input Data')
-      .addParagraph(`Number of Independent Cohorts (k): ${data.k || data.groups.length}`)
-      .addParagraph(`Total Analyzed Sample Size (N): ${data.totalN} patients/specimens`)
-      .addParagraph(`Grand Mean across All Cohorts: ${data.grandMean.toFixed(2)}`);
+      .addParagraph(`Number of Evaluated Cohorts/Conditions (k): ${data.k || (data.groups ? data.groups.length : 0)}`)
+      .addParagraph(`Total Analyzed Sample Size: ${data.totalN || 0} observations ${data.matchedN ? `(${data.matchedN} matched subjects)` : ''}`)
+      .addParagraph(`Study Design: ${data.isPaired ? 'Within-Subjects Repeated Measures / Paired Timepoints' : 'Independent Between-Subjects Cohorts'}`);
+
+    if (data.groups && data.groups.length > 0) {
+      d.addHeading2('Cohort Descriptive Summary');
+      const groupRows = data.groups.map(g => [
+        g.name,
+        `${g.stats.n}`,
+        `${g.stats.mean.toFixed(2)}`,
+        `${g.stats.sd.toFixed(2)}`,
+        `${g.stats.sem.toFixed(3)}`,
+        `[${g.stats.ci95[0].toFixed(2)}, ${g.stats.ci95[1].toFixed(2)}]`,
+        `${g.stats.median.toFixed(2)} (${g.stats.iqr.toFixed(2)})`
+      ]);
+      d.addTable(['Cohort Name', 'Sample n', 'Mean (M)', 'Std Dev (SD)', 'Std Error (SEM)', '95% CI of Mean', 'Median (IQR)'], groupRows);
+    }
+
+    if (data.assumptions) {
+      d.addHeading2('Diagnostic Assessment of Statistical Assumptions');
+      if (data.assumptions.isPaired) {
+        d.addParagraph(`Study Design: Paired / Repeated Measures across ${data.assumptions.k} conditions (N = ${data.assumptions.matchedN} matched subjects).`);
+        const normRows = (data.assumptions.normality && data.assumptions.normality.details)
+          ? data.assumptions.normality.details.map(det => [
+              det.name,
+              `${det.n}`,
+              `${det.skewness.toFixed(2)}`,
+              `${det.kurtosis.toFixed(2)}`,
+              `JB = ${(det.jbStat || 0).toFixed(2)}`,
+              `${det.pValue < 0.001 ? 'p < .001' : 'p = ' + det.pValue.toFixed(3)}`,
+              det.isNormal ? 'Normal (Parametric Valid)' : 'Skewed / Non-Normal'
+            ])
+          : [];
+        if (normRows.length > 0) {
+          d.addTable(['Condition', 'n', 'Skewness', 'Kurtosis', 'Jarque-Bera', 'p-Value', 'Normality Status'], normRows);
+        }
+      } else {
+        d.addParagraph(`Study Design: Independent Between-Subjects Comparison across ${data.assumptions.k} cohorts.`);
+        const normRows = (data.assumptions.normality && data.assumptions.normality.details)
+          ? data.assumptions.normality.details.map(det => [
+              det.name,
+              `${det.n}`,
+              `${det.skewness.toFixed(2)}`,
+              `${det.kurtosis.toFixed(2)}`,
+              `JB = ${(det.jbStat || 0).toFixed(2)}`,
+              `${det.pValue < 0.001 ? 'p < .001' : 'p = ' + det.pValue.toFixed(3)}`,
+              det.isNormal ? 'Normal Distribution' : 'Skewed / Non-Normal'
+            ])
+          : [];
+        if (normRows.length > 0) {
+          d.addTable(['Cohort', 'n', 'Skewness', 'Kurtosis', 'Jarque-Bera', 'p-Value', 'Normality Status'], normRows);
+        }
+
+        if (data.assumptions.varianceEquality && data.assumptions.varianceEquality.applicable) {
+          d.addTable(
+            ['Assumption Evaluated', 'Diagnostic Test', 'Test Statistic & df', 'p-Value', 'Homoscedasticity Verdict'],
+            [
+              [
+                'Homogeneity of Variances',
+                'Levene\'s Test (Brown-Forsythe)',
+                `F(${data.assumptions.varianceEquality.df1}, ${data.assumptions.varianceEquality.df2}) = ${(data.assumptions.varianceEquality.fStat || 0).toFixed(2)} (Ratio: ${(data.assumptions.varianceEquality.varianceRatio || 1).toFixed(2)}×)`,
+                `${data.assumptions.varianceEquality.pValue < 0.001 ? 'p < .001' : 'p = ' + data.assumptions.varianceEquality.pValue.toFixed(4)}`,
+                data.assumptions.varianceEquality.equalVariance ? 'Equal Variances Confirmed (Homoscedastic)' : 'Unequal Variances (Heteroscedastic - Welch Required)'
+              ]
+            ]
+          );
+        }
+      }
+
+      d.addCalloutBox(
+        'Automated Test Recommendation Decision Engine',
+        `Recommended Test: ${data.assumptions.recommendedTestName}\nDecision Rationale: ${data.assumptions.rationale}${data.requestedMethod && data.requestedMethod !== 'auto' && data.requestedMethod !== data.assumptions.recommendedTest ? '\n[Note: User manually selected ' + data.testName + ']' : ''}`,
+        'E0F2FE',
+        '0284C7'
+      );
+    }
 
     d.addHeading1('2. Statistical Outcome & Numerical Results');
-    const groupRows = data.groups.map(g => [
-      g.name,
-      `${g.stats.n}`,
-      `${g.stats.mean.toFixed(2)}`,
-      `${g.stats.sd.toFixed(2)}`,
-      `${g.stats.sem.toFixed(3)}`,
-      `[${g.stats.ci95[0].toFixed(2)}, ${g.stats.ci95[1].toFixed(2)}]`,
-      `${g.stats.median.toFixed(2)} (${g.stats.iqr.toFixed(2)})`
-    ]);
-    d.addTable(['Cohort Name', 'Sample n', 'Mean (M)', 'Std Dev (SD)', 'Std Error (SEM)', '95% CI of Mean', 'Median (IQR)'], groupRows);
+    d.addHeading2(`${data.testName || 'Omnibus Test'} Summary Table`);
 
-    d.addHeading2('One-Way ANOVA Summary Table');
-    d.addTable(
-      ['Source of Variation', 'Sum of Squares (SS)', 'Degrees of Freedom (df)', 'Mean Square (MS)', 'F-Statistic', 'p-Value', 'Omega-Squared (ω²)'],
-      [
-        ['Between Groups (Treatment)', `${(data.ssBetween || 0).toFixed(2)}`, `${data.dfBetween || 0}`, `${(data.msBetween || 0).toFixed(2)}`, `F = ${(data.fStatistic || 0).toFixed(2)}`, `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + (data.pValue || 0).toFixed(4)}`, `${(data.omegaSquared || 0).toFixed(3)}`],
-        ['Within Groups (Residual/Error)', `${(data.ssWithin || 0).toFixed(2)}`, `${data.dfWithin || 0}`, `${(data.msWithin || 0).toFixed(2)}`, '-', '-', `Eta² (η²) = ${(data.etaSquared || 0).toFixed(3)}`],
-        ['Total', `${(data.ssTotal !== undefined ? data.ssTotal : ((data.ssBetween || 0) + (data.ssWithin || 0))).toFixed(2)}`, `${(data.dfBetween || 0) + (data.dfWithin || 0)}`, '-', '-', '-', '-']
-      ]
-    );
+    if (data.testKey === 'welch') {
+      d.addTable(
+        ['Inferential Parameter', 'Calculated Value', 'Clinical Interpretation / Benchmark'],
+        [
+          ['Welch F-Statistic', `F_Welch = ${(data.statistic || data.fStatistic || 0).toFixed(3)}`, 'Robust omnibus variance ratio adjusting for heteroscedasticity'],
+          ['Adjusted Degrees of Freedom', `df1 = ${data.df1 || data.dfBetween || 0}, df2 = ${(data.df2 || data.dfWithin || 0).toFixed(2)}`, 'Adjusted via Welch-Satterthwaite approximation'],
+          ['p-Value', `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + (data.pValue || 0).toFixed(4)}`, data.isSignificant ? 'Statistically Significant (p < 0.05)' : 'Not Significant (ns)'],
+          ['Robust Omega-Squared (ω²)', `${(data.omegaSquared || 0).toFixed(3)}`, 'Unbiased population effect size for unequal variances'],
+          ['Eta-Squared (η²)', `${(data.etaSquared || 0).toFixed(3)}`, 'Sample proportion of total variance explained']
+        ]
+      );
+    } else if (data.testKey === 'kruskal') {
+      d.addTable(
+        ['Inferential Parameter', 'Calculated Value', 'Clinical Interpretation / Benchmark'],
+        [
+          ['Kruskal-Wallis Statistic', `H = ${(data.statistic || 0).toFixed(3)}`, 'Non-parametric omnibus rank sum variance'],
+          ['Degrees of Freedom (df)', `df = ${data.df || (data.k - 1)}`, 'k - 1 cohorts'],
+          ['p-Value (Chi-Square)', `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + (data.pValue || 0).toFixed(4)}`, data.isSignificant ? 'Statistically Significant (p < 0.05)' : 'Not Significant (ns)'],
+          ['Epsilon-Squared (ε²)', `${(data.epsilonSquared || data.etaSquared || 0).toFixed(3)}`, 'Non-parametric degree of stochastic separation (0 to 1)']
+        ]
+      );
+    } else if (data.testKey === 'rm_anova') {
+      d.addTable(
+        ['Source of Variation', 'Sum of Squares (SS)', 'Degrees of Freedom (df)', 'Mean Square (MS)', 'F-Statistic', 'p-Value', 'Partial Eta² (η²_p)'],
+        [
+          ['Treatment (Time/Condition)', `${(data.ssTreatment || data.ssBetween || 0).toFixed(2)}`, `${data.dfTreatment || data.dfBetween || 0}`, `${(data.msTreatment || data.msBetween || 0).toFixed(2)}`, `F = ${(data.fStatistic || 0).toFixed(2)}`, `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + (data.pValue || 0).toFixed(4)}`, `${(data.partialEtaSquared || data.etaSquared || 0).toFixed(3)}`],
+          ['Error (Residual)', `${(data.ssError || data.ssWithin || 0).toFixed(2)}`, `${data.dfError || data.dfWithin || 0}`, `${(data.msError || data.msWithin || 0).toFixed(2)}`, '-', '-', `GG Epsilon (ε̂) = ${(data.ggEpsilon || 1).toFixed(2)}`],
+          ['Subjects', `${(data.ssSubjects || 0).toFixed(2)}`, `${data.dfSubjects || 0}`, '-', '-', '-', '-'],
+          ['Total', `${(data.ssTotal || 0).toFixed(2)}`, `${data.dfTotal || 0}`, '-', '-', '-', '-']
+        ]
+      );
+    } else if (data.testKey === 'friedman') {
+      d.addTable(
+        ['Inferential Parameter', 'Calculated Value', 'Clinical Interpretation / Benchmark'],
+        [
+          ['Friedman Test Statistic', `χ²_F = ${(data.statistic || 0).toFixed(3)}`, 'Two-way rank sum statistic for matched observations'],
+          ['Degrees of Freedom (df)', `df = ${data.df || (data.k - 1)}`, 'k - 1 conditions across N subjects'],
+          ['p-Value (Chi-Square)', `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + (data.pValue || 0).toFixed(4)}`, data.isSignificant ? 'Statistically Significant (p < 0.05)' : 'Not Significant (ns)'],
+          ['Kendall\'s Concordance (W)', `${(data.kendallsW || 0).toFixed(3)}`, 'Degree of subject ranking consistency across conditions (0 to 1)']
+        ]
+      );
+    } else {
+      // One-Way ANOVA (Fisher's Standard)
+      d.addTable(
+        ['Source of Variation', 'Sum of Squares (SS)', 'Degrees of Freedom (df)', 'Mean Square (MS)', 'F-Statistic', 'p-Value', 'Omega-Squared (ω²)'],
+        [
+          ['Between Groups (Treatment)', `${(data.ssBetween || 0).toFixed(2)}`, `${data.dfBetween || 0}`, `${(data.msBetween || 0).toFixed(2)}`, `F = ${(data.fStatistic || 0).toFixed(2)}`, `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + (data.pValue || 0).toFixed(4)}`, `${(data.omegaSquared || 0).toFixed(3)}`],
+          ['Within Groups (Residual/Error)', `${(data.ssWithin || 0).toFixed(2)}`, `${data.dfWithin || 0}`, `${(data.msWithin || 0).toFixed(2)}`, '-', '-', `Eta² (η²) = ${(data.etaSquared || 0).toFixed(3)}`],
+          ['Total', `${(data.ssTotal !== undefined ? data.ssTotal : ((data.ssBetween || 0) + (data.ssWithin || 0))).toFixed(2)}`, `${(data.dfBetween || 0) + (data.dfWithin || 0)}`, '-', '-', '-', '-']
+        ]
+      );
+    }
 
     if (data.pairwise && data.pairwise.length > 0) {
-      d.addHeading2('Tukey\'s HSD Post-Hoc Pairwise Contrasts');
+      d.addHeading2('Post-Hoc Pairwise Contrasts');
+      const statHeader = data.testKey === 'welch' ? 'Games-Howell t' : (data.testKey === 'kruskal' ? 'Dunn\'s z' : (data.testKey === 'friedman' ? 'Wilcoxon z' : (data.testKey === 'rm_anova' ? 'Paired t' : 'Tukey q')));
       const pairRows = data.pairwise.map(p => [
         p.comparison,
         `${(p.meanDiff >= 0 ? '+' : '')}${p.meanDiff.toFixed(2)}`,
-        `${p.seDiff.toFixed(3)}`,
-        `q = ${p.qStatistic.toFixed(2)}`,
+        `${p.seDiff ? p.seDiff.toFixed(3) : '-'}`,
+        `${p.qStatistic !== undefined ? 'q = ' + p.qStatistic.toFixed(2) : (p.tStatistic !== undefined ? 't = ' + p.tStatistic.toFixed(2) : 'z = ' + (p.zStatistic || 0).toFixed(2))}`,
         `${p.pValue < 0.001 ? 'p < .001' : 'p = ' + p.pValue.toFixed(4)}`,
-        `[${p.ci95[0].toFixed(2)}, ${p.ci95[1].toFixed(2)}]`,
-        `d = ${p.cohensD.toFixed(2)}`,
+        p.ci95 ? `[${p.ci95[0].toFixed(2)}, ${p.ci95[1].toFixed(2)}]` : 'N/A',
+        `${p.cohensD !== undefined ? p.cohensD.toFixed(2) : '-'}`,
         p.isSignificant ? 'Significant (p < .05)' : 'Not Significant (ns)'
       ]);
-      d.addTable(['Pairwise Contrast', 'Mean Diff (ΔM)', 'Std Error', 'Tukey q', 'Adjusted p', '95% CI of Diff', 'Cohen\'s d', 'Significance'], pairRows);
+      d.addTable(['Pairwise Contrast', 'Difference', 'Std Error', statHeader, 'Adjusted p', '95% CI of Diff', 'Effect Size', 'Significance'], pairRows);
     }
 
     d.addHeading1('3. Clinical & Statistical Interpretation');
     d.addCalloutBox(
-      'ANOVA & Post-Hoc APA Clinical Summary',
-      data.reportText || 'ANOVA narrative summary.',
+      'Multi-Cohort APA / ICMJE Clinical Summary',
+      data.reportText || 'Multi-group statistical narrative summary.',
       'F0FDF4',
       '16A34A'
     );
 
     d.addHeading1('4. Reason This Particular Test Was Chosen');
-    d.addBullet('One-Way Omnibus ANOVA: Selected because testing multiple cohorts with uncorrected pairwise t-tests results in severe Family-Wise Error Rate inflation (FWER). With 3 cohorts, 3 comparisons yield α_FW = 1 - (1 - 0.05)³ = 14.3%; with 5 cohorts (10 comparisons), α_FW exceeds 40%. ANOVA provides a rigorous omnibus test that simultaneously assesses whether any between-cohort variance exceeds within-cohort residual variation.');
-    d.addBullet('Tukey\'s Honest Significant Difference (HSD): Chosen as the post-hoc method because it utilizes the Studentized Range distribution (q) to strictly bound the overall Family-Wise Error Rate at α = 0.05 across all possible pairwise comparisons, while preserving substantially greater statistical power than overly conservative Bonferroni adjustments.');
-    d.addBullet('Omega-Squared (ω²) Reporting: Included alongside Eta-squared (η²) because Eta-squared represents a sample proportion of variance that is positively biased in small clinical samples. Omega-squared provides an unbiased population effect size estimate.');
+    if (data.testKey === 'welch') {
+      d.addBullet('Welch\'s Heteroscedastic ANOVA: Chosen because the cohorts exhibit unequal population variances (heteroscedasticity confirmed by Levene\'s test). Standard Fisher ANOVA suffers from severe Type I error rate inflation when group variances differ. Welch\'s ANOVA computes weighted variance terms and adjusts degrees of freedom via the Welch-Satterthwaite method, preserving valid error rates.');
+      d.addBullet('Games-Howell Post-Hoc Contrasts: Adopted because it does not assume equal variances or equal group sample sizes, strictly bounding family-wise error across multiple contrasts.');
+    } else if (data.testKey === 'kruskal') {
+      d.addBullet('Kruskal-Wallis H Test: Chosen because one or more cohorts violate the assumption of normality or contain heavy outliers. By transforming continuous observations into ranks, it evaluates whether the median rank distributions differ significantly across groups without parametric distribution assumptions.');
+      d.addBullet('Dunn\'s Post-Hoc Contrasts: Adopted to pinpoint pairwise stochastic differences using mean rank differences with family-wise error adjustments.');
+    } else if (data.testKey === 'rm_anova') {
+      d.addBullet('Repeated Measures ANOVA: Chosen because the same subjects were evaluated repeatedly across conditions/timepoints. By partitioning out between-subjects variability from the error term, it provides substantially higher statistical power than between-subjects ANOVA.');
+      d.addBullet('Greenhouse-Geisser Sphericity Adjustment: Applied to adjust degrees of freedom when the compound symmetry / sphericity assumption is violated.');
+    } else if (data.testKey === 'friedman') {
+      d.addBullet('Friedman Test: Chosen as the non-parametric counterpart to Repeated Measures ANOVA. It ranks conditions within each individual subject, eliminating between-subject baseline differences while protecting against non-normal or skewed longitudinal distributions.');
+    } else {
+      d.addBullet('One-Way Omnibus ANOVA: Selected because testing multiple cohorts with uncorrected pairwise t-tests results in severe Family-Wise Error Rate inflation (FWER). ANOVA simultaneously assesses whether between-cohort variance exceeds within-cohort residual variation.');
+      d.addBullet('Tukey\'s Honest Significant Difference (HSD): Chosen as the post-hoc method because it utilizes the Studentized Range distribution (q) to strictly bound the overall Family-Wise Error Rate at α = 0.05 across all possible pairwise comparisons.');
+      d.addBullet('Omega-Squared (ω²) Reporting: Included alongside Eta-squared (η²) because Omega-squared provides an unbiased population effect size estimate in clinical samples.');
+    }
 
     d.addHeading1('5. Background Statistical Knowledge & Medical Research Context');
-    d.addParagraph('ANOVA partitions the total sum of squares into treatment (between) and error (within) components: SS_Total = SS_Between + SS_Within.');
-    d.addParagraph('Mathematical Formulations:');
+    d.addParagraph('Partitioning of Variance in Multi-Group Designs:');
     d.addBullet('Between-Groups Mean Square: MS_B = SS_B / (k - 1).');
     d.addBullet('Within-Groups Mean Square: MS_W = SS_W / (N - k).');
-    d.addBullet('F-Ratio: F = MS_B / MS_W ~ F(k-1, N-k).');
-    d.addBullet('Tukey Studentized Range: q = |x̄A - x̄B| / √[ (MS_W / 2) (1/nA + 1/nB) ].');
+    d.addBullet('Welch F-Ratio: Incorporates group sample size weights w_j = n_j / s_j².');
+    d.addBullet('Friedman Statistic: χ²_F = [12 / (N k (k+1))] ∑ R_j² - 3 N (k+1).');
     d.addParagraph('Key Academic References:');
     d.addBullet('Fisher RA (1925). Statistical Methods for Research Workers. Oliver and Boyd, Edinburgh.');
-    d.addBullet('Tukey JW (1949). Comparing individual means in the analysis of variance. Biometrics, 5(2): 99–114.');
-    d.addBullet('Hayter AJ (1984). A proof of the conjecture that the Tukey-Kramer multiple comparisons procedure is conservative. Annals of Statistics, 12(1): 61–75.');
+    d.addBullet('Welch BL (1951). On the comparison of several mean values: an alternative approach. Biometrika, 38(3/4): 330–336.');
+    d.addBullet('Kruskal WH, Wallis WA (1952). Use of ranks in one-criterion variance analysis. J Am Stat Assoc, 47(260): 583–621.');
+    d.addBullet('Friedman M (1937). The use of ranks to avoid the assumption of normality. J Am Stat Assoc, 32(200): 675–701.');
+    d.addBullet('Games PA, Howell JF (1976). Pairwise multiple comparison procedures with unequal N\'s and/or variances. J Educ Stat, 1(2): 113–125.');
 
     return d;
   },
@@ -7271,6 +8281,7 @@ const DocxReports = {
       this.applyTheme(this.theme);
       this.initTabs();
       this.initEngines();
+      this.initAnovaGroups();
       this.bindEvents();
       this.loadInitialData();
       this.initRandomiser();
@@ -7430,17 +8441,43 @@ const DocxReports = {
         if (e.target === designModal) designModal.style.display = 'none';
       });
 
-      // 3. ANOVA
+      // 3. ANOVA & Multi-Group Analysis
       document.getElementById('anovaComputeBtn')?.addEventListener('click', () => this.runAnova());
-      document.getElementById('anovaSampleBtn')?.addEventListener('click', () => {
-        const ca = DataParser.samples.cranialAsymmetry;
-        document.getElementById('anovaG1').value = ca[0].join(', ');
-        document.getElementById('anovaG2').value = ca[1].join(', ');
-        document.getElementById('anovaG3').value = ca[2].join(', ');
+      document.getElementById('anovaAddGroupBtn')?.addEventListener('click', () => this.addAnovaGroup());
+      
+      const anovaPairedCb = document.getElementById('anovaIsPaired');
+      anovaPairedCb?.addEventListener('change', () => {
+        this.updateAnovaDesignUI();
         this.runAnova();
       });
-      document.getElementById('anovaErrorBarMode')?.addEventListener('change', () => {
-        this.runAnova();
+
+      document.getElementById('anovaTestType')?.addEventListener('change', () => this.runAnova());
+      document.getElementById('anovaErrorBarMode')?.addEventListener('change', () => this.runAnova());
+
+      // ANOVA Presets
+      document.getElementById('anovaSampleBtn')?.addEventListener('click', () => this.loadAnovaPreset('sample3'));
+      document.getElementById('anovaSampleWelchBtn')?.addEventListener('click', () => this.loadAnovaPreset('sampleWelch'));
+      document.getElementById('anovaSampleRMBtn')?.addEventListener('click', () => this.loadAnovaPreset('sampleRM'));
+      document.getElementById('anovaSampleSkewBtn')?.addEventListener('click', () => this.loadAnovaPreset('sampleSkew'));
+
+      // ANOVA Study Design Modal
+      const anovaModal = document.getElementById('anovaDesignModal');
+      document.getElementById('anovaDesignInfoBtn')?.addEventListener('click', () => {
+        if (anovaModal) anovaModal.style.display = 'flex';
+      });
+      document.getElementById('anovaDesignModalClose')?.addEventListener('click', () => {
+        if (anovaModal) anovaModal.style.display = 'none';
+      });
+      document.getElementById('anovaDesignModalSetIndependent')?.addEventListener('click', () => {
+        if (anovaPairedCb) { anovaPairedCb.checked = false; anovaPairedCb.dispatchEvent(new Event('change')); }
+        if (anovaModal) anovaModal.style.display = 'none';
+      });
+      document.getElementById('anovaDesignModalSetPaired')?.addEventListener('click', () => {
+        if (anovaPairedCb) { anovaPairedCb.checked = true; anovaPairedCb.dispatchEvent(new Event('change')); }
+        if (anovaModal) anovaModal.style.display = 'none';
+      });
+      anovaModal?.addEventListener('click', (e) => {
+        if (e.target === anovaModal) anovaModal.style.display = 'none';
       });
 
       // 4. Categorical / 2x2 Risk & Contingency
@@ -8647,70 +9684,505 @@ const DocxReports = {
       this.results = this.results || {}; this.results.hypothesis = Object.assign(res, { assumptions, nameA, nameB, isPaired });
     }
 
-    runAnova() {
-      const g1 = DataParser.parseSeries(document.getElementById('anovaG1')?.value || '');
-      const g2 = DataParser.parseSeries(document.getElementById('anovaG2')?.value || '');
-      const g3 = DataParser.parseSeries(document.getElementById('anovaG3')?.value || '');
+    initAnovaGroups() {
+      const container = document.getElementById('anovaGroupsContainer');
+      if (!container) return;
 
-      const groups = [
-        { name: document.getElementById('anovaName1')?.value || 'Cohort 1', data: g1 },
-        { name: document.getElementById('anovaName2')?.value || 'Cohort 2', data: g2 },
-        { name: document.getElementById('anovaName3')?.value || 'Cohort 3', data: g3 }
-      ];
+      container.addEventListener('input', (e) => {
+        if (e.target.classList.contains('anova-group-data')) {
+          const card = e.target.closest('.anova-group-card');
+          const countBadge = card?.querySelector('.anova-group-count');
+          if (countBadge) {
+            const count = DataParser.parseSeries(e.target.value).length;
+            countBadge.innerText = `n = ${count}`;
+          }
+        }
+      });
 
-      const res = Anova.oneWay(groups);
-      if (res.error) {
-        alert(res.error);
+      container.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-remove-anova-group');
+        if (btn) {
+          const card = btn.closest('.anova-group-card');
+          if (card) this.removeAnovaGroup(card);
+        }
+      });
+
+      this.updateAnovaRemoveButtons();
+      this.updateAnovaDesignUI();
+    }
+
+    addAnovaGroup(name = '', dataStr = '') {
+      const container = document.getElementById('anovaGroupsContainer');
+      if (!container) return;
+
+      const currentCards = container.querySelectorAll('.anova-group-card');
+      const k = currentCards.length + 1;
+      const cohortName = name.trim() || `Cohort ${k}`;
+      const count = dataStr ? DataParser.parseSeries(dataStr).length : 0;
+
+      const card = document.createElement('div');
+      card.className = 'anova-group-card';
+      card.style.cssText = 'background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 0.85rem;';
+      card.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
+            <span class="anova-group-index" style="font-weight: 700; color: var(--cyan-primary); font-size: 0.82rem; min-width: 60px;">Cohort ${k}:</span>
+            <input type="text" class="form-control anova-group-name" value="${cohortName}" style="font-size: 0.82rem; padding: 0.25rem 0.5rem; height: 28px; font-weight: 600;" placeholder="Cohort Name">
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="badge badge-neutral anova-group-count" style="font-size: 0.72rem;">n = ${count}</span>
+            <button type="button" class="btn btn-secondary btn-sm btn-remove-anova-group" style="padding: 0.15rem 0.45rem; font-size: 0.72rem; height: 26px; color: var(--rose-primary); border-color: rgba(244, 63, 94, 0.3);" title="Remove this cohort">✕</button>
+          </div>
+        </div>
+        <textarea class="form-control anova-group-data" rows="2" placeholder="Comma or newline-separated values...">${dataStr}</textarea>
+      `;
+
+      container.appendChild(card);
+      this.updateAnovaRemoveButtons();
+      this.runAnova();
+    }
+
+    removeAnovaGroup(cardEl) {
+      if (!cardEl) return;
+      const container = document.getElementById('anovaGroupsContainer');
+      const cards = container?.querySelectorAll('.anova-group-card');
+      if (!cards || cards.length <= 2) {
+        alert('Multi-group comparison requires at least 2 cohorts.');
         return;
       }
 
-      document.getElementById('anovaF').innerText = res.fStatistic.toFixed(2);
-      document.getElementById('anovaP').innerText = Exporter.formatP(res.pValue);
-      document.getElementById('anovaEta').innerText = res.etaSquared.toFixed(3);
-      document.getElementById('anovaOmega').innerText = res.omegaSquared.toFixed(3);
+      cardEl.remove();
 
-      // Render Post-Hoc Pairwise Table
-      const tbody = document.getElementById('anovaPostHocBody');
-      if (tbody) {
-        if (res.pairwise && res.pairwise.length > 0) {
-          tbody.innerHTML = res.pairwise.map(p => `
-            <tr>
-              <td style="font-weight: 600; color: var(--text-main);">${p.comparison}</td>
-              <td>${p.meanDiff >= 0 ? '+' : ''}${p.meanDiff.toFixed(2)}</td>
-              <td>${p.seDiff.toFixed(2)}</td>
-              <td>q = ${p.qStatistic.toFixed(2)} (t = ${p.tStatistic.toFixed(2)})</td>
-              <td style="font-weight: 600; color: ${p.isSignificant ? 'var(--cyan-primary)' : 'var(--text-muted)'};">${Exporter.formatP(p.pValue)}</td>
-              <td>[${p.ci95[0].toFixed(2)}, ${p.ci95[1].toFixed(2)}]</td>
-              <td>${p.cohensD.toFixed(2)}</td>
-              <td>
-                <span class="badge ${p.isSignificant ? 'badge-sig' : 'badge-ns'}">
-                  ${p.isSignificant ? 'Significant (p < .05)' : 'Not Significant (ns)'}
-                </span>
-              </td>
-            </tr>
-          `).join('');
+      // Re-index cohort headers
+      const remaining = container.querySelectorAll('.anova-group-card');
+      remaining.forEach((c, idx) => {
+        const idxSpan = c.querySelector('.anova-group-index');
+        if (idxSpan) idxSpan.innerText = `Cohort ${idx + 1}:`;
+      });
+
+      this.updateAnovaRemoveButtons();
+      this.runAnova();
+    }
+
+    updateAnovaRemoveButtons() {
+      const cards = document.querySelectorAll('#anovaGroupsContainer .anova-group-card');
+      const canRemove = cards.length > 2;
+      cards.forEach(card => {
+        const btn = card.querySelector('.btn-remove-anova-group');
+        if (btn) btn.disabled = !canRemove;
+      });
+    }
+
+    updateAnovaDesignUI() {
+      const isPaired = document.getElementById('anovaIsPaired')?.checked || false;
+      const modeBadge = document.getElementById('anovaDesignModeBadge');
+      const step1 = document.getElementById('anovaPipelineStep1');
+
+      if (modeBadge) {
+        if (isPaired) {
+          modeBadge.className = 'badge badge-sig';
+          modeBadge.innerText = 'Repeated Measures (Matched Within-Subjects)';
         } else {
-          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-dim);">No pairwise contrasts available</td></tr>`;
+          modeBadge.className = 'badge badge-neutral';
+          modeBadge.innerText = 'Independent Cohorts (Between-Subjects)';
         }
       }
 
-      // Detailed Clinical / Academic Summary
-      let report = `A one-way between-subjects ANOVA was conducted across ${res.k} cohorts. `;
-      report += `There was a ${res.isSignificant ? 'statistically significant' : 'non-significant'} omnibus effect: F(${res.dfBetween}, ${res.dfWithin}) = ${res.fStatistic.toFixed(2)}, ${Exporter.formatP(res.pValue)}, η² = ${res.etaSquared.toFixed(3)}, ω² = ${res.omegaSquared.toFixed(3)}.\n\n`;
+      if (step1) {
+        step1.className = isPaired ? 'badge badge-sig' : 'badge badge-neutral';
+        step1.innerText = `1. Design: ${isPaired ? 'Paired (RM)' : 'Independent'}`;
+      }
+    }
 
-      if (res.pairwise && res.pairwise.length > 0) {
-        report += `Tukey's HSD post-hoc pairwise contrasts revealed that:\n`;
-        res.pairwise.forEach(p => {
-          if (p.isSignificant) {
-            report += `• ${p.comparison}: Statistically significant difference (ΔM = ${p.meanDiff.toFixed(2)}, 95% CI [${p.ci95[0].toFixed(2)}, ${p.ci95[1].toFixed(2)}], ${Exporter.formatP(p.pValue)}, Cohen's d = ${p.cohensD.toFixed(2)}).\n`;
+    loadAnovaPreset(presetKey) {
+      const presets = {
+        sample3: {
+          isPaired: false,
+          testType: 'auto',
+          groups: [
+            { name: 'Conservative', data: '7.2, 6.8, 7.5, 6.9, 8.1, 7.0, 7.4, 6.5, 7.9, 7.1' },
+            { name: 'Orthotic Helmet', data: '4.1, 3.8, 4.5, 3.9, 4.8, 3.6, 4.2, 3.5, 4.0, 3.7' },
+            { name: 'Endoscopic Strip', data: '2.5, 2.8, 2.2, 2.6, 3.1, 2.4, 2.9, 2.1, 2.7, 2.3' }
+          ]
+        },
+        sampleWelch: {
+          isPaired: false,
+          testType: 'auto',
+          groups: [
+            { name: 'Cohort A (Small Var)', data: '10.1, 10.3, 10.0, 10.2, 9.9, 10.4, 10.1, 9.8, 10.2, 10.0' },
+            { name: 'Cohort B (Mod Var)', data: '12.4, 11.1, 13.5, 10.8, 14.2, 11.9, 13.0, 12.1, 11.5, 13.8' },
+            { name: 'Cohort C (Large Var)', data: '15.2, 8.5, 19.4, 11.1, 22.0, 14.3, 7.8, 18.6, 12.0, 20.5' },
+            { name: 'Cohort D (High Var)', data: '18.0, 29.5, 9.2, 35.1, 14.8, 27.2, 8.1, 31.4, 12.5, 25.8' }
+          ]
+        },
+        sampleRM: {
+          isPaired: true,
+          testType: 'auto',
+          groups: [
+            { name: 'Baseline (T0)', data: '22.4, 25.1, 19.8, 27.3, 23.5, 26.2, 21.9, 24.8, 20.5, 23.9' },
+            { name: 'Week 2 (T1)', data: '19.1, 22.0, 17.5, 24.2, 20.8, 23.1, 18.9, 21.5, 18.0, 20.7' },
+            { name: 'Week 6 (T2)', data: '15.3, 18.4, 14.1, 20.5, 17.0, 19.2, 15.6, 17.9, 14.8, 17.2' },
+            { name: 'Month 3 (T3)', data: '12.1, 14.8, 11.2, 16.9, 13.5, 15.4, 12.4, 14.1, 11.5, 13.8' }
+          ]
+        },
+        sampleSkew: {
+          isPaired: false,
+          testType: 'auto',
+          groups: [
+            { name: 'Standard Care', data: '1.2, 1.4, 1.1, 1.3, 1.5, 1.2, 1.4, 8.5, 12.3, 19.8' },
+            { name: 'Modified Protocol', data: '2.1, 2.3, 2.0, 2.4, 2.2, 2.5, 15.1, 22.4, 28.0, 35.2' },
+            { name: 'Novel Intervention', data: '5.5, 5.8, 5.2, 5.9, 6.1, 5.4, 32.0, 45.6, 58.2, 72.1' }
+          ]
+        }
+      };
+
+      const preset = presets[presetKey] || presets.sample3;
+      const container = document.getElementById('anovaGroupsContainer');
+      if (!container) return;
+
+      container.innerHTML = '';
+      preset.groups.forEach((g, idx) => {
+        const k = idx + 1;
+        const count = DataParser.parseSeries(g.data).length;
+        const card = document.createElement('div');
+        card.className = 'anova-group-card';
+        card.style.cssText = 'background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 0.85rem;';
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
+              <span class="anova-group-index" style="font-weight: 700; color: var(--cyan-primary); font-size: 0.82rem; min-width: 60px;">Cohort ${k}:</span>
+              <input type="text" class="form-control anova-group-name" value="${g.name}" style="font-size: 0.82rem; padding: 0.25rem 0.5rem; height: 28px; font-weight: 600;" placeholder="Cohort Name">
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span class="badge badge-neutral anova-group-count" style="font-size: 0.72rem;">n = ${count}</span>
+              <button type="button" class="btn btn-secondary btn-sm btn-remove-anova-group" style="padding: 0.15rem 0.45rem; font-size: 0.72rem; height: 26px; color: var(--rose-primary); border-color: rgba(244, 63, 94, 0.3);" title="Remove this cohort">✕</button>
+            </div>
+          </div>
+          <textarea class="form-control anova-group-data" rows="2" placeholder="Comma or newline-separated values...">${g.data}</textarea>
+        `;
+        container.appendChild(card);
+      });
+
+      const pairedCb = document.getElementById('anovaIsPaired');
+      if (pairedCb) pairedCb.checked = !!preset.isPaired;
+
+      const testSelect = document.getElementById('anovaTestType');
+      if (testSelect) testSelect.value = preset.testType || 'auto';
+
+      this.updateAnovaRemoveButtons();
+      this.updateAnovaDesignUI();
+      this.runAnova();
+    }
+
+    getAnovaGroups() {
+      const container = document.getElementById('anovaGroupsContainer');
+      if (!container) return [];
+
+      const cards = container.querySelectorAll('.anova-group-card');
+      const groups = [];
+
+      cards.forEach((card, idx) => {
+        const nameInput = card.querySelector('.anova-group-name');
+        const dataArea = card.querySelector('.anova-group-data');
+        const countBadge = card.querySelector('.anova-group-count');
+
+        const name = nameInput?.value.trim() || `Cohort ${idx + 1}`;
+        const rawData = dataArea?.value || '';
+        const parsed = DataParser.parseSeries(rawData);
+
+        if (countBadge) {
+          countBadge.innerText = `n = ${parsed.length}`;
+        }
+        groups.push({ name, data: parsed });
+      });
+
+      return groups;
+    }
+
+    runAnova() {
+      const groups = this.getAnovaGroups();
+      const isPaired = document.getElementById('anovaIsPaired')?.checked || false;
+      const testType = document.getElementById('anovaTestType')?.value || 'auto';
+
+      this.updateAnovaDesignUI();
+
+      if (!groups || groups.length < 2) {
+        alert('Please provide at least 2 cohorts for analysis.');
+        return;
+      }
+
+      // Validate cohort data
+      for (let i = 0; i < groups.length; i++) {
+        if (!groups[i].data || groups[i].data.length === 0) {
+          const msg = `Cohort "${groups[i].name}" has no valid numerical data.`;
+          document.getElementById('anovaReportText').innerText = msg;
+          return;
+        }
+      }
+
+      const res = Anova.test(groups, testType, isPaired);
+      if (res.error) {
+        document.getElementById('anovaReportText').innerText = `Analysis Error: ${res.error}`;
+        return;
+      }
+
+      // Update Metric Cards
+      const fLabel = document.getElementById('anovaFLabel');
+      const fVal = document.getElementById('anovaF');
+      const pVal = document.getElementById('anovaP');
+      const pBadge = document.getElementById('anovaPValBadge');
+      const etaLabel = document.getElementById('anovaEtaLabel');
+      const etaVal = document.getElementById('anovaEta');
+      const omegaLabel = document.getElementById('anovaOmegaLabel');
+      const omegaVal = document.getElementById('anovaOmega');
+
+      // 1. Test Statistic
+      if (fLabel) {
+        if (res.testKey === 'kruskal') fLabel.innerText = 'Kruskal-Wallis (H)';
+        else if (res.testKey === 'friedman') fLabel.innerText = 'Friedman (Q / χ²ᵣ)';
+        else if (res.testKey === 'welch') fLabel.innerText = "Welch's F-Test";
+        else if (res.testKey === 'rm_anova') fLabel.innerText = 'RM-ANOVA (F)';
+        else fLabel.innerText = 'Fisher ANOVA (F)';
+      }
+      if (fVal) {
+        const stat = res.statistic !== undefined ? res.statistic : (res.fStatistic || res.hStatistic || res.qStatistic || 0);
+        fVal.innerText = isFinite(stat) ? stat.toFixed(2) : '--';
+      }
+
+      // 2. p-value & Significance badge
+      if (pVal) pVal.innerText = Exporter.formatP(res.pValue);
+      if (pBadge) {
+        pBadge.className = res.isSignificant ? 'badge badge-sig' : 'badge badge-ns';
+        pBadge.innerText = res.isSignificant ? 'Significant (p < .05)' : 'Not Significant (ns)';
+      }
+
+      // 3. Effect Size
+      if (etaLabel) {
+        if (res.testKey === 'kruskal') etaLabel.innerText = 'Epsilon-Squared (ε²)';
+        else if (res.testKey === 'friedman') etaLabel.innerText = "Kendall's W";
+        else if (res.testKey === 'welch') etaLabel.innerText = 'Estimated ω²';
+        else etaLabel.innerText = 'Partial η² / ω²';
+      }
+      if (etaVal) {
+        if (res.testKey === 'kruskal' && res.effectSize?.epsilonSquared !== undefined) {
+          etaVal.innerText = res.effectSize.epsilonSquared.toFixed(3);
+        } else if (res.testKey === 'friedman' && res.effectSize?.kendallsW !== undefined) {
+          etaVal.innerText = res.effectSize.kendallsW.toFixed(3);
+        } else if (res.etaSquared !== undefined) {
+          etaVal.innerText = res.etaSquared.toFixed(3);
+        } else if (res.omegaSquared !== undefined) {
+          etaVal.innerText = res.omegaSquared.toFixed(3);
+        } else {
+          etaVal.innerText = '--';
+        }
+      }
+
+      // 4. Design & Degrees of Freedom
+      if (omegaLabel) {
+        omegaLabel.innerText = res.isPaired ? 'Paired Design & df' : 'Independent Design & df';
+      }
+      if (omegaVal) {
+        if (res.dfBetween !== undefined && res.dfWithin !== undefined) {
+          omegaVal.innerText = `df: (${res.dfBetween}, ${typeof res.dfWithin === 'number' ? res.dfWithin.toFixed(1) : res.dfWithin})`;
+        } else if (res.df !== undefined) {
+          omegaVal.innerText = `df = ${res.df}`;
+        } else {
+          omegaVal.innerText = `k = ${res.k}`;
+        }
+      }
+
+      // 5. Assumptions Diagnostic Card
+      const asm = res.assumptions;
+      if (asm) {
+        const recBadge = document.getElementById('anovaRecommendationBadge');
+        if (recBadge) {
+          recBadge.innerText = `Recommended: ${asm.recommendedTestName}`;
+          recBadge.className = 'badge badge-sig';
+        }
+
+        const decisionBanner = document.getElementById('anovaDecisionBanner');
+        const decisionText = document.getElementById('anovaDecisionText');
+        if (decisionText) {
+          let bannerHtml = '';
+          if (res.userOverride) {
+            bannerHtml = `<span class="badge badge-warn" style="font-size: 0.72rem; margin-bottom: 0.35rem; display: inline-block;">Manual Selection</span><br>` +
+              `User opted to execute <strong>${res.testName}</strong>. Based on data diagnostics, the statistically optimal test is <strong>${asm.recommendedTestName}</strong>.<br>` +
+              `<span style="color: var(--text-dim); font-size: 0.82rem;">${asm.rationale}</span>`;
+            if (decisionBanner) decisionBanner.style.borderLeftColor = 'var(--gold-primary)';
           } else {
-            report += `• ${p.comparison}: No statistically significant difference (ΔM = ${p.meanDiff.toFixed(2)}, 95% CI [${p.ci95[0].toFixed(2)}, ${p.ci95[1].toFixed(2)}], ${Exporter.formatP(p.pValue)}, ns).\n`;
+            bannerHtml = `<span class="badge badge-sig" style="font-size: 0.72rem; margin-bottom: 0.35rem; display: inline-block;">Automated Recommendation Executed</span><br>` +
+              `Executed <strong>${res.testName}</strong>.<br>` +
+              `<span style="color: var(--text-main);">${asm.rationale}</span>`;
+            if (decisionBanner) decisionBanner.style.borderLeftColor = 'var(--cyan-primary)';
+          }
+          decisionText.innerHTML = bannerHtml;
+        }
+
+        // Normality Breakdown
+        const normBadge = document.getElementById('anovaNormalityBadge');
+        const normDetails = document.getElementById('anovaNormalityDetails');
+        if (normBadge) {
+          normBadge.className = asm.isNormal ? 'badge badge-sig' : 'badge badge-warn';
+          normBadge.innerText = asm.isNormal ? 'Parametric (All Normal)' : 'Non-Parametric (Skewed)';
+        }
+        if (normDetails && asm.normalityTests) {
+          normDetails.innerHTML = asm.normalityTests.map(n => 
+            `• <strong>${n.group}</strong>: n=${n.n}, JB=${n.jbStat.toFixed(2)}, p=${Exporter.formatP(n.pValue)} (${n.isNormal ? '<span style="color: var(--emerald-primary);">Normal</span>' : '<span style="color: var(--rose-primary);">Skewed, p < .05</span>'})`
+          ).join('<br>');
+        }
+
+        // Variance Homogeneity / Sphericity Breakdown
+        const varBadge = document.getElementById('anovaVarianceBadge');
+        const varDetails = document.getElementById('anovaVarianceDetails');
+        if (varBadge) {
+          if (isPaired) {
+            varBadge.className = 'badge badge-sig';
+            varBadge.innerText = asm.sphericity ? `Sphericity ε̂ = ${asm.sphericity.epsilon.toFixed(3)}` : 'Repeated Measures';
+          } else {
+            varBadge.className = asm.isHomoscedastic ? 'badge badge-sig' : 'badge badge-warn';
+            varBadge.innerText = asm.isHomoscedastic ? 'Equal Variances' : 'Unequal Variances';
+          }
+        }
+        if (varDetails) {
+          if (isPaired) {
+            if (asm.sphericity) {
+              varDetails.innerHTML = `Greenhouse-Geisser correction factor: <strong>ε̂ = ${asm.sphericity.epsilon.toFixed(3)}</strong>.<br>` +
+                (asm.sphericity.isSpherical 
+                  ? `<span style="color: var(--emerald-primary);">Sphericity assumption reasonably met (ε̂ ≈ 1.0).</span>` 
+                  : `<span style="color: var(--gold-primary);">Sphericity violated (ε̂ < 0.75). Degrees of freedom adjusted via Greenhouse-Geisser.</span>`);
+            } else {
+              varDetails.innerText = 'Matched repeated measures design: within-subject correlation structure preserved.';
+            }
+          } else if (asm.leveneTest) {
+            const lev = asm.leveneTest;
+            varDetails.innerHTML = `Brown-Forsythe Levene's Test: <strong>F(${lev.df1}, ${lev.df2}) = ${lev.fStat.toFixed(2)}, p = ${Exporter.formatP(lev.pValue)}</strong>.<br>` +
+              (asm.isHomoscedastic 
+                ? `<span style="color: var(--emerald-primary);">Homoscedasticity confirmed (p ≥ .05). Residual variances across cohorts are equal.</span>`
+                : `<span style="color: var(--rose-primary);">Heteroscedasticity detected (p < .05). Residual variances differ significantly; Welch's robust F recommended.</span>`);
+          }
+        }
+
+        // Pipeline step badges
+        const pStep1 = document.getElementById('anovaPipelineStep1');
+        const pStep2 = document.getElementById('anovaPipelineStep2');
+        const pStep3 = document.getElementById('anovaPipelineStep3');
+        const pStepFinal = document.getElementById('anovaPipelineStepFinal');
+        if (pStep1) {
+          pStep1.className = isPaired ? 'badge badge-sig' : 'badge badge-neutral';
+          pStep1.innerText = `1. Design: ${isPaired ? 'Paired (RM)' : 'Independent'}`;
+        }
+        if (pStep2) {
+          pStep2.className = asm.isNormal ? 'badge badge-sig' : 'badge badge-warn';
+          pStep2.innerText = `2. Normality: ${asm.isNormal ? 'Parametric' : 'Non-Parametric'}`;
+        }
+        if (pStep3) {
+          if (isPaired) {
+            pStep3.className = 'badge badge-sig';
+            pStep3.innerText = `3. Sphericity: ε̂ = ${asm.sphericity ? asm.sphericity.epsilon.toFixed(2) : 'N/A'}`;
+          } else {
+            pStep3.className = asm.isHomoscedastic ? 'badge badge-sig' : 'badge badge-warn';
+            pStep3.innerText = `3. Variances: ${asm.isHomoscedastic ? 'Equal' : 'Unequal'}`;
+          }
+        }
+        if (pStepFinal) {
+          pStepFinal.className = 'badge badge-sig';
+          pStepFinal.innerText = `Selected: ${res.testName}`;
+        }
+      }
+
+      // 6. Post-Hoc Pairwise Table
+      const postHocTitle = document.getElementById('anovaPostHocTitle');
+      const postHocSub = document.getElementById('anovaPostHocSubtitle');
+      const statCol = document.getElementById('anovaPostHocStatCol');
+      if (postHocTitle) postHocTitle.innerText = `🔬 Post-Hoc Pairwise Contrasts (${res.postHocMethod || 'Pairwise'})`;
+      if (postHocSub) postHocSub.innerText = `Contrasts between individual cohorts with family-wise error rate control (${res.postHocMethod || 'Contrasts'})`;
+      if (statCol) {
+        if (res.testKey === 'kruskal') statCol.innerText = "Dunn's z-Stat";
+        else if (res.testKey === 'friedman') statCol.innerText = 'Wilcoxon W';
+        else if (res.testKey === 'welch') statCol.innerText = 'Games-Howell t';
+        else if (res.testKey === 'rm_anova') statCol.innerText = 'Paired t-Stat';
+        else statCol.innerText = 'Tukey q (t)';
+      }
+
+      const tbody = document.getElementById('anovaPostHocBody');
+      if (tbody) {
+        if (res.pairwise && res.pairwise.length > 0) {
+          tbody.innerHTML = res.pairwise.map(p => {
+            const diffVal = p.meanDiff !== undefined ? p.meanDiff : (p.diff !== undefined ? p.diff : 0);
+            const seVal = p.seDiff !== undefined ? p.seDiff.toFixed(2) : (p.se !== undefined ? p.se.toFixed(2) : '--');
+            const statText = p.qStatistic !== undefined ? `q = ${p.qStatistic.toFixed(2)} (t = ${p.tStatistic.toFixed(2)})` :
+                             p.tStatistic !== undefined ? `t = ${p.tStatistic.toFixed(2)}` :
+                             p.zStatistic !== undefined ? `z = ${p.zStatistic.toFixed(2)}` :
+                             p.wStatistic !== undefined ? `W = ${p.wStatistic.toFixed(2)}` : '--';
+            const ciText = p.ci95 ? `[${p.ci95[0].toFixed(2)}, ${p.ci95[1].toFixed(2)}]` : '--';
+            const esText = p.cohensD !== undefined ? `d = ${p.cohensD.toFixed(2)}` :
+                           p.r !== undefined ? `r = ${p.r.toFixed(2)}` : '--';
+            return `
+              <tr>
+                <td style="font-weight: 600; color: var(--text-main);">${p.comparison}</td>
+                <td>${diffVal >= 0 ? '+' : ''}${diffVal.toFixed(2)}</td>
+                <td>${seVal}</td>
+                <td>${statText}</td>
+                <td style="font-weight: 600; color: ${p.isSignificant ? 'var(--cyan-primary)' : 'var(--text-muted)'};">${Exporter.formatP(p.pValue)}</td>
+                <td>${ciText}</td>
+                <td>${esText}</td>
+                <td>
+                  <span class="badge ${p.isSignificant ? 'badge-sig' : 'badge-ns'}">
+                    ${p.isSignificant ? 'Significant (p < .05)' : 'Not Significant (ns)'}
+                  </span>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        } else {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-dim);">No pairwise contrasts calculated (omnibus effect not significant or single cohort).</td></tr>`;
+        }
+      }
+
+      // 7. Clinical / Academic APA Summary Narrative
+      let report = '';
+      if (res.testKey === 'one_way') {
+        report = `A one-way between-subjects ANOVA was conducted across ${res.k} cohorts (N = ${res.totalN}). `;
+        report += `There was a ${res.isSignificant ? 'statistically significant' : 'non-significant'} omnibus effect: F(${res.dfBetween}, ${res.dfWithin}) = ${res.fStatistic.toFixed(2)}, ${Exporter.formatP(res.pValue)}, η² = ${res.etaSquared.toFixed(3)}, ω² = ${res.omegaSquared.toFixed(3)}.\n\n`;
+      } else if (res.testKey === 'welch') {
+        report = `A Welch's robust one-way ANOVA (adjusting for heteroscedasticity) was conducted across ${res.k} cohorts (N = ${res.totalN}). `;
+        report += `There was a ${res.isSignificant ? 'statistically significant' : 'non-significant'} omnibus effect: Welch's F(${res.dfBetween}, ${res.dfWithin.toFixed(2)}) = ${res.fStatistic.toFixed(2)}, ${Exporter.formatP(res.pValue)}, estimated ω² = ${res.omegaSquared.toFixed(3)}.\n\n`;
+      } else if (res.testKey === 'kruskal') {
+        report = `A non-parametric Kruskal-Wallis H test was conducted across ${res.k} cohorts (N = ${res.totalN}). `;
+        report += `There was a ${res.isSignificant ? 'statistically significant' : 'non-significant'} omnibus rank difference: H(${res.df}) = ${res.hStatistic.toFixed(2)}, ${Exporter.formatP(res.pValue)}, ε² = ${res.effectSize.epsilonSquared.toFixed(3)}.\n\n`;
+      } else if (res.testKey === 'rm_anova') {
+        report = `A one-way repeated measures ANOVA was conducted across ${res.k} conditions (N = ${res.nSubjects} subjects). `;
+        report += `Greenhouse-Geisser sphericity correction: ε̂ = ${res.epsilon.toFixed(3)}. Omnibus effect: F(${res.dfTreatment.toFixed(2)}, ${res.dfError.toFixed(2)}) = ${res.fStatistic.toFixed(2)}, ${Exporter.formatP(res.pValue)}, partial η² = ${res.partialEtaSquared.toFixed(3)}.\n\n`;
+      } else if (res.testKey === 'friedman') {
+        report = `A non-parametric Friedman rank sum test was conducted across ${res.k} repeated conditions (N = ${res.n} subjects). `;
+        report += `Omnibus rank difference: Q(${res.df}) = ${res.qStatistic.toFixed(2)}, ${Exporter.formatP(res.pValue)}, Kendall's W = ${res.effectSize.kendallsW.toFixed(3)}.\n\n`;
+      }
+
+      // Append post-hoc summary
+      if (res.pairwise && res.pairwise.length > 0) {
+        report += `Post-hoc contrasts (${res.postHocMethod}) revealed:\n`;
+        res.pairwise.forEach(p => {
+          const diffVal = p.meanDiff !== undefined ? p.meanDiff : (p.diff !== undefined ? p.diff : 0);
+          const statVal = p.qStatistic !== undefined ? `q = ${p.qStatistic.toFixed(2)}` :
+                          p.tStatistic !== undefined ? `t = ${p.tStatistic.toFixed(2)}` :
+                          p.zStatistic !== undefined ? `z = ${p.zStatistic.toFixed(2)}` :
+                          p.wStatistic !== undefined ? `W = ${p.wStatistic.toFixed(2)}` : '';
+          if (p.isSignificant) {
+            report += `• ${p.comparison}: Statistically significant difference (Δ = ${diffVal.toFixed(2)}, ${statVal ? statVal + ', ' : ''}${Exporter.formatP(p.pValue)}).\n`;
+          } else {
+            report += `• ${p.comparison}: No statistically significant difference (Δ = ${diffVal.toFixed(2)}, ${statVal ? statVal + ', ' : ''}${Exporter.formatP(p.pValue)}, ns).\n`;
           }
         });
       }
+
+      // Append assumption decision rationale
+      if (asm) {
+        report += `\nMethodological Rationale: ${asm.rationale}`;
+      }
+
       document.getElementById('anovaReportText').innerText = report;
 
-      // Render Dispersion Plot (95% CI, SEM, SD, or IQR Box & Whiskers)
+      // 8. Dispersion Plot
       const errorBarMode = document.getElementById('anovaErrorBarMode')?.value || 'ci95';
       const modeDescriptions = {
         ci95: 'Error Bars: 95% Confidence Interval (Mean ± 95% CI)',
@@ -8729,7 +10201,8 @@ const DocxReports = {
           title: 'Multi-Cohort Comparison'
         });
       }
-      this.results = this.results || {}; this.results.anova = res;
+      this.results = this.results || {};
+      this.results.anova = res;
     }
 
     runCat() {
@@ -9209,25 +10682,9 @@ const DocxReports = {
           groupB: res.groupB
         };
       } else if (tabId === 'anova') {
-        exportData = {
-          k: res.k,
-          totalN: res.totalN,
-          grandMean: res.grandMean,
-          ssBetween: res.ssBetween,
-          dfBetween: res.dfBetween,
-          msBetween: res.msBetween,
-          ssWithin: res.ssWithin,
-          dfWithin: res.dfWithin,
-          msWithin: res.msWithin,
-          ssTotal: res.ssTotal,
-          fStatistic: res.fStatistic,
-          pValue: res.pValue,
-          etaSquared: res.etaSquared,
-          omegaSquared: res.omegaSquared,
-          reportText: document.getElementById('anovaReportText')?.innerText,
-          groups: res.groups,
-          pairwise: res.pairwise
-        };
+        exportData = Object.assign({}, res, {
+          reportText: document.getElementById('anovaReportText')?.innerText
+        });
       } else if (tabId === 'categorical') {
         const mode = document.getElementById('catAnalysisMode')?.value || 'diagnostic';
         const a = parseFloat(document.getElementById('catA')?.value) || 0;

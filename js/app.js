@@ -30,6 +30,7 @@ class StatisGravityApp {
   init() {
     this.applyTheme(this.currentTheme);
     this.setupTabs();
+    this.initAnovaGroups();
     this.setupEventListeners();
     this.initChartEngines();
     this.loadInitialSamples();
@@ -207,17 +208,43 @@ class StatisGravityApp {
       if (e.target === designModal) designModal.style.display = 'none';
     });
 
-    // 3. ANOVA Events
+    // 3. ANOVA & Multi-Group Analysis
     document.getElementById('anovaComputeBtn')?.addEventListener('click', () => this.runAnova());
-    document.getElementById('anovaSampleBtn')?.addEventListener('click', () => {
-      const g = DataParser.samples.cranialAsymmetry.groups;
-      document.getElementById('anovaG1').value = g[0].data.join(', ');
-      document.getElementById('anovaG2').value = g[1].data.join(', ');
-      document.getElementById('anovaG3').value = g[2].data.join(', ');
+    document.getElementById('anovaAddGroupBtn')?.addEventListener('click', () => this.addAnovaGroup());
+    
+    const anovaPairedCb = document.getElementById('anovaIsPaired');
+    anovaPairedCb?.addEventListener('change', () => {
+      this.updateAnovaDesignUI();
       this.runAnova();
     });
-    document.getElementById('anovaErrorBarMode')?.addEventListener('change', () => {
-      this.runAnova();
+
+    document.getElementById('anovaTestType')?.addEventListener('change', () => this.runAnova());
+    document.getElementById('anovaErrorBarMode')?.addEventListener('change', () => this.runAnova());
+
+    // ANOVA Presets
+    document.getElementById('anovaSampleBtn')?.addEventListener('click', () => this.loadAnovaPreset('sample3'));
+    document.getElementById('anovaSampleWelchBtn')?.addEventListener('click', () => this.loadAnovaPreset('sampleWelch'));
+    document.getElementById('anovaSampleRMBtn')?.addEventListener('click', () => this.loadAnovaPreset('sampleRM'));
+    document.getElementById('anovaSampleSkewBtn')?.addEventListener('click', () => this.loadAnovaPreset('sampleSkew'));
+
+    // ANOVA Study Design Modal
+    const anovaModal = document.getElementById('anovaDesignModal');
+    document.getElementById('anovaDesignInfoBtn')?.addEventListener('click', () => {
+      if (anovaModal) anovaModal.style.display = 'flex';
+    });
+    document.getElementById('anovaDesignModalClose')?.addEventListener('click', () => {
+      if (anovaModal) anovaModal.style.display = 'none';
+    });
+    document.getElementById('anovaDesignModalSetIndependent')?.addEventListener('click', () => {
+      if (anovaPairedCb) { anovaPairedCb.checked = false; anovaPairedCb.dispatchEvent(new Event('change')); }
+      if (anovaModal) anovaModal.style.display = 'none';
+    });
+    document.getElementById('anovaDesignModalSetPaired')?.addEventListener('click', () => {
+      if (anovaPairedCb) { anovaPairedCb.checked = true; anovaPairedCb.dispatchEvent(new Event('change')); }
+      if (anovaModal) anovaModal.style.display = 'none';
+    });
+    anovaModal?.addEventListener('click', (e) => {
+      if (e.target === anovaModal) anovaModal.style.display = 'none';
     });
 
     // 4. Categorical / 2x2 Risk & Contingency
@@ -1423,32 +1450,505 @@ class StatisGravityApp {
     this.results = this.results || {}; this.results.hypothesis = Object.assign(res, { assumptions, nameA, nameB, isPaired });
   }
 
-  runAnova() {
-    const g1 = DataParser.parseSeries(document.getElementById('anovaG1')?.value || '');
-    const g2 = DataParser.parseSeries(document.getElementById('anovaG2')?.value || '');
-    const g3 = DataParser.parseSeries(document.getElementById('anovaG3')?.value || '');
+  initAnovaGroups() {
+    const container = document.getElementById('anovaGroupsContainer');
+    if (!container) return;
 
-    const groups = [
-      { name: document.getElementById('anovaName1')?.value || 'Cohort 1', data: g1 },
-      { name: document.getElementById('anovaName2')?.value || 'Cohort 2', data: g2 },
-      { name: document.getElementById('anovaName3')?.value || 'Cohort 3', data: g3 }
-    ];
+    container.addEventListener('input', (e) => {
+      if (e.target.classList.contains('anova-group-data')) {
+        const card = e.target.closest('.anova-group-card');
+        const countBadge = card?.querySelector('.anova-group-count');
+        if (countBadge) {
+          const count = DataParser.parseSeries(e.target.value).length;
+          countBadge.innerText = `n = ${count}`;
+        }
+      }
+    });
 
-    const res = Anova.oneWay(groups);
-    if (res.error) {
-      alert(res.error);
+    container.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-remove-anova-group');
+      if (btn) {
+        const card = btn.closest('.anova-group-card');
+        if (card) this.removeAnovaGroup(card);
+      }
+    });
+
+    this.updateAnovaRemoveButtons();
+    this.updateAnovaDesignUI();
+  }
+
+  addAnovaGroup(name = '', dataStr = '') {
+    const container = document.getElementById('anovaGroupsContainer');
+    if (!container) return;
+
+    const currentCards = container.querySelectorAll('.anova-group-card');
+    const k = currentCards.length + 1;
+    const cohortName = name.trim() || `Cohort ${k}`;
+    const count = dataStr ? DataParser.parseSeries(dataStr).length : 0;
+
+    const card = document.createElement('div');
+    card.className = 'anova-group-card';
+    card.style.cssText = 'background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 0.85rem;';
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
+          <span class="anova-group-index" style="font-weight: 700; color: var(--cyan-primary); font-size: 0.82rem; min-width: 60px;">Cohort ${k}:</span>
+          <input type="text" class="form-control anova-group-name" value="${cohortName}" style="font-size: 0.82rem; padding: 0.25rem 0.5rem; height: 28px; font-weight: 600;" placeholder="Cohort Name">
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span class="badge badge-neutral anova-group-count" style="font-size: 0.72rem;">n = ${count}</span>
+          <button type="button" class="btn btn-secondary btn-sm btn-remove-anova-group" style="padding: 0.15rem 0.45rem; font-size: 0.72rem; height: 26px; color: var(--rose-primary); border-color: rgba(244, 63, 94, 0.3);" title="Remove this cohort">✕</button>
+        </div>
+      </div>
+      <textarea class="form-control anova-group-data" rows="2" placeholder="Comma or newline-separated values...">${dataStr}</textarea>
+    `;
+
+    container.appendChild(card);
+    this.updateAnovaRemoveButtons();
+    this.runAnova();
+  }
+
+  removeAnovaGroup(cardEl) {
+    if (!cardEl) return;
+    const container = document.getElementById('anovaGroupsContainer');
+    const cards = container?.querySelectorAll('.anova-group-card');
+    if (!cards || cards.length <= 2) {
+      alert('Multi-group comparison requires at least 2 cohorts.');
       return;
     }
 
-    document.getElementById('anovaF').innerText = res.fStatistic.toFixed(2);
-    document.getElementById('anovaP').innerText = Exporter.formatP(res.pValue);
-    document.getElementById('anovaEta').innerText = res.etaSquared.toFixed(3);
-    document.getElementById('anovaOmega').innerText = res.omegaSquared.toFixed(3);
+    cardEl.remove();
 
-    // Report
-    document.getElementById('anovaReportText').innerText = Exporter.formatAnovaReport(res);
+    // Re-index cohort headers
+    const remaining = container.querySelectorAll('.anova-group-card');
+    remaining.forEach((c, idx) => {
+      const idxSpan = c.querySelector('.anova-group-index');
+      if (idxSpan) idxSpan.innerText = `Cohort ${idx + 1}:`;
+    });
 
-    // Render Dispersion Plot (95% CI, SEM, SD, or IQR Box & Whiskers)
+    this.updateAnovaRemoveButtons();
+    this.runAnova();
+  }
+
+  updateAnovaRemoveButtons() {
+    const cards = document.querySelectorAll('#anovaGroupsContainer .anova-group-card');
+    const canRemove = cards.length > 2;
+    cards.forEach(card => {
+      const btn = card.querySelector('.btn-remove-anova-group');
+      if (btn) btn.disabled = !canRemove;
+    });
+  }
+
+  updateAnovaDesignUI() {
+    const isPaired = document.getElementById('anovaIsPaired')?.checked || false;
+    const modeBadge = document.getElementById('anovaDesignModeBadge');
+    const step1 = document.getElementById('anovaPipelineStep1');
+
+    if (modeBadge) {
+      if (isPaired) {
+        modeBadge.className = 'badge badge-sig';
+        modeBadge.innerText = 'Repeated Measures (Matched Within-Subjects)';
+      } else {
+        modeBadge.className = 'badge badge-neutral';
+        modeBadge.innerText = 'Independent Cohorts (Between-Subjects)';
+      }
+    }
+
+    if (step1) {
+      step1.className = isPaired ? 'badge badge-sig' : 'badge badge-neutral';
+      step1.innerText = `1. Design: ${isPaired ? 'Paired (RM)' : 'Independent'}`;
+    }
+  }
+
+  loadAnovaPreset(presetKey) {
+    const presets = {
+      sample3: {
+        isPaired: false,
+        testType: 'auto',
+        groups: [
+          { name: 'Conservative', data: '7.2, 6.8, 7.5, 6.9, 8.1, 7.0, 7.4, 6.5, 7.9, 7.1' },
+          { name: 'Orthotic Helmet', data: '4.1, 3.8, 4.5, 3.9, 4.8, 3.6, 4.2, 3.5, 4.0, 3.7' },
+          { name: 'Endoscopic Strip', data: '2.5, 2.8, 2.2, 2.6, 3.1, 2.4, 2.9, 2.1, 2.7, 2.3' }
+        ]
+      },
+      sampleWelch: {
+        isPaired: false,
+        testType: 'auto',
+        groups: [
+          { name: 'Cohort A (Small Var)', data: '10.1, 10.3, 10.0, 10.2, 9.9, 10.4, 10.1, 9.8, 10.2, 10.0' },
+          { name: 'Cohort B (Mod Var)', data: '12.4, 11.1, 13.5, 10.8, 14.2, 11.9, 13.0, 12.1, 11.5, 13.8' },
+          { name: 'Cohort C (Large Var)', data: '15.2, 8.5, 19.4, 11.1, 22.0, 14.3, 7.8, 18.6, 12.0, 20.5' },
+          { name: 'Cohort D (High Var)', data: '18.0, 29.5, 9.2, 35.1, 14.8, 27.2, 8.1, 31.4, 12.5, 25.8' }
+        ]
+      },
+      sampleRM: {
+        isPaired: true,
+        testType: 'auto',
+        groups: [
+          { name: 'Baseline (T0)', data: '22.4, 25.1, 19.8, 27.3, 23.5, 26.2, 21.9, 24.8, 20.5, 23.9' },
+          { name: 'Week 2 (T1)', data: '19.1, 22.0, 17.5, 24.2, 20.8, 23.1, 18.9, 21.5, 18.0, 20.7' },
+          { name: 'Week 6 (T2)', data: '15.3, 18.4, 14.1, 20.5, 17.0, 19.2, 15.6, 17.9, 14.8, 17.2' },
+          { name: 'Month 3 (T3)', data: '12.1, 14.8, 11.2, 16.9, 13.5, 15.4, 12.4, 14.1, 11.5, 13.8' }
+        ]
+      },
+      sampleSkew: {
+        isPaired: false,
+        testType: 'auto',
+        groups: [
+          { name: 'Standard Care', data: '1.2, 1.4, 1.1, 1.3, 1.5, 1.2, 1.4, 8.5, 12.3, 19.8' },
+          { name: 'Modified Protocol', data: '2.1, 2.3, 2.0, 2.4, 2.2, 2.5, 15.1, 22.4, 28.0, 35.2' },
+          { name: 'Novel Intervention', data: '5.5, 5.8, 5.2, 5.9, 6.1, 5.4, 32.0, 45.6, 58.2, 72.1' }
+        ]
+      }
+    };
+
+    const preset = presets[presetKey] || presets.sample3;
+    const container = document.getElementById('anovaGroupsContainer');
+    if (!container) return;
+
+    container.innerHTML = '';
+    preset.groups.forEach((g, idx) => {
+      const k = idx + 1;
+      const count = DataParser.parseSeries(g.data).length;
+      const card = document.createElement('div');
+      card.className = 'anova-group-card';
+      card.style.cssText = 'background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 0.85rem;';
+      card.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
+            <span class="anova-group-index" style="font-weight: 700; color: var(--cyan-primary); font-size: 0.82rem; min-width: 60px;">Cohort ${k}:</span>
+            <input type="text" class="form-control anova-group-name" value="${g.name}" style="font-size: 0.82rem; padding: 0.25rem 0.5rem; height: 28px; font-weight: 600;" placeholder="Cohort Name">
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="badge badge-neutral anova-group-count" style="font-size: 0.72rem;">n = ${count}</span>
+            <button type="button" class="btn btn-secondary btn-sm btn-remove-anova-group" style="padding: 0.15rem 0.45rem; font-size: 0.72rem; height: 26px; color: var(--rose-primary); border-color: rgba(244, 63, 94, 0.3);" title="Remove this cohort">✕</button>
+          </div>
+        </div>
+        <textarea class="form-control anova-group-data" rows="2" placeholder="Comma or newline-separated values...">${g.data}</textarea>
+      `;
+      container.appendChild(card);
+    });
+
+    const pairedCb = document.getElementById('anovaIsPaired');
+    if (pairedCb) pairedCb.checked = !!preset.isPaired;
+
+    const testSelect = document.getElementById('anovaTestType');
+    if (testSelect) testSelect.value = preset.testType || 'auto';
+
+    this.updateAnovaRemoveButtons();
+    this.updateAnovaDesignUI();
+    this.runAnova();
+  }
+
+  getAnovaGroups() {
+    const container = document.getElementById('anovaGroupsContainer');
+    if (!container) return [];
+
+    const cards = container.querySelectorAll('.anova-group-card');
+    const groups = [];
+
+    cards.forEach((card, idx) => {
+      const nameInput = card.querySelector('.anova-group-name');
+      const dataArea = card.querySelector('.anova-group-data');
+      const countBadge = card.querySelector('.anova-group-count');
+
+      const name = nameInput?.value.trim() || `Cohort ${idx + 1}`;
+      const rawData = dataArea?.value || '';
+      const parsed = DataParser.parseSeries(rawData);
+
+      if (countBadge) {
+        countBadge.innerText = `n = ${parsed.length}`;
+      }
+      groups.push({ name, data: parsed });
+    });
+
+    return groups;
+  }
+
+  runAnova() {
+    const groups = this.getAnovaGroups();
+    const isPaired = document.getElementById('anovaIsPaired')?.checked || false;
+    const testType = document.getElementById('anovaTestType')?.value || 'auto';
+
+    this.updateAnovaDesignUI();
+
+    if (!groups || groups.length < 2) {
+      alert('Please provide at least 2 cohorts for analysis.');
+      return;
+    }
+
+    // Validate cohort data
+    for (let i = 0; i < groups.length; i++) {
+      if (!groups[i].data || groups[i].data.length === 0) {
+        const msg = `Cohort "${groups[i].name}" has no valid numerical data.`;
+        document.getElementById('anovaReportText').innerText = msg;
+        return;
+      }
+    }
+
+    const res = Anova.test(groups, testType, isPaired);
+    if (res.error) {
+      document.getElementById('anovaReportText').innerText = `Analysis Error: ${res.error}`;
+      return;
+    }
+
+    // Update Metric Cards
+    const fLabel = document.getElementById('anovaFLabel');
+    const fVal = document.getElementById('anovaF');
+    const pVal = document.getElementById('anovaP');
+    const pBadge = document.getElementById('anovaPValBadge');
+    const etaLabel = document.getElementById('anovaEtaLabel');
+    const etaVal = document.getElementById('anovaEta');
+    const omegaLabel = document.getElementById('anovaOmegaLabel');
+    const omegaVal = document.getElementById('anovaOmega');
+
+    // 1. Test Statistic
+    if (fLabel) {
+      if (res.testKey === 'kruskal') fLabel.innerText = 'Kruskal-Wallis (H)';
+      else if (res.testKey === 'friedman') fLabel.innerText = 'Friedman (Q / χ²ᵣ)';
+      else if (res.testKey === 'welch') fLabel.innerText = "Welch's F-Test";
+      else if (res.testKey === 'rm_anova') fLabel.innerText = 'RM-ANOVA (F)';
+      else fLabel.innerText = 'Fisher ANOVA (F)';
+    }
+    if (fVal) {
+      const stat = res.statistic !== undefined ? res.statistic : (res.fStatistic || res.hStatistic || res.qStatistic || 0);
+      fVal.innerText = isFinite(stat) ? stat.toFixed(2) : '--';
+    }
+
+    // 2. p-value & Significance badge
+    if (pVal) pVal.innerText = Exporter.formatP(res.pValue);
+    if (pBadge) {
+      pBadge.className = res.isSignificant ? 'badge badge-sig' : 'badge badge-ns';
+      pBadge.innerText = res.isSignificant ? 'Significant (p < .05)' : 'Not Significant (ns)';
+    }
+
+    // 3. Effect Size
+    if (etaLabel) {
+      if (res.testKey === 'kruskal') etaLabel.innerText = 'Epsilon-Squared (ε²)';
+      else if (res.testKey === 'friedman') etaLabel.innerText = "Kendall's W";
+      else if (res.testKey === 'welch') etaLabel.innerText = 'Estimated ω²';
+      else etaLabel.innerText = 'Partial η² / ω²';
+    }
+    if (etaVal) {
+      if (res.testKey === 'kruskal' && res.effectSize?.epsilonSquared !== undefined) {
+        etaVal.innerText = res.effectSize.epsilonSquared.toFixed(3);
+      } else if (res.testKey === 'friedman' && res.effectSize?.kendallsW !== undefined) {
+        etaVal.innerText = res.effectSize.kendallsW.toFixed(3);
+      } else if (res.etaSquared !== undefined) {
+        etaVal.innerText = res.etaSquared.toFixed(3);
+      } else if (res.omegaSquared !== undefined) {
+        etaVal.innerText = res.omegaSquared.toFixed(3);
+      } else {
+        etaVal.innerText = '--';
+      }
+    }
+
+    // 4. Design & Degrees of Freedom
+    if (omegaLabel) {
+      omegaLabel.innerText = res.isPaired ? 'Paired Design & df' : 'Independent Design & df';
+    }
+    if (omegaVal) {
+      if (res.dfBetween !== undefined && res.dfWithin !== undefined) {
+        omegaVal.innerText = `df: (${res.dfBetween}, ${typeof res.dfWithin === 'number' ? res.dfWithin.toFixed(1) : res.dfWithin})`;
+      } else if (res.df !== undefined) {
+        omegaVal.innerText = `df = ${res.df}`;
+      } else {
+        omegaVal.innerText = `k = ${res.k}`;
+      }
+    }
+
+    // 5. Assumptions Diagnostic Card
+    const asm = res.assumptions;
+    if (asm) {
+      const recBadge = document.getElementById('anovaRecommendationBadge');
+      if (recBadge) {
+        recBadge.innerText = `Recommended: ${asm.recommendedTestName}`;
+        recBadge.className = 'badge badge-sig';
+      }
+
+      const decisionBanner = document.getElementById('anovaDecisionBanner');
+      const decisionText = document.getElementById('anovaDecisionText');
+      if (decisionText) {
+        let bannerHtml = '';
+        if (res.userOverride) {
+          bannerHtml = `<span class="badge badge-warn" style="font-size: 0.72rem; margin-bottom: 0.35rem; display: inline-block;">Manual Selection</span><br>` +
+            `User opted to execute <strong>${res.testName}</strong>. Based on data diagnostics, the statistically optimal test is <strong>${asm.recommendedTestName}</strong>.<br>` +
+            `<span style="color: var(--text-dim); font-size: 0.82rem;">${asm.rationale}</span>`;
+          if (decisionBanner) decisionBanner.style.borderLeftColor = 'var(--gold-primary)';
+        } else {
+          bannerHtml = `<span class="badge badge-sig" style="font-size: 0.72rem; margin-bottom: 0.35rem; display: inline-block;">Automated Recommendation Executed</span><br>` +
+            `Executed <strong>${res.testName}</strong>.<br>` +
+            `<span style="color: var(--text-main);">${asm.rationale}</span>`;
+          if (decisionBanner) decisionBanner.style.borderLeftColor = 'var(--cyan-primary)';
+        }
+        decisionText.innerHTML = bannerHtml;
+      }
+
+      // Normality Breakdown
+      const normBadge = document.getElementById('anovaNormalityBadge');
+      const normDetails = document.getElementById('anovaNormalityDetails');
+      if (normBadge) {
+        normBadge.className = asm.isNormal ? 'badge badge-sig' : 'badge badge-warn';
+        normBadge.innerText = asm.isNormal ? 'Parametric (All Normal)' : 'Non-Parametric (Skewed)';
+      }
+      if (normDetails && asm.normalityTests) {
+        normDetails.innerHTML = asm.normalityTests.map(n => 
+          `• <strong>${n.group}</strong>: n=${n.n}, JB=${n.jbStat.toFixed(2)}, p=${Exporter.formatP(n.pValue)} (${n.isNormal ? '<span style="color: var(--emerald-primary);">Normal</span>' : '<span style="color: var(--rose-primary);">Skewed, p < .05</span>'})`
+        ).join('<br>');
+      }
+
+      // Variance Homogeneity / Sphericity Breakdown
+      const varBadge = document.getElementById('anovaVarianceBadge');
+      const varDetails = document.getElementById('anovaVarianceDetails');
+      if (varBadge) {
+        if (isPaired) {
+          varBadge.className = 'badge badge-sig';
+          varBadge.innerText = asm.sphericity ? `Sphericity ε̂ = ${asm.sphericity.epsilon.toFixed(3)}` : 'Repeated Measures';
+        } else {
+          varBadge.className = asm.isHomoscedastic ? 'badge badge-sig' : 'badge badge-warn';
+          varBadge.innerText = asm.isHomoscedastic ? 'Equal Variances' : 'Unequal Variances';
+        }
+      }
+      if (varDetails) {
+        if (isPaired) {
+          if (asm.sphericity) {
+            varDetails.innerHTML = `Greenhouse-Geisser correction factor: <strong>ε̂ = ${asm.sphericity.epsilon.toFixed(3)}</strong>.<br>` +
+              (asm.sphericity.isSpherical 
+                ? `<span style="color: var(--emerald-primary);">Sphericity assumption reasonably met (ε̂ ≈ 1.0).</span>` 
+                : `<span style="color: var(--gold-primary);">Sphericity violated (ε̂ < 0.75). Degrees of freedom adjusted via Greenhouse-Geisser.</span>`);
+          } else {
+            varDetails.innerText = 'Matched repeated measures design: within-subject correlation structure preserved.';
+          }
+        } else if (asm.leveneTest) {
+          const lev = asm.leveneTest;
+          varDetails.innerHTML = `Brown-Forsythe Levene's Test: <strong>F(${lev.df1}, ${lev.df2}) = ${lev.fStat.toFixed(2)}, p = ${Exporter.formatP(lev.pValue)}</strong>.<br>` +
+            (asm.isHomoscedastic 
+              ? `<span style="color: var(--emerald-primary);">Homoscedasticity confirmed (p ≥ .05). Residual variances across cohorts are equal.</span>`
+              : `<span style="color: var(--rose-primary);">Heteroscedasticity detected (p < .05). Residual variances differ significantly; Welch's robust F recommended.</span>`);
+        }
+      }
+
+      // Pipeline step badges
+      const pStep1 = document.getElementById('anovaPipelineStep1');
+      const pStep2 = document.getElementById('anovaPipelineStep2');
+      const pStep3 = document.getElementById('anovaPipelineStep3');
+      const pStepFinal = document.getElementById('anovaPipelineStepFinal');
+      if (pStep1) {
+        pStep1.className = isPaired ? 'badge badge-sig' : 'badge badge-neutral';
+        pStep1.innerText = `1. Design: ${isPaired ? 'Paired (RM)' : 'Independent'}`;
+      }
+      if (pStep2) {
+        pStep2.className = asm.isNormal ? 'badge badge-sig' : 'badge badge-warn';
+        pStep2.innerText = `2. Normality: ${asm.isNormal ? 'Parametric' : 'Non-Parametric'}`;
+      }
+      if (pStep3) {
+        if (isPaired) {
+          pStep3.className = 'badge badge-sig';
+          pStep3.innerText = `3. Sphericity: ε̂ = ${asm.sphericity ? asm.sphericity.epsilon.toFixed(2) : 'N/A'}`;
+        } else {
+          pStep3.className = asm.isHomoscedastic ? 'badge badge-sig' : 'badge badge-warn';
+          pStep3.innerText = `3. Variances: ${asm.isHomoscedastic ? 'Equal' : 'Unequal'}`;
+        }
+      }
+      if (pStepFinal) {
+        pStepFinal.className = 'badge badge-sig';
+        pStepFinal.innerText = `Selected: ${res.testName}`;
+      }
+    }
+
+    // 6. Post-Hoc Pairwise Table
+    const postHocTitle = document.getElementById('anovaPostHocTitle');
+    const postHocSub = document.getElementById('anovaPostHocSubtitle');
+    const statCol = document.getElementById('anovaPostHocStatCol');
+    if (postHocTitle) postHocTitle.innerText = `🔬 Post-Hoc Pairwise Contrasts (${res.postHocMethod || 'Pairwise'})`;
+    if (postHocSub) postHocSub.innerText = `Contrasts between individual cohorts with family-wise error rate control (${res.postHocMethod || 'Contrasts'})`;
+    if (statCol) {
+      if (res.testKey === 'kruskal') statCol.innerText = "Dunn's z-Stat";
+      else if (res.testKey === 'friedman') statCol.innerText = 'Wilcoxon W';
+      else if (res.testKey === 'welch') statCol.innerText = 'Games-Howell t';
+      else if (res.testKey === 'rm_anova') statCol.innerText = 'Paired t-Stat';
+      else statCol.innerText = 'Tukey q (t)';
+    }
+
+    const tbody = document.getElementById('anovaPostHocBody');
+    if (tbody) {
+      if (res.pairwise && res.pairwise.length > 0) {
+        tbody.innerHTML = res.pairwise.map(p => {
+          const diffVal = p.meanDiff !== undefined ? p.meanDiff : (p.diff !== undefined ? p.diff : 0);
+          const seVal = p.seDiff !== undefined ? p.seDiff.toFixed(2) : (p.se !== undefined ? p.se.toFixed(2) : '--');
+          const statText = p.qStatistic !== undefined ? `q = ${p.qStatistic.toFixed(2)} (t = ${p.tStatistic.toFixed(2)})` :
+                           p.tStatistic !== undefined ? `t = ${p.tStatistic.toFixed(2)}` :
+                           p.zStatistic !== undefined ? `z = ${p.zStatistic.toFixed(2)}` :
+                           p.wStatistic !== undefined ? `W = ${p.wStatistic.toFixed(2)}` : '--';
+          const ciText = p.ci95 ? `[${p.ci95[0].toFixed(2)}, ${p.ci95[1].toFixed(2)}]` : '--';
+          const esText = p.cohensD !== undefined ? `d = ${p.cohensD.toFixed(2)}` :
+                         p.r !== undefined ? `r = ${p.r.toFixed(2)}` : '--';
+          return `
+            <tr>
+              <td style="font-weight: 600; color: var(--text-main);">${p.comparison}</td>
+              <td>${diffVal >= 0 ? '+' : ''}${diffVal.toFixed(2)}</td>
+              <td>${seVal}</td>
+              <td>${statText}</td>
+              <td style="font-weight: 600; color: ${p.isSignificant ? 'var(--cyan-primary)' : 'var(--text-muted)'};">${Exporter.formatP(p.pValue)}</td>
+              <td>${ciText}</td>
+              <td>${esText}</td>
+              <td>
+                <span class="badge ${p.isSignificant ? 'badge-sig' : 'badge-ns'}">
+                  ${p.isSignificant ? 'Significant (p < .05)' : 'Not Significant (ns)'}
+                </span>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } else {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-dim);">No pairwise contrasts calculated (omnibus effect not significant or single cohort).</td></tr>`;
+      }
+    }
+
+    // 7. Clinical / Academic APA Summary Narrative
+    let report = '';
+    if (res.testKey === 'one_way') {
+      report = `A one-way between-subjects ANOVA was conducted across ${res.k} cohorts (N = ${res.totalN}). `;
+      report += `There was a ${res.isSignificant ? 'statistically significant' : 'non-significant'} omnibus effect: F(${res.dfBetween}, ${res.dfWithin}) = ${res.fStatistic.toFixed(2)}, ${Exporter.formatP(res.pValue)}, η² = ${res.etaSquared.toFixed(3)}, ω² = ${res.omegaSquared.toFixed(3)}.\n\n`;
+    } else if (res.testKey === 'welch') {
+      report = `A Welch's robust one-way ANOVA (adjusting for heteroscedasticity) was conducted across ${res.k} cohorts (N = ${res.totalN}). `;
+      report += `There was a ${res.isSignificant ? 'statistically significant' : 'non-significant'} omnibus effect: Welch's F(${res.dfBetween}, ${res.dfWithin.toFixed(2)}) = ${res.fStatistic.toFixed(2)}, ${Exporter.formatP(res.pValue)}, estimated ω² = ${res.omegaSquared.toFixed(3)}.\n\n`;
+    } else if (res.testKey === 'kruskal') {
+      report = `A non-parametric Kruskal-Wallis H test was conducted across ${res.k} cohorts (N = ${res.totalN}). `;
+      report += `There was a ${res.isSignificant ? 'statistically significant' : 'non-significant'} omnibus rank difference: H(${res.df}) = ${res.hStatistic.toFixed(2)}, ${Exporter.formatP(res.pValue)}, ε² = ${res.effectSize.epsilonSquared.toFixed(3)}.\n\n`;
+    } else if (res.testKey === 'rm_anova') {
+      report = `A one-way repeated measures ANOVA was conducted across ${res.k} conditions (N = ${res.nSubjects} subjects). `;
+      report += `Greenhouse-Geisser sphericity correction: ε̂ = ${res.epsilon.toFixed(3)}. Omnibus effect: F(${res.dfTreatment.toFixed(2)}, ${res.dfError.toFixed(2)}) = ${res.fStatistic.toFixed(2)}, ${Exporter.formatP(res.pValue)}, partial η² = ${res.partialEtaSquared.toFixed(3)}.\n\n`;
+    } else if (res.testKey === 'friedman') {
+      report = `A non-parametric Friedman rank sum test was conducted across ${res.k} repeated conditions (N = ${res.n} subjects). `;
+      report += `Omnibus rank difference: Q(${res.df}) = ${res.qStatistic.toFixed(2)}, ${Exporter.formatP(res.pValue)}, Kendall's W = ${res.effectSize.kendallsW.toFixed(3)}.\n\n`;
+    }
+
+    // Append post-hoc summary
+    if (res.pairwise && res.pairwise.length > 0) {
+      report += `Post-hoc contrasts (${res.postHocMethod}) revealed:\n`;
+      res.pairwise.forEach(p => {
+        const diffVal = p.meanDiff !== undefined ? p.meanDiff : (p.diff !== undefined ? p.diff : 0);
+        const statVal = p.qStatistic !== undefined ? `q = ${p.qStatistic.toFixed(2)}` :
+                        p.tStatistic !== undefined ? `t = ${p.tStatistic.toFixed(2)}` :
+                        p.zStatistic !== undefined ? `z = ${p.zStatistic.toFixed(2)}` :
+                        p.wStatistic !== undefined ? `W = ${p.wStatistic.toFixed(2)}` : '';
+        if (p.isSignificant) {
+          report += `• ${p.comparison}: Statistically significant difference (Δ = ${diffVal.toFixed(2)}, ${statVal ? statVal + ', ' : ''}${Exporter.formatP(p.pValue)}).\n`;
+        } else {
+          report += `• ${p.comparison}: No statistically significant difference (Δ = ${diffVal.toFixed(2)}, ${statVal ? statVal + ', ' : ''}${Exporter.formatP(p.pValue)}, ns).\n`;
+        }
+      });
+    }
+
+    // Append assumption decision rationale
+    if (asm) {
+      report += `\nMethodological Rationale: ${asm.rationale}`;
+    }
+
+    document.getElementById('anovaReportText').innerText = report;
+
+    // 8. Dispersion Plot
     const errorBarMode = document.getElementById('anovaErrorBarMode')?.value || 'ci95';
     const modeDescriptions = {
       ci95: 'Error Bars: 95% Confidence Interval (Mean ± 95% CI)',
@@ -1467,7 +1967,8 @@ class StatisGravityApp {
         title: 'Multi-Cohort Comparison'
       });
     }
-    this.results = this.results || {}; this.results.anova = res;
+    this.results = this.results || {};
+    this.results.anova = res;
   }
 
   runCategorical() {
@@ -1936,25 +2437,9 @@ window.addEventListener('DOMContentLoaded', () => {
         groupB: res.groupB
       };
     } else if (tabId === 'anova') {
-      exportData = {
-        k: res.k,
-        totalN: res.totalN,
-        grandMean: res.grandMean,
-        ssBetween: res.ssBetween,
-        dfBetween: res.dfBetween,
-        msBetween: res.msBetween,
-        ssWithin: res.ssWithin,
-        dfWithin: res.dfWithin,
-        msWithin: res.msWithin,
-        ssTotal: res.ssTotal,
-        fStatistic: res.fStatistic,
-        pValue: res.pValue,
-        etaSquared: res.etaSquared,
-        omegaSquared: res.omegaSquared,
-        reportText: document.getElementById('anovaReportText')?.innerText,
-        groups: res.groups,
-        pairwise: res.pairwise
-      };
+      exportData = Object.assign({}, res, {
+        reportText: document.getElementById('anovaReportText')?.innerText
+      });
     } else if (tabId === 'categorical') {
       const mode = document.getElementById('catAnalysisMode')?.value || 'diagnostic';
       const a = parseFloat(document.getElementById('catA')?.value) || 0;

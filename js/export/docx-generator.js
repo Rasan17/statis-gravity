@@ -547,76 +547,198 @@ export const DocxReports = {
   createAnovaDocx(data) {
     const d = new DocxBuilder();
     d.addTitle('STATIS-GRAVITY CLINICAL BIOSTATISTICS REPORT')
-      .addSubTitle('Module: Multi-Cohort Variance & Tukey HSD Post-Hoc Pairwise Analysis')
+      .addSubTitle(`Module: ${data.testName || 'Multi-Cohort Analysis'} & Post-Hoc Pairwise Contrasts`)
       .addAttributionHeader()
       .addDisclaimerBox();
 
     d.addHeading1('1. Analyzed Cohorts Information & Input Data')
-      .addParagraph(`Number of Independent Cohorts (k): ${data.k || data.groups.length}`)
-      .addParagraph(`Total Analyzed Sample Size (N): ${data.totalN} patients/specimens`)
-      .addParagraph(`Grand Mean across All Cohorts: ${data.grandMean.toFixed(2)}`);
+      .addParagraph(`Number of Evaluated Cohorts/Conditions (k): ${data.k || (data.groups ? data.groups.length : 0)}`)
+      .addParagraph(`Total Analyzed Sample Size: ${data.totalN || 0} observations ${data.matchedN ? `(${data.matchedN} matched subjects)` : ''}`)
+      .addParagraph(`Study Design: ${data.isPaired ? 'Within-Subjects Repeated Measures / Paired Timepoints' : 'Independent Between-Subjects Cohorts'}`);
+
+    if (data.groups && data.groups.length > 0) {
+      d.addHeading2('Cohort Descriptive Summary');
+      const groupRows = data.groups.map(g => [
+        g.name,
+        `${g.stats.n}`,
+        `${g.stats.mean.toFixed(2)}`,
+        `${g.stats.sd.toFixed(2)}`,
+        `${g.stats.sem.toFixed(3)}`,
+        `[${g.stats.ci95[0].toFixed(2)}, ${g.stats.ci95[1].toFixed(2)}]`,
+        `${g.stats.median.toFixed(2)} (${g.stats.iqr.toFixed(2)})`
+      ]);
+      d.addTable(['Cohort Name', 'Sample n', 'Mean (M)', 'Std Dev (SD)', 'Std Error (SEM)', '95% CI of Mean', 'Median (IQR)'], groupRows);
+    }
+
+    if (data.assumptions) {
+      d.addHeading2('Diagnostic Assessment of Statistical Assumptions');
+      if (data.assumptions.isPaired) {
+        d.addParagraph(`Study Design: Paired / Repeated Measures across ${data.assumptions.k} conditions (N = ${data.assumptions.matchedN} matched subjects).`);
+        const normRows = (data.assumptions.normality && data.assumptions.normality.details)
+          ? data.assumptions.normality.details.map(det => [
+              det.name,
+              `${det.n}`,
+              `${det.skewness.toFixed(2)}`,
+              `${det.kurtosis.toFixed(2)}`,
+              `JB = ${(det.jbStat || 0).toFixed(2)}`,
+              `${det.pValue < 0.001 ? 'p < .001' : 'p = ' + det.pValue.toFixed(3)}`,
+              det.isNormal ? 'Normal (Parametric Valid)' : 'Skewed / Non-Normal'
+            ])
+          : [];
+        if (normRows.length > 0) {
+          d.addTable(['Condition', 'n', 'Skewness', 'Kurtosis', 'Jarque-Bera', 'p-Value', 'Normality Status'], normRows);
+        }
+      } else {
+        d.addParagraph(`Study Design: Independent Between-Subjects Comparison across ${data.assumptions.k} cohorts.`);
+        const normRows = (data.assumptions.normality && data.assumptions.normality.details)
+          ? data.assumptions.normality.details.map(det => [
+              det.name,
+              `${det.n}`,
+              `${det.skewness.toFixed(2)}`,
+              `${det.kurtosis.toFixed(2)}`,
+              `JB = ${(det.jbStat || 0).toFixed(2)}`,
+              `${det.pValue < 0.001 ? 'p < .001' : 'p = ' + det.pValue.toFixed(3)}`,
+              det.isNormal ? 'Normal Distribution' : 'Skewed / Non-Normal'
+            ])
+          : [];
+        if (normRows.length > 0) {
+          d.addTable(['Cohort', 'n', 'Skewness', 'Kurtosis', 'Jarque-Bera', 'p-Value', 'Normality Status'], normRows);
+        }
+
+        if (data.assumptions.varianceEquality && data.assumptions.varianceEquality.applicable) {
+          d.addTable(
+            ['Assumption Evaluated', 'Diagnostic Test', 'Test Statistic & df', 'p-Value', 'Homoscedasticity Verdict'],
+            [
+              [
+                'Homogeneity of Variances',
+                'Levene\'s Test (Brown-Forsythe)',
+                `F(${data.assumptions.varianceEquality.df1}, ${data.assumptions.varianceEquality.df2}) = ${(data.assumptions.varianceEquality.fStat || 0).toFixed(2)} (Ratio: ${(data.assumptions.varianceEquality.varianceRatio || 1).toFixed(2)}×)`,
+                `${data.assumptions.varianceEquality.pValue < 0.001 ? 'p < .001' : 'p = ' + data.assumptions.varianceEquality.pValue.toFixed(4)}`,
+                data.assumptions.varianceEquality.equalVariance ? 'Equal Variances Confirmed (Homoscedastic)' : 'Unequal Variances (Heteroscedastic - Welch Required)'
+              ]
+            ]
+          );
+        }
+      }
+
+      d.addCalloutBox(
+        'Automated Test Recommendation Decision Engine',
+        `Recommended Test: ${data.assumptions.recommendedTestName}\nDecision Rationale: ${data.assumptions.rationale}${data.requestedMethod && data.requestedMethod !== 'auto' && data.requestedMethod !== data.assumptions.recommendedTest ? '\n[Note: User manually selected ' + data.testName + ']' : ''}`,
+        'E0F2FE',
+        '0284C7'
+      );
+    }
 
     d.addHeading1('2. Statistical Outcome & Numerical Results');
-    const groupRows = data.groups.map(g => [
-      g.name,
-      `${g.stats.n}`,
-      `${g.stats.mean.toFixed(2)}`,
-      `${g.stats.sd.toFixed(2)}`,
-      `${g.stats.sem.toFixed(3)}`,
-      `[${g.stats.ci95[0].toFixed(2)}, ${g.stats.ci95[1].toFixed(2)}]`,
-      `${g.stats.median.toFixed(2)} (${g.stats.iqr.toFixed(2)})`
-    ]);
-    d.addTable(['Cohort Name', 'Sample n', 'Mean (M)', 'Std Dev (SD)', 'Std Error (SEM)', '95% CI of Mean', 'Median (IQR)'], groupRows);
+    d.addHeading2(`${data.testName || 'Omnibus Test'} Summary Table`);
 
-    d.addHeading2('One-Way ANOVA Summary Table');
-    d.addTable(
-      ['Source of Variation', 'Sum of Squares (SS)', 'Degrees of Freedom (df)', 'Mean Square (MS)', 'F-Statistic', 'p-Value', 'Omega-Squared (ω²)'],
-      [
-        ['Between Groups (Treatment)', `${(data.ssBetween || 0).toFixed(2)}`, `${data.dfBetween || 0}`, `${(data.msBetween || 0).toFixed(2)}`, `F = ${(data.fStatistic || 0).toFixed(2)}`, `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + (data.pValue || 0).toFixed(4)}`, `${(data.omegaSquared || 0).toFixed(3)}`],
-        ['Within Groups (Residual/Error)', `${(data.ssWithin || 0).toFixed(2)}`, `${data.dfWithin || 0}`, `${(data.msWithin || 0).toFixed(2)}`, '-', '-', `Eta² (η²) = ${(data.etaSquared || 0).toFixed(3)}`],
-        ['Total', `${(data.ssTotal !== undefined ? data.ssTotal : ((data.ssBetween || 0) + (data.ssWithin || 0))).toFixed(2)}`, `${(data.dfBetween || 0) + (data.dfWithin || 0)}`, '-', '-', '-', '-']
-      ]
-    );
+    if (data.testKey === 'welch') {
+      d.addTable(
+        ['Inferential Parameter', 'Calculated Value', 'Clinical Interpretation / Benchmark'],
+        [
+          ['Welch F-Statistic', `F_Welch = ${(data.statistic || data.fStatistic || 0).toFixed(3)}`, 'Robust omnibus variance ratio adjusting for heteroscedasticity'],
+          ['Adjusted Degrees of Freedom', `df1 = ${data.df1 || data.dfBetween || 0}, df2 = ${(data.df2 || data.dfWithin || 0).toFixed(2)}`, 'Adjusted via Welch-Satterthwaite approximation'],
+          ['p-Value', `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + (data.pValue || 0).toFixed(4)}`, data.isSignificant ? 'Statistically Significant (p < 0.05)' : 'Not Significant (ns)'],
+          ['Robust Omega-Squared (ω²)', `${(data.omegaSquared || 0).toFixed(3)}`, 'Unbiased population effect size for unequal variances'],
+          ['Eta-Squared (η²)', `${(data.etaSquared || 0).toFixed(3)}`, 'Sample proportion of total variance explained']
+        ]
+      );
+    } else if (data.testKey === 'kruskal') {
+      d.addTable(
+        ['Inferential Parameter', 'Calculated Value', 'Clinical Interpretation / Benchmark'],
+        [
+          ['Kruskal-Wallis Statistic', `H = ${(data.statistic || 0).toFixed(3)}`, 'Non-parametric omnibus rank sum variance'],
+          ['Degrees of Freedom (df)', `df = ${data.df || (data.k - 1)}`, 'k - 1 cohorts'],
+          ['p-Value (Chi-Square)', `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + (data.pValue || 0).toFixed(4)}`, data.isSignificant ? 'Statistically Significant (p < 0.05)' : 'Not Significant (ns)'],
+          ['Epsilon-Squared (ε²)', `${(data.epsilonSquared || data.etaSquared || 0).toFixed(3)}`, 'Non-parametric degree of stochastic separation (0 to 1)']
+        ]
+      );
+    } else if (data.testKey === 'rm_anova') {
+      d.addTable(
+        ['Source of Variation', 'Sum of Squares (SS)', 'Degrees of Freedom (df)', 'Mean Square (MS)', 'F-Statistic', 'p-Value', 'Partial Eta² (η²_p)'],
+        [
+          ['Treatment (Time/Condition)', `${(data.ssTreatment || data.ssBetween || 0).toFixed(2)}`, `${data.dfTreatment || data.dfBetween || 0}`, `${(data.msTreatment || data.msBetween || 0).toFixed(2)}`, `F = ${(data.fStatistic || 0).toFixed(2)}`, `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + (data.pValue || 0).toFixed(4)}`, `${(data.partialEtaSquared || data.etaSquared || 0).toFixed(3)}`],
+          ['Error (Residual)', `${(data.ssError || data.ssWithin || 0).toFixed(2)}`, `${data.dfError || data.dfWithin || 0}`, `${(data.msError || data.msWithin || 0).toFixed(2)}`, '-', '-', `GG Epsilon (ε̂) = ${(data.ggEpsilon || 1).toFixed(2)}`],
+          ['Subjects', `${(data.ssSubjects || 0).toFixed(2)}`, `${data.dfSubjects || 0}`, '-', '-', '-', '-'],
+          ['Total', `${(data.ssTotal || 0).toFixed(2)}`, `${data.dfTotal || 0}`, '-', '-', '-', '-']
+        ]
+      );
+    } else if (data.testKey === 'friedman') {
+      d.addTable(
+        ['Inferential Parameter', 'Calculated Value', 'Clinical Interpretation / Benchmark'],
+        [
+          ['Friedman Test Statistic', `χ²_F = ${(data.statistic || 0).toFixed(3)}`, 'Two-way rank sum statistic for matched observations'],
+          ['Degrees of Freedom (df)', `df = ${data.df || (data.k - 1)}`, 'k - 1 conditions across N subjects'],
+          ['p-Value (Chi-Square)', `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + (data.pValue || 0).toFixed(4)}`, data.isSignificant ? 'Statistically Significant (p < 0.05)' : 'Not Significant (ns)'],
+          ['Kendall\'s Concordance (W)', `${(data.kendallsW || 0).toFixed(3)}`, 'Degree of subject ranking consistency across conditions (0 to 1)']
+        ]
+      );
+    } else {
+      // One-Way ANOVA (Fisher's Standard)
+      d.addTable(
+        ['Source of Variation', 'Sum of Squares (SS)', 'Degrees of Freedom (df)', 'Mean Square (MS)', 'F-Statistic', 'p-Value', 'Omega-Squared (ω²)'],
+        [
+          ['Between Groups (Treatment)', `${(data.ssBetween || 0).toFixed(2)}`, `${data.dfBetween || 0}`, `${(data.msBetween || 0).toFixed(2)}`, `F = ${(data.fStatistic || 0).toFixed(2)}`, `${data.pValue < 0.001 ? 'p < .001' : 'p = ' + (data.pValue || 0).toFixed(4)}`, `${(data.omegaSquared || 0).toFixed(3)}`],
+          ['Within Groups (Residual/Error)', `${(data.ssWithin || 0).toFixed(2)}`, `${data.dfWithin || 0}`, `${(data.msWithin || 0).toFixed(2)}`, '-', '-', `Eta² (η²) = ${(data.etaSquared || 0).toFixed(3)}`],
+          ['Total', `${(data.ssTotal !== undefined ? data.ssTotal : ((data.ssBetween || 0) + (data.ssWithin || 0))).toFixed(2)}`, `${(data.dfBetween || 0) + (data.dfWithin || 0)}`, '-', '-', '-', '-']
+        ]
+      );
+    }
 
     if (data.pairwise && data.pairwise.length > 0) {
-      d.addHeading2('Tukey\'s HSD Post-Hoc Pairwise Contrasts');
+      d.addHeading2('Post-Hoc Pairwise Contrasts');
+      const statHeader = data.testKey === 'welch' ? 'Games-Howell t' : (data.testKey === 'kruskal' ? 'Dunn\'s z' : (data.testKey === 'friedman' ? 'Wilcoxon z' : (data.testKey === 'rm_anova' ? 'Paired t' : 'Tukey q')));
       const pairRows = data.pairwise.map(p => [
         p.comparison,
         `${(p.meanDiff >= 0 ? '+' : '')}${p.meanDiff.toFixed(2)}`,
-        `${p.seDiff.toFixed(3)}`,
-        `q = ${p.qStatistic.toFixed(2)}`,
+        `${p.seDiff ? p.seDiff.toFixed(3) : '-'}`,
+        `${p.qStatistic !== undefined ? 'q = ' + p.qStatistic.toFixed(2) : (p.tStatistic !== undefined ? 't = ' + p.tStatistic.toFixed(2) : 'z = ' + (p.zStatistic || 0).toFixed(2))}`,
         `${p.pValue < 0.001 ? 'p < .001' : 'p = ' + p.pValue.toFixed(4)}`,
-        `[${p.ci95[0].toFixed(2)}, ${p.ci95[1].toFixed(2)}]`,
-        `d = ${p.cohensD.toFixed(2)}`,
+        p.ci95 ? `[${p.ci95[0].toFixed(2)}, ${p.ci95[1].toFixed(2)}]` : 'N/A',
+        `${p.cohensD !== undefined ? p.cohensD.toFixed(2) : '-'}`,
         p.isSignificant ? 'Significant (p < .05)' : 'Not Significant (ns)'
       ]);
-      d.addTable(['Pairwise Contrast', 'Mean Diff (ΔM)', 'Std Error', 'Tukey q', 'Adjusted p', '95% CI of Diff', 'Cohen\'s d', 'Significance'], pairRows);
+      d.addTable(['Pairwise Contrast', 'Difference', 'Std Error', statHeader, 'Adjusted p', '95% CI of Diff', 'Effect Size', 'Significance'], pairRows);
     }
 
     d.addHeading1('3. Clinical & Statistical Interpretation');
     d.addCalloutBox(
-      'ANOVA & Post-Hoc APA Clinical Summary',
-      data.reportText || 'ANOVA narrative summary.',
+      'Multi-Cohort APA / ICMJE Clinical Summary',
+      data.reportText || 'Multi-group statistical narrative summary.',
       'F0FDF4',
       '16A34A'
     );
 
     d.addHeading1('4. Reason This Particular Test Was Chosen');
-    d.addBullet('One-Way Omnibus ANOVA: Selected because testing multiple cohorts with uncorrected pairwise t-tests results in severe Family-Wise Error Rate inflation (FWER). With 3 cohorts, 3 comparisons yield α_FW = 1 - (1 - 0.05)³ = 14.3%; with 5 cohorts (10 comparisons), α_FW exceeds 40%. ANOVA provides a rigorous omnibus test that simultaneously assesses whether any between-cohort variance exceeds within-cohort residual variation.');
-    d.addBullet('Tukey\'s Honest Significant Difference (HSD): Chosen as the post-hoc method because it utilizes the Studentized Range distribution (q) to strictly bound the overall Family-Wise Error Rate at α = 0.05 across all possible pairwise comparisons, while preserving substantially greater statistical power than overly conservative Bonferroni adjustments.');
-    d.addBullet('Omega-Squared (ω²) Reporting: Included alongside Eta-squared (η²) because Eta-squared represents a sample proportion of variance that is positively biased in small clinical samples. Omega-squared provides an unbiased population effect size estimate.');
+    if (data.testKey === 'welch') {
+      d.addBullet('Welch\'s Heteroscedastic ANOVA: Chosen because the cohorts exhibit unequal population variances (heteroscedasticity confirmed by Levene\'s test). Standard Fisher ANOVA suffers from severe Type I error rate inflation when group variances differ. Welch\'s ANOVA computes weighted variance terms and adjusts degrees of freedom via the Welch-Satterthwaite method, preserving valid error rates.');
+      d.addBullet('Games-Howell Post-Hoc Contrasts: Adopted because it does not assume equal variances or equal group sample sizes, strictly bounding family-wise error across multiple contrasts.');
+    } else if (data.testKey === 'kruskal') {
+      d.addBullet('Kruskal-Wallis H Test: Chosen because one or more cohorts violate the assumption of normality or contain heavy outliers. By transforming continuous observations into ranks, it evaluates whether the median rank distributions differ significantly across groups without parametric distribution assumptions.');
+      d.addBullet('Dunn\'s Post-Hoc Contrasts: Adopted to pinpoint pairwise stochastic differences using mean rank differences with family-wise error adjustments.');
+    } else if (data.testKey === 'rm_anova') {
+      d.addBullet('Repeated Measures ANOVA: Chosen because the same subjects were evaluated repeatedly across conditions/timepoints. By partitioning out between-subjects variability from the error term, it provides substantially higher statistical power than between-subjects ANOVA.');
+      d.addBullet('Greenhouse-Geisser Sphericity Adjustment: Applied to adjust degrees of freedom when the compound symmetry / sphericity assumption is violated.');
+    } else if (data.testKey === 'friedman') {
+      d.addBullet('Friedman Test: Chosen as the non-parametric counterpart to Repeated Measures ANOVA. It ranks conditions within each individual subject, eliminating between-subject baseline differences while protecting against non-normal or skewed longitudinal distributions.');
+    } else {
+      d.addBullet('One-Way Omnibus ANOVA: Selected because testing multiple cohorts with uncorrected pairwise t-tests results in severe Family-Wise Error Rate inflation (FWER). ANOVA simultaneously assesses whether between-cohort variance exceeds within-cohort residual variation.');
+      d.addBullet('Tukey\'s Honest Significant Difference (HSD): Chosen as the post-hoc method because it utilizes the Studentized Range distribution (q) to strictly bound the overall Family-Wise Error Rate at α = 0.05 across all possible pairwise comparisons.');
+      d.addBullet('Omega-Squared (ω²) Reporting: Included alongside Eta-squared (η²) because Omega-squared provides an unbiased population effect size estimate in clinical samples.');
+    }
 
     d.addHeading1('5. Background Statistical Knowledge & Medical Research Context');
-    d.addParagraph('ANOVA partitions the total sum of squares into treatment (between) and error (within) components: SS_Total = SS_Between + SS_Within.');
-    d.addParagraph('Mathematical Formulations:');
+    d.addParagraph('Partitioning of Variance in Multi-Group Designs:');
     d.addBullet('Between-Groups Mean Square: MS_B = SS_B / (k - 1).');
     d.addBullet('Within-Groups Mean Square: MS_W = SS_W / (N - k).');
-    d.addBullet('F-Ratio: F = MS_B / MS_W ~ F(k-1, N-k).');
-    d.addBullet('Tukey Studentized Range: q = |x̄A - x̄B| / √[ (MS_W / 2) (1/nA + 1/nB) ].');
+    d.addBullet('Welch F-Ratio: Incorporates group sample size weights w_j = n_j / s_j².');
+    d.addBullet('Friedman Statistic: χ²_F = [12 / (N k (k+1))] ∑ R_j² - 3 N (k+1).');
     d.addParagraph('Key Academic References:');
     d.addBullet('Fisher RA (1925). Statistical Methods for Research Workers. Oliver and Boyd, Edinburgh.');
-    d.addBullet('Tukey JW (1949). Comparing individual means in the analysis of variance. Biometrics, 5(2): 99–114.');
-    d.addBullet('Hayter AJ (1984). A proof of the conjecture that the Tukey-Kramer multiple comparisons procedure is conservative. Annals of Statistics, 12(1): 61–75.');
+    d.addBullet('Welch BL (1951). On the comparison of several mean values: an alternative approach. Biometrika, 38(3/4): 330–336.');
+    d.addBullet('Kruskal WH, Wallis WA (1952). Use of ranks in one-criterion variance analysis. J Am Stat Assoc, 47(260): 583–621.');
+    d.addBullet('Friedman M (1937). The use of ranks to avoid the assumption of normality. J Am Stat Assoc, 32(200): 675–701.');
+    d.addBullet('Games PA, Howell JF (1976). Pairwise multiple comparison procedures with unequal N\'s and/or variances. J Educ Stat, 1(2): 113–125.');
 
     return d;
   },

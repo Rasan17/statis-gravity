@@ -941,50 +941,125 @@
           <div class="card">
             <div class="card-header">
               <div>
-                <h2 class="card-title">Multi-Cohort Analysis</h2>
-                <p class="card-subtitle">One-Way ANOVA &amp; Kruskal-Wallis</p>
+                <h2 class="card-title">Multi-Cohort &amp; Repeated Measures Analysis</h2>
+                <p class="card-subtitle">Automated assumption-driven test selection &amp; execution</p>
               </div>
-              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                <button id="anovaSampleBtn" class="btn btn-secondary btn-sm">Load Cranial Cohorts</button>
+              <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+                <button id="anovaSampleBtn" class="btn btn-secondary btn-sm" title="Load standard 3 cranial cohorts (Normal, Homoscedastic)">3 Cohorts (Equal Var)</button>
+                <button id="anovaSampleWelchBtn" class="btn btn-secondary btn-sm" title="Load 4 cohorts with unequal variances (Welch demonstration)">4 Cohorts (Unequal Var)</button>
+                <button id="anovaSampleRMBtn" class="btn btn-secondary btn-sm" title="Load 4 matched timepoints for repeated measures analysis">Repeated Measures (Paired)</button>
+                <button id="anovaSampleSkewBtn" class="btn btn-secondary btn-sm" title="Load 3 skewed cohorts (Kruskal-Wallis demonstration)">Skewed (Kruskal)</button>
               </div>
             </div>
 
-            <div class="form-group">
-              <label class="form-label" for="anovaName1">Cohort 1 Name &amp; Data:</label>
-              <input id="anovaName1" type="text" class="form-control" value="Conservative" style="margin-bottom: 0.3rem;">
-              <textarea id="anovaG1" class="form-control" rows="2"></textarea>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="anovaName2">Cohort 2 Name &amp; Data:</label>
-              <input id="anovaName2" type="text" class="form-control" value="Orthotic Helmet" style="margin-bottom: 0.3rem;">
-              <textarea id="anovaG2" class="form-control" rows="2"></textarea>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="anovaName3">Cohort 3 Name &amp; Data:</label>
-              <input id="anovaName3" type="text" class="form-control" value="Endoscopic Strip" style="margin-bottom: 0.3rem;">
-              <textarea id="anovaG3" class="form-control" rows="2"></textarea>
+            <!-- Sample Design Selector & Interactive Dialogue -->
+            <div class="sample-design-panel" style="background: rgba(0, 210, 255, 0.05); border: 1px solid rgba(0, 210, 255, 0.22); border-radius: 8px; padding: 0.8rem 1rem; margin-bottom: 1rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                <label for="anovaIsPaired" style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer; font-weight: 600; font-size: 0.88rem; color: var(--text-main); margin: 0; user-select: none;">
+                  <input type="checkbox" id="anovaIsPaired" style="width: 17px; height: 17px; accent-color: var(--cyan-primary); cursor: pointer;">
+                  <span>Paired / Repeated Measures Design (Within-Subjects / Repeated Timepoints / Matched Subjects)</span>
+                </label>
+                <button type="button" id="anovaDesignInfoBtn" class="btn btn-secondary btn-sm" style="font-size: 0.76rem; padding: 0.25rem 0.65rem; height: 28px;" title="View explanation of Between-Subjects vs. Repeated Measures ANOVA designs">
+                  ℹ️ Design Dialogue
+                </button>
+              </div>
+              <div id="anovaDesignSummary" style="font-size: 0.77rem; color: var(--text-muted); margin-top: 0.4rem; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                <span>Active Design:</span>
+                <span id="anovaDesignModeBadge" class="badge badge-neutral" style="font-size: 0.72rem;">Independent Cohorts (Between-Subjects)</span>
+                <span style="font-size: 0.74rem; color: var(--text-dim);">(Uncheck for separate groups; check for repeated measures on same subjects)</span>
+              </div>
             </div>
 
-            <button id="anovaComputeBtn" class="btn btn-primary" style="width: 100%;">Compute ANOVA</button>
+            <!-- Statistical Test Selection -->
+            <div class="form-group" style="margin-bottom: 1.1rem;">
+              <label class="form-label" for="anovaTestType" style="font-weight: 600;">Statistical Test Selection:</label>
+              <select id="anovaTestType" class="form-control">
+                <option value="auto" selected>✨ Automatic Recommendation (Data-Driven by Assumptions)</option>
+                <option value="oneway">One-Way ANOVA (Fisher's - Equal Variances, Parametric)</option>
+                <option value="welch">Welch's ANOVA (Heteroscedastic - Unequal Variances, Parametric)</option>
+                <option value="kruskal">Kruskal-Wallis H Test (Independent, Non-parametric)</option>
+                <option value="rm_anova">One-Way Repeated Measures ANOVA (Paired, Parametric)</option>
+                <option value="friedman">Friedman Test (Paired, Non-parametric)</option>
+              </select>
+            </div>
+
+            <!-- Cohort Management Toolbar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+              <label class="form-label" style="font-weight: 700; margin: 0; color: var(--text-main);">Cohorts &amp; Observation Data:</label>
+              <button type="button" id="anovaAddGroupBtn" class="btn btn-secondary btn-sm" style="font-size: 0.78rem; padding: 0.3rem 0.75rem; display: flex; align-items: center; gap: 0.35rem;">
+                <span style="font-weight: 800; color: var(--cyan-primary);">➕</span> Add Additional Group
+              </button>
+            </div>
+
+            <!-- Dynamic Groups Container -->
+            <div id="anovaGroupsContainer" style="display: flex; flex-direction: column; gap: 0.85rem; margin-bottom: 1.25rem;">
+              <!-- Group 1 -->
+              <div class="anova-group-card" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 0.85rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; gap: 0.5rem;">
+                  <div style="display: flex; align-items: center; gap: 0.45rem; flex: 1;">
+                    <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-dim); min-width: 55px;">Cohort 1:</span>
+                    <input type="text" class="form-control anova-group-name" value="Conservative" style="font-size: 0.82rem; padding: 0.25rem 0.5rem; height: 28px; font-weight: 600;" placeholder="Cohort Name">
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <span class="badge badge-neutral anova-group-count" style="font-size: 0.72rem;">n = 10</span>
+                    <button type="button" class="btn btn-secondary btn-sm btn-remove-anova-group" style="padding: 0.15rem 0.45rem; font-size: 0.72rem; height: 26px; color: var(--rose-primary); border-color: rgba(244, 63, 94, 0.3);" title="Remove this cohort" disabled>✕</button>
+                  </div>
+                </div>
+                <textarea class="form-control anova-group-data" id="anovaG1" rows="2" placeholder="Comma or newline-separated values...">7.2, 6.8, 7.5, 6.9, 8.1, 7.0, 7.4, 6.5, 7.9, 7.1</textarea>
+              </div>
+
+              <!-- Group 2 -->
+              <div class="anova-group-card" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 0.85rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; gap: 0.5rem;">
+                  <div style="display: flex; align-items: center; gap: 0.45rem; flex: 1;">
+                    <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-dim); min-width: 55px;">Cohort 2:</span>
+                    <input type="text" class="form-control anova-group-name" value="Orthotic Helmet" style="font-size: 0.82rem; padding: 0.25rem 0.5rem; height: 28px; font-weight: 600;" placeholder="Cohort Name">
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <span class="badge badge-neutral anova-group-count" style="font-size: 0.72rem;">n = 10</span>
+                    <button type="button" class="btn btn-secondary btn-sm btn-remove-anova-group" style="padding: 0.15rem 0.45rem; font-size: 0.72rem; height: 26px; color: var(--rose-primary); border-color: rgba(244, 63, 94, 0.3);" title="Remove this cohort" disabled>✕</button>
+                  </div>
+                </div>
+                <textarea class="form-control anova-group-data" id="anovaG2" rows="2" placeholder="Comma or newline-separated values...">4.1, 3.8, 4.5, 3.9, 4.8, 3.6, 4.2, 3.5, 4.0, 3.7</textarea>
+              </div>
+
+              <!-- Group 3 -->
+              <div class="anova-group-card" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 0.85rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; gap: 0.5rem;">
+                  <div style="display: flex; align-items: center; gap: 0.45rem; flex: 1;">
+                    <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-dim); min-width: 55px;">Cohort 3:</span>
+                    <input type="text" class="form-control anova-group-name" value="Endoscopic Strip" style="font-size: 0.82rem; padding: 0.25rem 0.5rem; height: 28px; font-weight: 600;" placeholder="Cohort Name">
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <span class="badge badge-neutral anova-group-count" style="font-size: 0.72rem;">n = 10</span>
+                    <button type="button" class="btn btn-secondary btn-sm btn-remove-anova-group" style="padding: 0.15rem 0.45rem; font-size: 0.72rem; height: 26px; color: var(--rose-primary); border-color: rgba(244, 63, 94, 0.3);" title="Remove this cohort">✕</button>
+                  </div>
+                </div>
+                <textarea class="form-control anova-group-data" id="anovaG3" rows="2" placeholder="Comma or newline-separated values...">2.5, 2.8, 2.2, 2.6, 3.1, 2.4, 2.9, 2.1, 2.7, 2.3</textarea>
+              </div>
+            </div>
+
+            <button id="anovaComputeBtn" class="btn btn-primary" style="width: 100%;">Run Multi-Group Analysis</button>
           </div>
 
           <div>
             <div class="metrics-grid">
               <div class="metric-card">
-                <div class="metric-label">F-Statistic</div>
+                <div id="anovaFLabel" class="metric-label">Test Statistic (F / H)</div>
                 <div id="anovaF" class="metric-value">--</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">ANOVA p-Value</div>
+                <div class="metric-label">p-Value</div>
                 <div id="anovaP" class="metric-value">--</div>
+                <span id="anovaPValBadge" class="badge badge-sig" style="margin-top: 0.25rem;">--</span>
               </div>
               <div class="metric-card">
-                <div class="metric-label">Eta-Squared (η²)</div>
+                <div id="anovaEtaLabel" class="metric-label">Effect Size (η² / ω² / ε²)</div>
                 <div id="anovaEta" class="metric-value">--</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">Omega-Squared (ω²)</div>
-                <div id="anovaOmega" class="metric-value">--</div>
+                <div id="anovaOmegaLabel" class="metric-label">Design &amp; Degrees of Freedom</div>
+                <div id="anovaOmega" class="metric-value" style="font-size: 0.95rem;">--</div>
               </div>
             </div>
 
@@ -1008,12 +1083,66 @@
               <canvas id="anovaCanvas" class="chart-canvas"></canvas>
             </div>
 
+            <!-- Statistical Assumptions & Automated Decision Engine Panel -->
+            <div id="anovaAssumptionsCard" class="card" style="margin-top: 1.25rem; border-color: rgba(0, 210, 255, 0.25);">
+              <div class="card-header" style="margin-bottom: 0.75rem;">
+                <div>
+                  <h3 class="card-title">🔬 Statistical Assumptions &amp; Automated Decision Engine</h3>
+                  <p class="card-subtitle">Comprehensive diagnostic validation: Pairing, Normality (Jarque-Bera across all cohorts), &amp; Homoscedasticity (Levene's Test)</p>
+                </div>
+                <span id="anovaRecommendationBadge" class="badge badge-sig" style="font-size: 0.80rem; padding: 0.35rem 0.75rem;">--</span>
+              </div>
+
+              <!-- Recommendation Summary Banner -->
+              <div id="anovaDecisionBanner" style="background: rgba(0, 210, 255, 0.06); border-left: 4px solid var(--cyan-primary); padding: 0.85rem 1.1rem; border-radius: 0 8px 8px 0; margin-bottom: 1rem; font-size: 0.86rem; line-height: 1.55;">
+                <strong style="color: var(--cyan-primary); display: block; margin-bottom: 0.25rem;">Automated Test Recommendation &amp; Decision Rationale:</strong>
+                <span id="anovaDecisionText">Run multi-group analysis to evaluate assumptions and obtain data-driven recommendation.</span>
+              </div>
+
+              <!-- Diagnostic Grid -->
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+                <!-- 1. Normality Assessment Box -->
+                <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <strong style="font-size: 0.84rem; color: var(--text-main);">1. Normality Distribution (All Cohorts)</strong>
+                    <span id="anovaNormalityBadge" class="badge badge-neutral" style="font-size: 0.72rem;">--</span>
+                  </div>
+                  <div id="anovaNormalityDetails" style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.55;">
+                    --
+                  </div>
+                </div>
+
+                <!-- 2. Variance Homogeneity Box -->
+                <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.85rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <strong style="font-size: 0.84rem; color: var(--text-main);">2. Equality of Variances (Levene's Test)</strong>
+                    <span id="anovaVarianceBadge" class="badge badge-neutral" style="font-size: 0.72rem;">--</span>
+                  </div>
+                  <div id="anovaVarianceDetails" style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.55;">
+                    --
+                  </div>
+                </div>
+              </div>
+
+              <!-- Test Selection Flow Indicator -->
+              <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-subtle); font-size: 0.80rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <span style="font-weight: 600;">Decision Pipeline:</span>
+                <span id="anovaPipelineStep1" class="badge badge-neutral">Design: Independent</span>
+                <span>➔</span>
+                <span id="anovaPipelineStep2" class="badge badge-neutral">Normality: Testing...</span>
+                <span>➔</span>
+                <span id="anovaPipelineStep3" class="badge badge-neutral">Variances: Testing...</span>
+                <span>➔</span>
+                <span id="anovaPipelineStepFinal" class="badge badge-sig">Recommended: --</span>
+              </div>
+            </div>
+
             <!-- Post-Hoc Pairwise Analysis Table -->
             <div class="card" style="margin-top: 1.25rem;">
               <div class="card-header">
                 <div>
-                  <h3 class="card-title">🔬 Tukey HSD Post-Hoc Pairwise Contrasts</h3>
-                  <p class="card-subtitle">Pinpoints which specific cohorts contribute to the statistically significant difference</p>
+                  <h3 id="anovaPostHocTitle" class="card-title">🔬 Post-Hoc Pairwise Contrasts</h3>
+                  <p id="anovaPostHocSubtitle" class="card-subtitle">Pinpoints which specific cohorts contribute to the statistically significant difference</p>
                 </div>
               </div>
               <div class="table-responsive">
@@ -1021,17 +1150,17 @@
                   <thead>
                     <tr>
                       <th>Pairwise Contrast</th>
-                      <th>Mean Difference (ΔM)</th>
+                      <th>Difference (ΔM / Med)</th>
                       <th>Std. Error</th>
-                      <th>Tukey q / t</th>
+                      <th id="anovaPostHocStatCol">Contrast Stat</th>
                       <th>Adjusted p-Value</th>
                       <th>95% CI of Difference</th>
-                      <th>Cohen's d</th>
+                      <th>Effect Size</th>
                       <th>Significance</th>
                     </tr>
                   </thead>
                   <tbody id="anovaPostHocBody">
-                    <tr><td colspan="8" style="text-align: center; color: var(--text-dim);">Run ANOVA to view post-hoc pairwise contrasts</td></tr>
+                    <tr><td colspan="8" style="text-align: center; color: var(--text-dim);">Run multi-group analysis to view post-hoc pairwise contrasts</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1039,7 +1168,7 @@
 
             <div class="report-box" style="margin-top: 1.25rem;">
               <div class="report-title">
-                <span>ANOVA &amp; Post-Hoc Clinical Summary</span>
+                <span>Multi-Cohort &amp; Post-Hoc Clinical Summary</span>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                   <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="anovaReportText">Copy</button>
                   <button class="btn btn-primary btn-sm btn-export-docx" data-tab="anova" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
@@ -2346,6 +2475,51 @@
       <div style="display: flex; justify-content: flex-end; gap: 0.6rem;">
         <button id="hypoDesignModalSetIndependent" class="btn btn-secondary btn-sm" style="padding: 0.45rem 1rem;">Set as Independent</button>
         <button id="hypoDesignModalSetPaired" class="btn btn-primary btn-sm" style="padding: 0.45rem 1rem;">Set as Paired (Pre/Post)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANOVA Multi-Group Design Information Dialogue Modal -->
+  <div id="anovaDesignModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="anovaDesignModalHeading" style="display: none;">
+    <div class="modal-card" style="max-width: 680px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <span style="font-size: 1.4rem;">📊</span>
+          <h3 id="anovaDesignModalHeading" style="font-size: 1.15rem; font-weight: 700; color: var(--cyan-primary); margin: 0;">Multi-Group Study Design Guide: Between-Subjects vs. Repeated Measures</h3>
+        </div>
+        <button id="anovaDesignModalClose" class="btn btn-secondary btn-sm" style="padding: 0.2rem 0.6rem; cursor: pointer;">✕</button>
+      </div>
+
+      <div style="font-size: 0.88rem; line-height: 1.6; color: var(--text-main); margin-bottom: 1.25rem;">
+        <div style="margin-bottom: 1rem; padding: 0.85rem; background: rgba(0, 210, 255, 0.04); border-left: 3px solid var(--cyan-primary); border-radius: 0 6px 6px 0;">
+          <strong style="color: var(--cyan-primary); display: block; margin-bottom: 0.25rem;">Independent Samples (Between-Subjects / Unpaired):</strong>
+          <p style="margin: 0; font-size: 0.84rem; color: var(--text-muted); line-height: 1.5;">
+            Used when comparing <strong>three or more independent cohorts of subjects</strong> (e.g. Surgical Technique A vs. Technique B vs. Conservative Management, or 3 distinct disease phenotypes). Each patient belongs to exactly one cohort.
+          </p>
+          <ul style="margin: 0.4rem 0 0 1.2rem; font-size: 0.82rem; color: var(--text-muted); padding: 0; line-height: 1.5;">
+            <li><strong>Parametric + Equal Variances:</strong> Classic One-Way ANOVA (Fisher's F-test) with Tukey's HSD post-hoc pairwise contrasts.</li>
+            <li><strong>Parametric + Unequal Variances:</strong> Welch's Robust ANOVA (df adjusted via Welch-Satterthwaite) with Games-Howell post-hoc contrasts.</li>
+            <li><strong>Non-Parametric (Skewed / Ordinal):</strong> Kruskal-Wallis H Test with Dunn's pairwise contrasts (Bonferroni-adjusted).</li>
+          </ul>
+        </div>
+
+        <div style="padding: 0.85rem; background: rgba(0, 230, 118, 0.04); border-left: 3px solid #00e676; border-radius: 0 6px 6px 0;">
+          <strong style="color: #00e676; display: block; margin-bottom: 0.25rem;">Repeated Measures (Within-Subjects / Matched Longitudinal):</strong>
+          <p style="margin: 0; font-size: 0.84rem; color: var(--text-muted); line-height: 1.5;">
+            Used when the <strong>same cohort of subjects is evaluated across three or more sequential conditions or longitudinal time points</strong> (e.g. Baseline T0, 1-Month T1, 6-Month T2, 1-Year T3).
+          </p>
+          <ul style="margin: 0.4rem 0 0 1.2rem; font-size: 0.82rem; color: var(--text-muted); padding: 0; line-height: 1.5;">
+            <li>Each cohort column must have the same sample size (Row <em>i</em> represents Subject <em>i</em> tracked over time).</li>
+            <li>Partitions inter-subject variance (SS<sub>Subjects</sub>) away from residual error (SS<sub>Error</sub>), substantially boosting statistical power.</li>
+            <li><strong>Parametric test:</strong> One-Way Repeated Measures ANOVA with Sphericity assessment and Greenhouse-Geisser (ε̂) degrees of freedom correction.</li>
+            <li><strong>Non-Parametric test:</strong> Friedman Rank Sum Test with pairwise Wilcoxon Signed-Rank post-hoc contrasts and Kendall's W concordance coefficient.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.6rem;">
+        <button id="anovaDesignModalSetIndependent" class="btn btn-secondary btn-sm" style="padding: 0.45rem 1rem;">Set as Independent</button>
+        <button id="anovaDesignModalSetPaired" class="btn btn-primary btn-sm" style="padding: 0.45rem 1rem;">Set as Repeated Measures (Paired)</button>
       </div>
     </div>
   </div>

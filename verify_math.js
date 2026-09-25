@@ -155,7 +155,7 @@ const assumpIndSkew = Hypothesis.evaluateAssumptions(skewCohortA, skewCohortB, f
 assert(assumpIndSkew.normality.isParametric === false, `Flags violation of normality for skewed cohort`);
 assert(assumpIndSkew.recommendedTest === 'mannwhitney', `Recommends Mann-Whitney U test for non-parametric data, got ${assumpIndSkew.recommendedTest}`);
 
-console.log('--- Testing ANOVA & Tukey HSD Post-Hoc ---');
+console.log('--- Testing ANOVA & Multi-Group Suite (Welch, Kruskal, RM-ANOVA, Friedman, Levene) ---');
 const anovaRes = Anova.oneWay([
   { name: 'Control', data: [10, 11, 12, 10, 13] },
   { name: 'Low Dose', data: [14, 15, 13, 16, 14] },
@@ -166,6 +166,131 @@ assert(anovaRes.pValue < 0.0001, `ANOVA p-value is highly significant: p = ${ano
 assert(anovaRes.pairwise && anovaRes.pairwise.length === 3, `Tukey HSD computed 3 pairwise comparisons`);
 const ctrlVsHigh = anovaRes.pairwise.find(c => c.comparison === 'Control vs High Dose');
 assert(ctrlVsHigh && ctrlVsHigh.isSignificant && ctrlVsHigh.pValue < 0.001, `Control vs High Dose difference is significant (p < 0.001)`);
+
+// 1. Test Welch's ANOVA on heteroscedastic data (unequal variances)
+const welchRes = Anova.welch([
+  { name: 'Group 1', data: [10, 11, 10, 12, 11] }, // small variance ~0.7
+  { name: 'Group 2', data: [15, 14, 16, 15, 17] }, // moderate variance ~1.3
+  { name: 'Group 3', data: [25, 40, 15, 50, 20] }  // huge variance ~200
+]);
+assert(welchRes.fStatistic > 0, `Welch ANOVA F-statistic computed: ${welchRes.fStatistic.toFixed(2)}`);
+assert(welchRes.df2 > 0, `Welch adjusted df2 computed: ${welchRes.df2.toFixed(2)}`);
+assert(welchRes.pairwise.length === 3, `Games-Howell post-hoc contrasts computed for all 3 pairs`);
+assert(welchRes.pairwise[0].statisticLabel.includes('Games-Howell'), `Games-Howell label verified`);
+
+// 2. Test Kruskal-Wallis H Test on skewed data
+const kruskalRes = Anova.kruskalWallis([
+  { name: 'Cohort A', data: [1.2, 1.5, 1.3, 1.8, 1.4] },
+  { name: 'Cohort B', data: [3.2, 3.5, 3.8, 3.1, 3.6] },
+  { name: 'Cohort C', data: [8.5, 9.2, 14.1, 7.8, 12.0] }
+]);
+assert(kruskalRes.statistic > 10, `Kruskal-Wallis H is large: ${kruskalRes.statistic.toFixed(2)}`);
+assert(kruskalRes.pValue < 0.01, `Kruskal-Wallis p-value is significant: p = ${kruskalRes.pValue.toFixed(4)}`);
+assert(kruskalRes.epsilonSquared > 0.7, `Kruskal-Wallis epsilon-squared > 0.7 (got ${kruskalRes.epsilonSquared.toFixed(3)})`);
+assert(kruskalRes.pairwise.length === 3, `Dunn post-hoc contrasts computed`);
+
+// 3. Test Repeated Measures ANOVA (Paired across 4 timepoints)
+const rmRes = Anova.repeatedMeasures([
+  { name: 'Baseline', data: [100, 105, 98, 110, 102] },
+  { name: 'Day 7', data: [92, 95, 90, 101, 94] },
+  { name: 'Day 30', data: [85, 88, 82, 91, 86] },
+  { name: 'Day 90', data: [76, 79, 74, 82, 77] }
+]);
+assert(rmRes.fStatistic > 50, `RM-ANOVA F-statistic is significant: ${rmRes.fStatistic.toFixed(2)}`);
+assert(rmRes.pValue < 0.0001, `RM-ANOVA p-value < 0.0001`);
+assert(rmRes.matchedN === 5, `Matched sample size N is 5`);
+assert(rmRes.dfTreatment === 3, `Treatment df is 3 (k-1)`);
+assert(rmRes.dfError === 12, `Error df is 12 (N-1)*(k-1)`);
+assert(rmRes.pairwise.length === 6, `Pairwise paired t-tests computed for all 6 combinations`);
+
+// 4. Test Friedman Test (Paired non-parametric across 4 conditions)
+const friedmanRes = Anova.friedman([
+  { name: 'Cond 1', data: [10, 12, 11, 14, 13] },
+  { name: 'Cond 2', data: [15, 18, 17, 20, 19] },
+  { name: 'Cond 3', data: [22, 25, 23, 28, 27] },
+  { name: 'Cond 4', data: [30, 35, 32, 40, 38] }
+]);
+assert(friedmanRes.statistic > 14, `Friedman chi-square is large: ${friedmanRes.statistic.toFixed(2)}`);
+assert(friedmanRes.pValue < 0.01, `Friedman p-value is significant: p = ${friedmanRes.pValue.toFixed(4)}`);
+assert(approx(friedmanRes.kendallsW, 1.0, 1e-2), `Kendalls W is near 1.0 under complete ordering: ${friedmanRes.kendallsW.toFixed(3)}`);
+assert(friedmanRes.pairwise.length === 6, `Wilcoxon post-hoc contrasts computed for all 6 pairs`);
+
+// 5. Test Levene's Test of Homoscedasticity
+const leveneEqual = Anova.leveneTest([
+  { name: 'G1', data: [10, 11, 12, 10, 12] },
+  { name: 'G2', data: [20, 21, 22, 20, 22] },
+  { name: 'G3', data: [30, 31, 32, 30, 32] }
+]);
+assert(leveneEqual.equalVariance === true, `Levene correctly confirms equal variances when SDs match`);
+assert(leveneEqual.pValue > 0.5, `Levene p-value is high for equal variances`);
+
+const leveneUnequal = Anova.leveneTest([
+  { name: 'G1', data: [10, 10.1, 10.2, 9.9, 10.0] }, // SD ~0.1
+  { name: 'G2', data: [20, 25, 15, 30, 10] },        // SD ~7.9
+  { name: 'G3', data: [100, 180, 50, 220, 30] }      // SD ~80
+]);
+assert(leveneUnequal.equalVariance === false, `Levene detects heteroscedasticity (p < 0.05)`);
+assert(leveneUnequal.varianceRatio > 100, `Variance ratio is huge: ${leveneUnequal.varianceRatio.toFixed(1)}x`);
+
+// 6. Test Multi-Group Automated Assumption Engine & Test Recommendation
+// 6a: Independent Normal + Equal Variance -> One-Way ANOVA
+const assumpOneway = Anova.evaluateAssumptions([
+  { name: 'G1', data: [10, 11, 12, 10, 11, 12, 11, 10, 12, 11] },
+  { name: 'G2', data: [14, 15, 16, 14, 15, 16, 15, 14, 16, 15] },
+  { name: 'G3', data: [18, 19, 20, 18, 19, 20, 19, 18, 20, 19] }
+], false);
+assert(assumpOneway.recommendedTest === 'oneway', `Assumption engine recommends oneway for normal equal variance (got ${assumpOneway.recommendedTest})`);
+assert(assumpOneway.rationale.includes("Fisher's One-Way ANOVA"), `Rationale mentions Fisher's ANOVA`);
+
+// 6b: Independent Normal + Unequal Variance -> Welch's ANOVA
+const assumpWelch = Anova.evaluateAssumptions([
+  { name: 'G1', data: [10, 10.1, 10.2, 9.9, 10.0, 10.1, 9.8, 10.2, 10.0, 9.9] },
+  { name: 'G2', data: [14, 15, 16, 14, 15, 16, 15, 14, 16, 15] },
+  { name: 'G3', data: [5, 45, 18, 60, 2, 75, 10, 80, 20, 90] }
+], false);
+assert(assumpWelch.recommendedTest === 'welch', `Assumption engine recommends welch for heteroscedastic data (got ${assumpWelch.recommendedTest})`);
+assert(assumpWelch.rationale.includes("Welch's ANOVA"), `Rationale mentions Welch's ANOVA`);
+
+// 6c: Independent Skewed -> Kruskal-Wallis
+const assumpKruskal = Anova.evaluateAssumptions([
+  { name: 'G1', data: [1, 2, 2, 3, 2, 2, 3, 2, 1, 2, 30] }, // extreme positive outlier
+  { name: 'G2', data: [4, 5, 5, 6, 5, 5, 6, 5, 4, 5] },
+  { name: 'G3', data: [8, 9, 9, 10, 9, 9, 10, 9, 8, 9] }
+], false);
+assert(assumpKruskal.recommendedTest === 'kruskal', `Assumption engine recommends kruskal for skewed cohort (got ${assumpKruskal.recommendedTest})`);
+
+// 6d: Paired Repeated Measures Normal -> RM-ANOVA
+const assumpRM = Anova.evaluateAssumptions([
+  { name: 'T1', data: [10, 12, 14, 11, 13, 12, 15, 11, 13, 12] },
+  { name: 'T2', data: [15, 17, 19, 16, 18, 17, 20, 16, 18, 17] },
+  { name: 'T3', data: [20, 22, 24, 21, 23, 22, 25, 21, 23, 22] }
+], true);
+assert(assumpRM.recommendedTest === 'rm_anova', `Assumption engine recommends rm_anova for paired normal (got ${assumpRM.recommendedTest})`);
+
+// 6e: Paired Repeated Measures Skewed -> Friedman
+const assumpFriedman = Anova.evaluateAssumptions([
+  { name: 'T1', data: [1, 1, 2, 1, 2, 1, 2, 1, 1, 50] },
+  { name: 'T2', data: [5, 6, 7, 5, 6, 5, 6, 5, 6, 5] },
+  { name: 'T3', data: [10, 11, 12, 10, 11, 10, 12, 10, 11, 10] }
+], true);
+assert(assumpFriedman.recommendedTest === 'friedman', `Assumption engine recommends friedman for paired skewed (got ${assumpFriedman.recommendedTest})`);
+
+// 7. Dispatcher test() with override and automatic execution
+const autoDispatch = Anova.test([
+  { name: 'C1', data: [10, 11, 12, 10, 13] },
+  { name: 'C2', data: [14, 15, 13, 16, 14] },
+  { name: 'C3', data: [20, 22, 19, 21, 24] }
+], 'auto', false);
+assert(autoDispatch.executedMethod === 'oneway', `Auto-dispatch chose oneway for clean data`);
+assert(autoDispatch.assumptions !== undefined, `Auto-dispatch included diagnostic assumptions`);
+
+const overrideDispatch = Anova.test([
+  { name: 'C1', data: [10, 11, 12, 10, 13] },
+  { name: 'C2', data: [14, 15, 13, 16, 14] },
+  { name: 'C3', data: [20, 22, 19, 21, 24] }
+], 'kruskal', false);
+assert(overrideDispatch.executedMethod === 'kruskal', `Override successfully executed Kruskal-Wallis when requested`);
+assert(overrideDispatch.assumptions.recommendedTest === 'oneway', `Assumption engine still tracked recommended test`);
 
 console.log('--- Testing Categorical & 2x2 ---');
 // 2x2 table: Treated: 20 diseased / 80 cured; Control: 40 diseased / 60 cured
