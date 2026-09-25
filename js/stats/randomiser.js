@@ -29,10 +29,20 @@ export const Randomiser = {
     const buffer = new Uint32Array(1);
     let rand;
     do {
-      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-        crypto.getRandomValues(buffer);
-      } else {
-        // Fallback warning (for environments without WebCrypto, though modern browsers and Node 18+ have it)
+      let gotRand = false;
+      if (typeof crypto !== 'undefined' && crypto && typeof crypto.getRandomValues === 'function') {
+        try {
+          crypto.getRandomValues(buffer);
+          gotRand = true;
+        } catch (e) {}
+      }
+      if (!gotRand && typeof window !== 'undefined' && window.crypto && typeof window.crypto.getRandomValues === 'function') {
+        try {
+          window.crypto.getRandomValues(buffer);
+          gotRand = true;
+        } catch (e) {}
+      }
+      if (!gotRand) {
         buffer[0] = Math.floor(Math.random() * MAX_UINT32);
       }
       rand = buffer[0];

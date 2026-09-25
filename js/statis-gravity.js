@@ -3963,6 +3963,7 @@ const Psm = {
         smdPost,
         absSmdPost,
         varianceRatioPost: varianceRatio,
+        varRatioPost: varianceRatio,
         percentReduction,
         isBalanced
       });
@@ -7621,9 +7622,20 @@ const DocxReports = {
       const buffer = new Uint32Array(1);
       let rand;
       do {
-        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-          crypto.getRandomValues(buffer);
-        } else {
+        let gotRand = false;
+        if (typeof crypto !== 'undefined' && crypto && typeof crypto.getRandomValues === 'function') {
+          try {
+            crypto.getRandomValues(buffer);
+            gotRand = true;
+          } catch (e) {}
+        }
+        if (!gotRand && typeof window !== 'undefined' && window.crypto && typeof window.crypto.getRandomValues === 'function') {
+          try {
+            window.crypto.getRandomValues(buffer);
+            gotRand = true;
+          } catch (e) {}
+        }
+        if (!gotRand) {
           buffer[0] = Math.floor(Math.random() * MAX_UINT32);
         }
         rand = buffer[0];
@@ -11461,10 +11473,10 @@ const DocxReports = {
       this.initEngines();
       this.initAnovaGroups();
       this.bindEvents();
-      this.loadInitialData();
-      this.initRandomiser();
-      this.initPsm();
-      this.initMultivariate();
+      try { this.initRandomiser(); } catch (err) { console.error('Error in initRandomiser:', err); }
+      try { this.initPsm(); } catch (err) { console.error('Error in initPsm:', err); }
+      try { this.initMultivariate(); } catch (err) { console.error('Error in initMultivariate:', err); }
+      try { this.loadInitialData(); } catch (err) { console.error('Error in loadInitialData:', err); }
     }
 
     applyTheme(theme) {
@@ -13410,6 +13422,7 @@ const DocxReports = {
       const studyGrid = document.getElementById('catStudyMetrics');
       const reportTitle = document.getElementById('catReportHeaderTitle');
 
+      let res;
       if (mode === 'diagnostic') {
         if (cornerHeader) cornerHeader.innerText = 'Test \\ Ref';
         if (col1Header) col1Header.innerText = 'Gold Standard (+)';
@@ -13425,7 +13438,7 @@ const DocxReports = {
         if (studyGrid) studyGrid.style.display = 'none';
         if (reportTitle) reportTitle.innerText = 'Diagnostic Performance & Accuracy Report (STARD compliant)';
 
-        const res = Diagnostic.evaluate2x2(a, b, c, d);
+        res = Diagnostic.evaluate2x2(a, b, c, d);
         if (res.error) {
           document.getElementById('catReportText').innerText = res.error;
           return;
@@ -13490,7 +13503,7 @@ const DocxReports = {
         if (studyGrid) studyGrid.style.display = 'grid';
         if (reportTitle) reportTitle.innerText = 'Epidemiological & Clinical Risk Report';
 
-        const res = Categorical.twoByTwo(a, b, c, d);
+        res = Categorical.twoByTwo(a, b, c, d);
         if (res.error) {
           document.getElementById('catReportText').innerText = res.error;
           return;
@@ -15280,22 +15293,35 @@ const DocxReports = {
     }
 
     generateSimpleAllocationAction() {
-      const pid = this.randomiserState.simple.nextId;
-      const record = Randomiser.generateSimpleAllocation({
-        participantId: pid,
-        labelA: this.randomiserState.simple.labelA,
-        labelB: this.randomiserState.simple.labelB
-      });
+      try {
+        if (!this.randomiserState || !this.randomiserState.simple) {
+          this.initRandomiser();
+        }
+        const sNextIdEl = document.getElementById('randomiserSimpleNextId');
+        if (sNextIdEl) {
+          const parsed = parseInt(sNextIdEl.value, 10);
+          if (!isNaN(parsed) && parsed >= 1) {
+            this.randomiserState.simple.nextId = parsed;
+          }
+        }
+        const pid = this.randomiserState.simple.nextId;
+        const record = Randomiser.generateSimpleAllocation({
+          participantId: pid,
+          labelA: this.randomiserState.simple.labelA || 'Group A (Treatment)',
+          labelB: this.randomiserState.simple.labelB || 'Group B (Control)'
+        });
 
-      this.randomiserState.simple.history.push(record);
-      this.randomiserState.simple.nextId += 1;
+        this.randomiserState.simple.history.push(record);
+        this.randomiserState.simple.nextId += 1;
 
-      const sNextIdEl = document.getElementById('randomiserSimpleNextId');
-      if (sNextIdEl) sNextIdEl.value = this.randomiserState.simple.nextId;
+        if (sNextIdEl) sNextIdEl.value = this.randomiserState.simple.nextId;
 
-      this.saveRandomiserState('simple');
-      this.updateRandomiserSimpleUI(record);
-      this.renderRandomiserAuditTable();
+        this.saveRandomiserState('simple');
+        this.updateRandomiserSimpleUI(record);
+        this.renderRandomiserAuditTable();
+      } catch (err) {
+        console.error('Error generating simple allocation:', err);
+      }
     }
 
     updateRandomiserSimpleUI(lastRecord = null) {
@@ -15366,24 +15392,31 @@ const DocxReports = {
     }
 
     assignBlockAllocationAction() {
-      const pid = this.randomiserState.block.nextId;
-      const res = Randomiser.assignNextInBlock(
-        this.randomiserState.block.activeBlock,
-        pid,
-        {
-          blockSize: this.randomiserState.block.blockSize,
-          labelA: this.randomiserState.block.labelA,
-          labelB: this.randomiserState.block.labelB
+      try {
+        if (!this.randomiserState || !this.randomiserState.block) {
+          this.initRandomiser();
         }
-      );
+        const pid = this.randomiserState.block.nextId;
+        const res = Randomiser.assignNextInBlock(
+          this.randomiserState.block.activeBlock,
+          pid,
+          {
+            blockSize: this.randomiserState.block.blockSize,
+            labelA: this.randomiserState.block.labelA || 'Group A (Intervention)',
+            labelB: this.randomiserState.block.labelB || 'Group B (Control)'
+          }
+        );
 
-      this.randomiserState.block.activeBlock = res.updatedBlock;
-      this.randomiserState.block.history.push(res.allocationRecord);
-      this.randomiserState.block.nextId += 1;
+        this.randomiserState.block.activeBlock = res.updatedBlock;
+        this.randomiserState.block.history.push(res.allocationRecord);
+        this.randomiserState.block.nextId += 1;
 
-      this.saveRandomiserState('block');
-      this.updateRandomiserBlockUI(res.allocationRecord);
-      this.renderRandomiserAuditTable();
+        this.saveRandomiserState('block');
+        this.updateRandomiserBlockUI(res.allocationRecord);
+        this.renderRandomiserAuditTable();
+      } catch (err) {
+        console.error('Error assigning block allocation:', err);
+      }
     }
 
     updateRandomiserBlockUI(lastRecord = null) {
@@ -15958,13 +15991,17 @@ const DocxReports = {
             ? `<span class="badge badge-sig" style="font-size: 0.70rem;">✓ Balanced (&lt; 0.10)</span>`
             : `<span class="badge badge-danger" style="font-size: 0.70rem;">⚠ Imbalance (&gt; 0.10)</span>`;
 
+          const vrVal = (row.varianceRatioPost != null && isFinite(row.varianceRatioPost))
+            ? row.varianceRatioPost.toFixed(2)
+            : ((row.varRatioPost != null && isFinite(row.varRatioPost)) ? row.varRatioPost.toFixed(2) : '--');
+
           tr.innerHTML = `
             <td style="font-weight: 600;">${row.covariate}</td>
             <td>${row.meanTreatedPre.toFixed(2)} vs ${row.meanControlPre.toFixed(2)}</td>
             <td style="color: #f43f5e; font-weight: 600;">${row.smdPre.toFixed(3)}</td>
             <td>${row.meanTreatedPost.toFixed(2)} vs ${row.meanControlPost.toFixed(2)}</td>
             <td style="color: #10b981; font-weight: 700;">${row.smdPost.toFixed(3)}</td>
-            <td>${row.varRatioPost.toFixed(2)}</td>
+            <td>${vrVal}</td>
             <td style="color: ${row.percentReduction >= 0 ? '#10b981' : '#f43f5e'}; font-weight: 600;">${row.percentReduction.toFixed(1)}%</td>
             <td>${statusBadge}</td>
           `;

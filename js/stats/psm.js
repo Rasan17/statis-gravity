@@ -525,6 +525,7 @@ export const Psm = {
         smdPost,
         absSmdPost,
         varianceRatioPost: varianceRatio,
+        varRatioPost: varianceRatio,
         percentReduction,
         isBalanced
       });
