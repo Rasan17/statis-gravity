@@ -43,11 +43,14 @@
 
     <!-- Navigation Tabs -->
     <nav class="nav-tab-bar" aria-label="Statistical Analysis Categories">
-      <button class="tab-btn active" data-target="tab-descriptive">
-        📊 Descriptive Stats
+      <button class="tab-btn active" data-target="tab-power">
+        ⚡ Sample Size &amp; Power
       </button>
       <button class="tab-btn" data-target="tab-randomiser">
         🎲 Randomiser
+      </button>
+      <button class="tab-btn" data-target="tab-descriptive">
+        📊 Descriptive Stats
       </button>
       <button class="tab-btn" data-target="tab-hypothesis">
         ⚖️ Hypothesis Testing
@@ -64,9 +67,6 @@
       <button class="tab-btn" data-target="tab-diagnostic">
         🎯 Diagnostic &amp; ROC
       </button>
-      <button class="tab-btn" data-target="tab-power">
-        ⚡ Sample Size &amp; Power
-      </button>
       <button class="tab-btn" data-target="tab-teaching">
         🎓 Teaching
       </button>
@@ -77,152 +77,181 @@
 
     <!-- Tab Panels Container -->
     <main class="tab-content">
-      <!-- 1. Descriptive Stats Tab -->
-      <section id="tab-descriptive" class="tab-pane active">
+      <!-- 1. Sample Size & Power Tab -->
+      <section id="tab-power" class="tab-pane active">
         <div class="tab-pane-toolbar">
-          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="descriptive" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="power" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
         </div>
         <div class="analysis-grid">
           <div class="card">
-            <div class="card-header">
+            <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
               <div>
-                <h2 class="card-title">Dataset Input</h2>
-                <p class="card-subtitle">Paste numeric values or load clinical sample</p>
-              </div>
-              <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center;">
-                <button id="descSampleBtn" class="btn btn-secondary btn-sm">Normal Sample</button>
-                <button id="descOutlierSampleBtn" class="btn btn-secondary btn-sm" title="Load sample with positive skew and mild/extreme outliers">Sample Skew &amp; Outliers</button>
+                <h2 class="card-title">Power &amp; Sample Size Determination</h2>
+                <p id="pwrSubtitle" class="card-subtitle">A-priori sample size planning &amp; post-hoc power calculation</p>
               </div>
             </div>
-            <div class="form-group">
-              <label class="form-label" for="descInput">Numeric Series (comma or newline separated):</label>
-              <textarea id="descInput" class="form-control" rows="8" placeholder="10.2, 11.5, 9.8, 12.1..."></textarea>
+
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label for="pwrStudyDesign" class="form-label" style="font-weight: 600; color: var(--text-main);">Study Design &amp; Statistical Test:</label>
+              <select id="pwrStudyDesign" class="form-control" style="font-weight: 600; cursor: pointer; background: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.45rem 0.75rem;">
+                <option value="independent" selected>Two Independent Groups (Two-Sample t-Test)</option>
+                <option value="paired">Paired Mean Study Design (Before vs After / Paired t-Test)</option>
+                <option value="contingency">Clinical Study: Test vs Control (2x2 Contingency: Chi-Square / Fisher's Exact)</option>
+              </select>
             </div>
-            <button id="descComputeBtn" class="btn btn-primary" style="width: 100%;">Calculate Descriptive Statistics</button>
+
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+              <label for="pwrCalcGoal" class="form-label" style="font-weight: 600; color: var(--text-main);">Calculation Objective:</label>
+              <select id="pwrCalcGoal" class="form-control" style="font-weight: 600; cursor: pointer; background: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.45rem 0.75rem;">
+                <option value="sample_size" selected>Find Required Sample Size (A-Priori, Given Desired Power)</option>
+                <option value="power">Find Statistical Power (Post-Hoc / Sensitivity, Given Available Sample Size N)</option>
+              </select>
+            </div>
+
+            <!-- 1. Independent Means Input Panel -->
+            <div id="pwrSectionIndep">
+              <div class="input-row">
+                <div class="form-group">
+                  <label class="form-label" for="pwrM1">Expected Mean 1 (Control):</label>
+                  <input id="pwrM1" type="number" class="form-control" value="10" step="0.5">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="pwrM2">Expected Mean 2 (Intervention):</label>
+                  <input id="pwrM2" type="number" class="form-control" value="15" step="0.5">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="pwrSD">Standard Deviation (Pooled SD):</label>
+                <input id="pwrSD" type="number" class="form-control" value="10" step="0.5">
+              </div>
+            </div>
+
+            <!-- 2. Paired Means Input Panel -->
+            <div id="pwrSectionPaired" style="display: none;">
+              <div class="input-row">
+                <div class="form-group">
+                  <label class="form-label" for="pwrPairedM1">Baseline Mean (Pre / Control):</label>
+                  <input id="pwrPairedM1" type="number" class="form-control" value="120" step="1">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="pwrPairedM2">Post-Intervention Mean:</label>
+                  <input id="pwrPairedM2" type="number" class="form-control" value="112" step="1">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="pwrPairedSD">Standard Deviation of Paired Differences (σ<sub>d</sub>):</label>
+                <input id="pwrPairedSD" type="number" class="form-control" value="10" step="0.5">
+                <span class="card-subtitle" style="font-size: 0.72rem; margin-top: 3px; display: block;">SD of intra-individual differences (D = X<sub>post</sub> - X<sub>pre</sub>) across matched pairs.</span>
+              </div>
+            </div>
+
+            <!-- 3. 2x2 Contingency Proportions Input Panel -->
+            <div id="pwrSectionContingency" style="display: none;">
+              <div class="input-row">
+                <div class="form-group">
+                  <label class="form-label" for="pwrP1">Test Group Event Rate (p<sub>1</sub>):</label>
+                  <input id="pwrP1" type="number" class="form-control" value="0.15" min="0.01" max="0.99" step="0.01">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="pwrP2">Control Group Event Rate (p<sub>2</sub>):</label>
+                  <input id="pwrP2" type="number" class="form-control" value="0.30" min="0.01" max="0.99" step="0.01">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="pwrPropTestType">Planned 2x2 Statistical Hypothesis Test:</label>
+                <select id="pwrPropTestType" class="form-control">
+                  <option value="chisq" selected>Pearson Chi-Square Test (Standard asymptotic)</option>
+                  <option value="fisher">Fisher's Exact Test / Continuity-Corrected Chi-Square</option>
+                </select>
+                <span class="card-subtitle" style="font-size: 0.72rem; margin-top: 3px; display: block;">Computes sample size for 2x2 contingency analysis (incorporating Casagrande-Pike-Smith / Fleiss continuity correction for Fisher's exact test).</span>
+              </div>
+            </div>
+
+            <!-- Common Parameters -->
+            <div class="input-row">
+              <div class="form-group">
+                <label class="form-label" for="pwrAlpha">Significance Level (α):</label>
+                <select id="pwrAlpha" class="form-control">
+                  <option value="0.05" selected>α = 0.05 (Two-sided)</option>
+                  <option value="0.01">α = 0.01 (Two-sided)</option>
+                  <option value="0.10">α = 0.10 (Two-sided)</option>
+                </select>
+              </div>
+
+              <div id="pwrTargetPowerGroup" class="form-group">
+                <label class="form-label" for="pwrPower">Desired Statistical Power (1 - β):</label>
+                <select id="pwrPower" class="form-control">
+                  <option value="0.80" selected>80% Power (β = 0.20)</option>
+                  <option value="0.85">85% Power (β = 0.15)</option>
+                  <option value="0.90">90% Power (β = 0.10)</option>
+                  <option value="0.95">95% Power (β = 0.05)</option>
+                </select>
+              </div>
+
+              <div id="pwrGivenNGroup" class="form-group" style="display: none;">
+                <label id="pwrGivenNLabel" class="form-label" for="pwrGivenN">Available Sample Size per Group (n):</label>
+                <input id="pwrGivenN" type="number" class="form-control" value="50" min="2" step="1">
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+              <button id="powerComputeBtn" class="btn btn-primary" style="flex: 2;">Calculate</button>
+              <button id="powerSampleBtn" class="btn btn-secondary" style="flex: 1;">Load Preset</button>
+            </div>
           </div>
 
           <div>
-            <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+            <div class="metrics-grid">
               <div class="metric-card">
-                <div class="metric-label">Sample Size (n)</div>
-                <div id="descN" class="metric-value">--</div>
-                <div id="descRange" class="metric-sub">Range: --</div>
+                <div id="pwrEffectLabel" class="metric-label">Effect Size (Cohen's d)</div>
+                <div id="pwrD" class="metric-value">--</div>
+                <div id="pwrEffectSub" class="metric-sub">Standardized contrast</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">Mean (M)</div>
-                <div id="descMean" class="metric-value">--</div>
-                <div id="descSDSub" class="metric-sub">SD: ±--</div>
+                <div id="pwrNGroupLabel" class="metric-label">Sample Size per Group (n)</div>
+                <div id="pwrNGroup" class="metric-value" style="color: var(--cyan-primary);">--</div>
+                <div id="pwrNGroupSub" class="metric-sub">Equal 1:1 allocation</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">Median (50%)</div>
-                <div id="descMedian" class="metric-value">--</div>
-                <div class="metric-sub">50th Percentile</div>
+                <div id="pwrNTotalLabel" class="metric-label">Total Sample Size (N)</div>
+                <div id="pwrNTotal" class="metric-value" style="color: var(--emerald-primary);">--</div>
+                <div id="pwrNTotalSub" class="metric-sub">Total study enrollment</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">Mode</div>
-                <div id="descMode" class="metric-value" style="font-size: 0.95rem;">--</div>
-                <div id="descModeSub" class="metric-sub">--</div>
+                <div class="metric-label">Statistical Power (1 - β)</div>
+                <div id="pwrAchievedPower" class="metric-value" style="color: var(--accent);">--</div>
+                <div id="pwrPowerSub" class="metric-sub">1 - Type II error rate</div>
               </div>
-              <div class="metric-card">
-                <div class="metric-label">Interquartile Range (IQR)</div>
-                <div id="descIQR" class="metric-value" style="color: var(--cyan-primary);">--</div>
-                <div id="descIQRSub" class="metric-sub">Q1: -- | Q3: --</div>
+              <div id="pwrCardFisher" class="metric-card" style="display: none;">
+                <div class="metric-label">Fisher's Exact / CC Sample Size</div>
+                <div id="pwrFisherN" class="metric-value" style="font-size: 0.95rem;">--</div>
+                <div id="pwrFisherSub" class="metric-sub">Fleiss / Casagrande-Pike-Smith</div>
               </div>
-              <div class="metric-card">
-                <div class="metric-label">Std Dev (SD)</div>
-                <div id="descSD" class="metric-value">--</div>
-                <div id="descVar" class="metric-sub">Var: --</div>
-              </div>
-              <div class="metric-card">
-                <div class="metric-label">95% CI for Mean</div>
-                <div id="descCI95" class="metric-value" style="font-size: 0.9rem;">[--, --]</div>
-                <div id="descSEM" class="metric-sub">SEM: --</div>
-              </div>
-              <div class="metric-card">
-                <div class="metric-label">Skewness (G₁)</div>
-                <div id="descSkewnessVal" class="metric-value" style="font-size: 0.95rem;">--</div>
-                <div id="descSkewnessSub" class="metric-sub">--</div>
-              </div>
-              <div class="metric-card">
-                <div class="metric-label">Kurtosis (Excess G₂)</div>
-                <div id="descKurtosisVal" class="metric-value" style="font-size: 0.95rem;">--</div>
-                <div id="descKurtosisSub" class="metric-sub">--</div>
-              </div>
-              <div class="metric-card">
-                <div class="metric-label">Outliers (Tukey's)</div>
-                <div id="descOutliersVal" class="metric-value" style="font-size: 0.95rem;">--</div>
-                <div id="descOutliersSub" class="metric-sub">--</div>
-              </div>
-              <div class="metric-card">
-                <div class="metric-label" title="Jarque-Bera Omnibus Test of Normality (Skewness & Kurtosis)">Normality Test (Jarque-Bera)</div>
-                <div id="descNormality" class="metric-value" style="font-size: 0.9rem;">--</div>
-                <div id="descNormalitySub" class="metric-sub">JB Stat: -- | p = --</div>
-                <div id="descSkewness" style="display: none;"></div>
+              <div id="pwrCardClinicalRisk" class="metric-card" style="display: none;">
+                <div class="metric-label">Clinical Risk Profile</div>
+                <div id="pwrClinicalRisk" class="metric-value" style="font-size: 0.88rem;">--</div>
+                <div id="pwrClinicalRiskSub" class="metric-sub">ARR, RR &amp; NNT</div>
               </div>
             </div>
 
-            <!-- Outlier & Shape Diagnostics Banner -->
-            <div id="descDiagBanner" style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 0.85rem 1rem; margin-top: 1rem; margin-bottom: 1.25rem; display: none;">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-                <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim);">Distribution Diagnostics &amp; Anomaly Detection</span>
-                <span id="descDiagBadge" class="badge">--</span>
-              </div>
-              <div id="descDiagTitle" style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">--</div>
-              <p id="descDiagDetail" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0;">--</p>
-            </div>
-
-            <!-- 1. Frequency Distribution Histogram -->
-            <div class="chart-container">
-              <div class="chart-header">
-                <div>
-                  <span class="card-title">Frequency Distribution &amp; Normal Curve Fit</span>
-                  <span style="font-size: 0.72rem; color: var(--text-dim); margin-left: 0.5rem;">Binned Histogram &amp; Parametric Gaussian Fit</span>
-                </div>
-                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="descCanvas">Save PNG</button>
-              </div>
-              <canvas id="descCanvas" class="chart-canvas"></canvas>
-            </div>
-
-            <!-- 2 & 3: Box-and-Whisker Plot & Violin Plot (Dual Column Grid) -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; margin-top: 1.25rem;">
-              <div class="chart-container" style="margin-bottom: 0;">
-                <div class="chart-header">
-                  <div>
-                    <span class="card-title">Box &amp; Whiskers Plot</span>
-                    <span style="font-size: 0.72rem; color: var(--text-dim); display: block;">Median, IQR Box, Tukey Fences &amp; Outliers</span>
-                  </div>
-                  <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="descBoxCanvas">Save PNG</button>
-                </div>
-                <canvas id="descBoxCanvas" class="chart-canvas"></canvas>
-              </div>
-
-              <div class="chart-container" style="margin-bottom: 0;">
-                <div class="chart-header">
-                  <div>
-                    <span class="card-title">Violin Density Plot</span>
-                    <span style="font-size: 0.72rem; color: var(--text-dim); display: block;">Kernel Density Estimation (KDE) &amp; Quartiles</span>
-                  </div>
-                  <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="descViolinCanvas">Save PNG</button>
-                </div>
-                <canvas id="descViolinCanvas" class="chart-canvas"></canvas>
-              </div>
-            </div>
-
-            <div class="report-box" style="margin-top: 1.25rem;">
+            <div class="report-box" style="margin-top: 1rem;">
               <div class="report-title">
-                <span>Descriptive Statistical Summary (ICMJE &amp; APA Ready)</span>
+                <span id="pwrReportTitle">Study Protocol Justification (Grant / Ethics / IRB Ready)</span>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
-                  <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="descReportText">Copy</button>
-                  <button class="btn btn-primary btn-sm btn-export-docx" data-tab="descriptive" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+                  <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="pwrReportText">Copy</button>
+                  <button class="btn btn-primary btn-sm btn-export-docx" data-tab="power" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
                 </div>
               </div>
-              <p id="descReportText" class="report-text">--</p>
+              <p id="pwrReportText" class="report-text">--</p>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- 1.5 Clinical & Research Randomisation Tab -->
+      <!-- 2. Randomiser Tab -->
       <section id="tab-randomiser" class="tab-pane">
         <div class="tab-pane-toolbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.25rem;">
           <div>
@@ -579,7 +608,152 @@
         </div>
       </section>
 
-      <!-- 2. Hypothesis Testing Tab -->
+      <!-- 3. Descriptive Stats Tab -->
+      <section id="tab-descriptive" class="tab-pane">
+        <div class="tab-pane-toolbar">
+          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="descriptive" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+        </div>
+        <div class="analysis-grid">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Dataset Input</h2>
+                <p class="card-subtitle">Paste numeric values or load clinical sample</p>
+              </div>
+              <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center;">
+                <button id="descSampleBtn" class="btn btn-secondary btn-sm">Normal Sample</button>
+                <button id="descOutlierSampleBtn" class="btn btn-secondary btn-sm" title="Load sample with positive skew and mild/extreme outliers">Sample Skew &amp; Outliers</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="descInput">Numeric Series (comma or newline separated):</label>
+              <textarea id="descInput" class="form-control" rows="8" placeholder="10.2, 11.5, 9.8, 12.1..."></textarea>
+            </div>
+            <button id="descComputeBtn" class="btn btn-primary" style="width: 100%;">Calculate Descriptive Statistics</button>
+          </div>
+
+          <div>
+            <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+              <div class="metric-card">
+                <div class="metric-label">Sample Size (n)</div>
+                <div id="descN" class="metric-value">--</div>
+                <div id="descRange" class="metric-sub">Range: --</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Mean (M)</div>
+                <div id="descMean" class="metric-value">--</div>
+                <div id="descSDSub" class="metric-sub">SD: ±--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Median (50%)</div>
+                <div id="descMedian" class="metric-value">--</div>
+                <div class="metric-sub">50th Percentile</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Mode</div>
+                <div id="descMode" class="metric-value" style="font-size: 0.95rem;">--</div>
+                <div id="descModeSub" class="metric-sub">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Interquartile Range (IQR)</div>
+                <div id="descIQR" class="metric-value" style="color: var(--cyan-primary);">--</div>
+                <div id="descIQRSub" class="metric-sub">Q1: -- | Q3: --</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Std Dev (SD)</div>
+                <div id="descSD" class="metric-value">--</div>
+                <div id="descVar" class="metric-sub">Var: --</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">95% CI for Mean</div>
+                <div id="descCI95" class="metric-value" style="font-size: 0.9rem;">[--, --]</div>
+                <div id="descSEM" class="metric-sub">SEM: --</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Skewness (G₁)</div>
+                <div id="descSkewnessVal" class="metric-value" style="font-size: 0.95rem;">--</div>
+                <div id="descSkewnessSub" class="metric-sub">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Kurtosis (Excess G₂)</div>
+                <div id="descKurtosisVal" class="metric-value" style="font-size: 0.95rem;">--</div>
+                <div id="descKurtosisSub" class="metric-sub">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Outliers (Tukey's)</div>
+                <div id="descOutliersVal" class="metric-value" style="font-size: 0.95rem;">--</div>
+                <div id="descOutliersSub" class="metric-sub">--</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label" title="Jarque-Bera Omnibus Test of Normality (Skewness & Kurtosis)">Normality Test (Jarque-Bera)</div>
+                <div id="descNormality" class="metric-value" style="font-size: 0.9rem;">--</div>
+                <div id="descNormalitySub" class="metric-sub">JB Stat: -- | p = --</div>
+                <div id="descSkewness" style="display: none;"></div>
+              </div>
+            </div>
+
+            <!-- Outlier & Shape Diagnostics Banner -->
+            <div id="descDiagBanner" style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 0.85rem 1rem; margin-top: 1rem; margin-bottom: 1.25rem; display: none;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim);">Distribution Diagnostics &amp; Anomaly Detection</span>
+                <span id="descDiagBadge" class="badge">--</span>
+              </div>
+              <div id="descDiagTitle" style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">--</div>
+              <p id="descDiagDetail" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0;">--</p>
+            </div>
+
+            <!-- 1. Frequency Distribution Histogram -->
+            <div class="chart-container">
+              <div class="chart-header">
+                <div>
+                  <span class="card-title">Frequency Distribution &amp; Normal Curve Fit</span>
+                  <span style="font-size: 0.72rem; color: var(--text-dim); margin-left: 0.5rem;">Binned Histogram &amp; Parametric Gaussian Fit</span>
+                </div>
+                <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="descCanvas">Save PNG</button>
+              </div>
+              <canvas id="descCanvas" class="chart-canvas"></canvas>
+            </div>
+
+            <!-- 2 & 3: Box-and-Whisker Plot & Violin Plot (Dual Column Grid) -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; margin-top: 1.25rem;">
+              <div class="chart-container" style="margin-bottom: 0;">
+                <div class="chart-header">
+                  <div>
+                    <span class="card-title">Box &amp; Whiskers Plot</span>
+                    <span style="font-size: 0.72rem; color: var(--text-dim); display: block;">Median, IQR Box, Tukey Fences &amp; Outliers</span>
+                  </div>
+                  <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="descBoxCanvas">Save PNG</button>
+                </div>
+                <canvas id="descBoxCanvas" class="chart-canvas"></canvas>
+              </div>
+
+              <div class="chart-container" style="margin-bottom: 0;">
+                <div class="chart-header">
+                  <div>
+                    <span class="card-title">Violin Density Plot</span>
+                    <span style="font-size: 0.72rem; color: var(--text-dim); display: block;">Kernel Density Estimation (KDE) &amp; Quartiles</span>
+                  </div>
+                  <button class="btn btn-secondary btn-sm btn-save-plot" data-canvas-id="descViolinCanvas">Save PNG</button>
+                </div>
+                <canvas id="descViolinCanvas" class="chart-canvas"></canvas>
+              </div>
+            </div>
+
+            <div class="report-box" style="margin-top: 1.25rem;">
+              <div class="report-title">
+                <span>Descriptive Statistical Summary (ICMJE &amp; APA Ready)</span>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="descReportText">Copy</button>
+                  <button class="btn btn-primary btn-sm btn-export-docx" data-tab="descriptive" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
+                </div>
+              </div>
+              <p id="descReportText" class="report-text">--</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Hypothesis Testing Tab -->
       <section id="tab-hypothesis" class="tab-pane">
         <div class="tab-pane-toolbar">
           <button class="btn btn-primary btn-sm btn-export-docx" data-tab="hypothesis" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
@@ -758,7 +932,7 @@
         </div>
       </section>
 
-      <!-- 3. ANOVA Tab -->
+      <!-- 5. ANOVA Tab -->
       <section id="tab-anova" class="tab-pane">
         <div class="tab-pane-toolbar">
           <button class="btn btn-primary btn-sm btn-export-docx" data-tab="anova" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
@@ -877,7 +1051,7 @@
         </div>
       </section>
 
-      <!-- 4. Categorical & 2x2 Tab -->
+      <!-- 6. Categorical & 2x2 Tab -->
       <section id="tab-categorical" class="tab-pane">
         <div class="tab-pane-toolbar">
           <button class="btn btn-primary btn-sm btn-export-docx" data-tab="categorical" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
@@ -1019,7 +1193,7 @@
         </div>
       </section>
 
-      <!-- 5. Correlation & Regression Tab -->
+      <!-- 7. Correlation & Regression Tab -->
       <section id="tab-correlation" class="tab-pane">
         <div class="tab-pane-toolbar">
           <button class="btn btn-primary btn-sm btn-export-docx" data-tab="correlation" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
@@ -1140,7 +1314,7 @@
         </div>
       </section>
 
-      <!-- 6. Diagnostic & ROC Tab -->
+      <!-- 8. Diagnostic & ROC Tab -->
       <section id="tab-diagnostic" class="tab-pane">
         <div class="tab-pane-toolbar">
           <button class="btn btn-primary btn-sm btn-export-docx" data-tab="diagnostic" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
@@ -1215,181 +1389,7 @@
         </div>
       </section>
 
-      <!-- 7. Sample Size & Power Tab -->
-      <section id="tab-power" class="tab-pane">
-        <div class="tab-pane-toolbar">
-          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="power" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
-        </div>
-        <div class="analysis-grid">
-          <div class="card">
-            <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
-              <div>
-                <h2 class="card-title">Power &amp; Sample Size Determination</h2>
-                <p id="pwrSubtitle" class="card-subtitle">A-priori sample size planning &amp; post-hoc power calculation</p>
-              </div>
-            </div>
-
-            <div class="form-group" style="margin-bottom: 1rem;">
-              <label for="pwrStudyDesign" class="form-label" style="font-weight: 600; color: var(--text-main);">Study Design &amp; Statistical Test:</label>
-              <select id="pwrStudyDesign" class="form-control" style="font-weight: 600; cursor: pointer; background: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.45rem 0.75rem;">
-                <option value="independent" selected>Two Independent Groups (Two-Sample t-Test)</option>
-                <option value="paired">Paired Mean Study Design (Before vs After / Paired t-Test)</option>
-                <option value="contingency">Clinical Study: Test vs Control (2x2 Contingency: Chi-Square / Fisher's Exact)</option>
-              </select>
-            </div>
-
-            <div class="form-group" style="margin-bottom: 1.25rem;">
-              <label for="pwrCalcGoal" class="form-label" style="font-weight: 600; color: var(--text-main);">Calculation Objective:</label>
-              <select id="pwrCalcGoal" class="form-control" style="font-weight: 600; cursor: pointer; background: var(--bg-surface-elevated); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.45rem 0.75rem;">
-                <option value="sample_size" selected>Find Required Sample Size (A-Priori, Given Desired Power)</option>
-                <option value="power">Find Statistical Power (Post-Hoc / Sensitivity, Given Available Sample Size N)</option>
-              </select>
-            </div>
-
-            <!-- 1. Independent Means Input Panel -->
-            <div id="pwrSectionIndep">
-              <div class="input-row">
-                <div class="form-group">
-                  <label class="form-label" for="pwrM1">Expected Mean 1 (Control):</label>
-                  <input id="pwrM1" type="number" class="form-control" value="10" step="0.5">
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="pwrM2">Expected Mean 2 (Intervention):</label>
-                  <input id="pwrM2" type="number" class="form-control" value="15" step="0.5">
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="pwrSD">Standard Deviation (Pooled SD):</label>
-                <input id="pwrSD" type="number" class="form-control" value="10" step="0.5">
-              </div>
-            </div>
-
-            <!-- 2. Paired Means Input Panel -->
-            <div id="pwrSectionPaired" style="display: none;">
-              <div class="input-row">
-                <div class="form-group">
-                  <label class="form-label" for="pwrPairedM1">Baseline Mean (Pre / Control):</label>
-                  <input id="pwrPairedM1" type="number" class="form-control" value="120" step="1">
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="pwrPairedM2">Post-Intervention Mean:</label>
-                  <input id="pwrPairedM2" type="number" class="form-control" value="112" step="1">
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="pwrPairedSD">Standard Deviation of Paired Differences (σ<sub>d</sub>):</label>
-                <input id="pwrPairedSD" type="number" class="form-control" value="10" step="0.5">
-                <span class="card-subtitle" style="font-size: 0.72rem; margin-top: 3px; display: block;">SD of intra-individual differences (D = X<sub>post</sub> - X<sub>pre</sub>) across matched pairs.</span>
-              </div>
-            </div>
-
-            <!-- 3. 2x2 Contingency Proportions Input Panel -->
-            <div id="pwrSectionContingency" style="display: none;">
-              <div class="input-row">
-                <div class="form-group">
-                  <label class="form-label" for="pwrP1">Test Group Event Rate (p<sub>1</sub>):</label>
-                  <input id="pwrP1" type="number" class="form-control" value="0.15" min="0.01" max="0.99" step="0.01">
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="pwrP2">Control Group Event Rate (p<sub>2</sub>):</label>
-                  <input id="pwrP2" type="number" class="form-control" value="0.30" min="0.01" max="0.99" step="0.01">
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="pwrPropTestType">Planned 2x2 Statistical Hypothesis Test:</label>
-                <select id="pwrPropTestType" class="form-control">
-                  <option value="chisq" selected>Pearson Chi-Square Test (Standard asymptotic)</option>
-                  <option value="fisher">Fisher's Exact Test / Continuity-Corrected Chi-Square</option>
-                </select>
-                <span class="card-subtitle" style="font-size: 0.72rem; margin-top: 3px; display: block;">Computes sample size for 2x2 contingency analysis (incorporating Casagrande-Pike-Smith / Fleiss continuity correction for Fisher's exact test).</span>
-              </div>
-            </div>
-
-            <!-- Common Parameters -->
-            <div class="input-row">
-              <div class="form-group">
-                <label class="form-label" for="pwrAlpha">Significance Level (α):</label>
-                <select id="pwrAlpha" class="form-control">
-                  <option value="0.05" selected>α = 0.05 (Two-sided)</option>
-                  <option value="0.01">α = 0.01 (Two-sided)</option>
-                  <option value="0.10">α = 0.10 (Two-sided)</option>
-                </select>
-              </div>
-
-              <div id="pwrTargetPowerGroup" class="form-group">
-                <label class="form-label" for="pwrPower">Desired Statistical Power (1 - β):</label>
-                <select id="pwrPower" class="form-control">
-                  <option value="0.80" selected>80% Power (β = 0.20)</option>
-                  <option value="0.85">85% Power (β = 0.15)</option>
-                  <option value="0.90">90% Power (β = 0.10)</option>
-                  <option value="0.95">95% Power (β = 0.05)</option>
-                </select>
-              </div>
-
-              <div id="pwrGivenNGroup" class="form-group" style="display: none;">
-                <label id="pwrGivenNLabel" class="form-label" for="pwrGivenN">Available Sample Size per Group (n):</label>
-                <input id="pwrGivenN" type="number" class="form-control" value="50" min="2" step="1">
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-              <button id="powerComputeBtn" class="btn btn-primary" style="flex: 2;">Calculate</button>
-              <button id="powerSampleBtn" class="btn btn-secondary" style="flex: 1;">Load Preset</button>
-            </div>
-          </div>
-
-          <div>
-            <div class="metrics-grid">
-              <div class="metric-card">
-                <div id="pwrEffectLabel" class="metric-label">Effect Size (Cohen's d)</div>
-                <div id="pwrD" class="metric-value">--</div>
-                <div id="pwrEffectSub" class="metric-sub">Standardized contrast</div>
-              </div>
-              <div class="metric-card">
-                <div id="pwrNGroupLabel" class="metric-label">Sample Size per Group (n)</div>
-                <div id="pwrNGroup" class="metric-value" style="color: var(--cyan-primary);">--</div>
-                <div id="pwrNGroupSub" class="metric-sub">Equal 1:1 allocation</div>
-              </div>
-              <div class="metric-card">
-                <div id="pwrNTotalLabel" class="metric-label">Total Sample Size (N)</div>
-                <div id="pwrNTotal" class="metric-value" style="color: var(--emerald-primary);">--</div>
-                <div id="pwrNTotalSub" class="metric-sub">Total study enrollment</div>
-              </div>
-              <div class="metric-card">
-                <div class="metric-label">Statistical Power (1 - β)</div>
-                <div id="pwrAchievedPower" class="metric-value" style="color: var(--accent);">--</div>
-                <div id="pwrPowerSub" class="metric-sub">1 - Type II error rate</div>
-              </div>
-              <div id="pwrCardFisher" class="metric-card" style="display: none;">
-                <div class="metric-label">Fisher's Exact / CC Sample Size</div>
-                <div id="pwrFisherN" class="metric-value" style="font-size: 0.95rem;">--</div>
-                <div id="pwrFisherSub" class="metric-sub">Fleiss / Casagrande-Pike-Smith</div>
-              </div>
-              <div id="pwrCardClinicalRisk" class="metric-card" style="display: none;">
-                <div class="metric-label">Clinical Risk Profile</div>
-                <div id="pwrClinicalRisk" class="metric-value" style="font-size: 0.88rem;">--</div>
-                <div id="pwrClinicalRiskSub" class="metric-sub">ARR, RR &amp; NNT</div>
-              </div>
-            </div>
-
-            <div class="report-box" style="margin-top: 1rem;">
-              <div class="report-title">
-                <span id="pwrReportTitle">Study Protocol Justification (Grant / Ethics / IRB Ready)</span>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                  <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="pwrReportText">Copy</button>
-                  <button class="btn btn-primary btn-sm btn-export-docx" data-tab="power" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
-                </div>
-              </div>
-              <p id="pwrReportText" class="report-text">--</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 8. Teaching & Simulation Tab -->
+      <!-- 9. Teaching & Simulation Tab -->
       <section id="tab-teaching" class="tab-pane">
         <div class="tab-pane-toolbar">
           <button class="btn btn-primary btn-sm btn-export-docx" data-tab="teaching" title="Export generated distribution data, CLT simulation outcomes, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
@@ -2119,7 +2119,7 @@
         </div>
       </section>
 
-      <!-- 9. Teaching - Bayesian Statistics Tab -->
+      <!-- 10. Teaching - Bayesian Statistics Tab -->
       <section id="tab-teaching-bayesian" class="tab-pane">
         <div class="tab-pane-toolbar">
           <button class="btn btn-primary btn-sm btn-export-docx" data-tab="teaching-bayesian" title="Export full Bayesian statistics report, outcomes, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>
@@ -2398,6 +2398,6 @@
     </div>
   </div>
 
-  <script src="js/statis-gravity.js?v=2.9.6"></script>
+  <script src="js/statis-gravity.js?v=2.9.7"></script>
 </body>
 </html>
