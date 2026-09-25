@@ -12,6 +12,7 @@ import { Diagnostic } from './stats/diagnostic.js';
 import { PowerAnalysis } from './stats/power.js';
 import { Teaching } from './stats/teaching.js';
 import { Randomiser } from './stats/randomiser.js';
+import { Psm } from './stats/psm.js';
 
 import { ChartEngine } from './visualization/chart-engine.js';
 import { Plots } from './visualization/plots.js';
@@ -35,6 +36,7 @@ class StatisGravityApp {
     this.initChartEngines();
     this.loadInitialSamples();
     this.initRandomiser();
+    this.initPsm();
   }
 
   applyTheme(theme) {
@@ -102,7 +104,9 @@ class StatisGravityApp {
       'teachingTCanvas',
       'teachingOverlapCanvas',
       'teachingPowerCanvas',
-      'teachingBayesCanvas'
+      'teachingBayesCanvas',
+      'psmLovePlotCanvas',
+      'psmOverlapCanvas'
     ];
 
     canvasIds.forEach(id => {
@@ -1092,6 +1096,7 @@ class StatisGravityApp {
     document.getElementById('rocSampleBtn')?.click();
     this.runPower();
     this.initTeachingModule();
+    this.loadPsmSample();
   }
 
   // --- Run Modules ---
@@ -2535,6 +2540,23 @@ window.addEventListener('DOMContentLoaded', () => {
       exportData = {
         bayes: res.bayes || Teaching.bayesianSimulation.getMetrics(),
         reportText: document.getElementById('teachingBayesReportText')?.innerText || document.getElementById('bayesPedagogyText')?.innerText
+      };
+    } else if (tabId === 'propensity') {
+      exportData = {
+        name: 'Clinical Observational Cohort',
+        treatmentCol: res.treatmentCol,
+        outcomeCol: res.outcomeCol,
+        covariateCols: res.covariateCols,
+        totalN: res.totalN,
+        completeN: res.completeN,
+        nMatchedPairs: res.nMatchedPairs,
+        matchedTreatedN: res.matchedTreatedN,
+        matchedControlN: res.matchedControlN,
+        logisticRegression: res.logisticRegression,
+        caliper: res.caliper,
+        balance: res.balance,
+        outcome: res.outcome,
+        reportText: document.getElementById('psmReportText')?.innerText
       };
     }
 
@@ -4188,6 +4210,491 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     this.renderRandomiserAuditTable();
   }
+
+    // ==========================================
+    // 14. PROPENSITY SCORE MATCHING (PSM) WORKFLOW
+    // ==========================================
+    initPsm() {
+      this.psmCurrentScriptLang = 'python';
+      this.psmActiveView = 'love';
+
+      document.getElementById('psmSampleBtn')?.addEventListener('click', () => {
+        this.loadPsmSample();
+      });
+
+      document.getElementById('psmClearBtn')?.addEventListener('click', () => {
+        const input = document.getElementById('psmCsvInput');
+        if (input) input.value = '';
+        this.populatePsmVariables();
+      });
+
+      document.getElementById('psmComputeBtn')?.addEventListener('click', () => {
+        this.runPsm();
+      });
+
+      const loveBtn = document.getElementById('psmViewLoveBtn');
+      const overlapBtn = document.getElementById('psmViewOverlapBtn');
+      const saveBtn = document.getElementById('psmSavePlotBtn');
+      const loveContainer = document.getElementById('psmLovePlotContainer');
+      const overlapContainer = document.getElementById('psmOverlapContainer');
+
+      loveBtn?.addEventListener('click', () => {
+        this.psmActiveView = 'love';
+        loveBtn.classList.replace('btn-secondary', 'btn-primary');
+        overlapBtn?.classList.replace('btn-primary', 'btn-secondary');
+        if (loveContainer) loveContainer.style.display = 'block';
+        if (overlapContainer) overlapContainer.style.display = 'none';
+        if (saveBtn) saveBtn.dataset.canvasId = 'psmLovePlotCanvas';
+        this.renderPsmPlots();
+      });
+
+      overlapBtn?.addEventListener('click', () => {
+        this.psmActiveView = 'overlap';
+        overlapBtn.classList.replace('btn-secondary', 'btn-primary');
+        loveBtn?.classList.replace('btn-primary', 'btn-secondary');
+        if (loveContainer) loveContainer.style.display = 'none';
+        if (overlapContainer) overlapContainer.style.display = 'block';
+        if (saveBtn) saveBtn.dataset.canvasId = 'psmOverlapCanvas';
+        this.renderPsmPlots();
+      });
+
+      const pyBtn = document.getElementById('psmScriptLangPy');
+      const rBtn = document.getElementById('psmScriptLangR');
+      const stataBtn = document.getElementById('psmScriptLangStata');
+
+      pyBtn?.addEventListener('click', () => this.switchPsmScript('python'));
+      rBtn?.addEventListener('click', () => this.switchPsmScript('r'));
+      stataBtn?.addEventListener('click', () => this.switchPsmScript('stata'));
+
+      document.getElementById('psmCopyScriptBtn')?.addEventListener('click', () => {
+        this.copyPsmScript();
+      });
+
+      document.getElementById('psmDownloadScriptBtn')?.addEventListener('click', () => {
+        this.downloadPsmScript();
+      });
+
+      const csvInput = document.getElementById('psmCsvInput');
+      csvInput?.addEventListener('input', () => {
+        this.populatePsmVariables();
+      });
+      csvInput?.addEventListener('change', () => {
+        this.populatePsmVariables();
+      });
+
+      document.getElementById('psmTreatmentSelect')?.addEventListener('change', () => {
+        this.updatePsmCovariatesList();
+      });
+      document.getElementById('psmOutcomeSelect')?.addEventListener('change', () => {
+        this.updatePsmCovariatesList();
+      });
+    }
+
+    loadPsmSample() {
+      const records = Psm.getSampleClinicalDataset();
+      if (!records || records.length === 0) return;
+
+      const headers = Object.keys(records[0]);
+      const rows = records.map(r => headers.map(h => r[h]).join(','));
+      const csv = [headers.join(','), ...rows].join('\\n');
+
+      const input = document.getElementById('psmCsvInput');
+      if (input) {
+        input.value = csv;
+      }
+      this.populatePsmVariables();
+      this.runPsm();
+    }
+
+    populatePsmVariables() {
+      const csvText = document.getElementById('psmCsvInput')?.value || '';
+      const lines = csvText.trim().split(/\\r?\\n/).filter(l => l.trim().length > 0);
+      const badge = document.getElementById('psmDatasetBadge');
+      if (lines.length < 2) {
+        if (badge) badge.innerText = '0 rows';
+        return;
+      }
+
+      if (badge) {
+        badge.innerText = `N = ${lines.length - 1} patients`;
+      }
+
+      const delimiter = lines[0].includes('\\t') ? '\\t' : (lines[0].includes(';') ? ';' : ',');
+      const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^["']|["']$/g, ''));
+
+      const tSelect = document.getElementById('psmTreatmentSelect');
+      const oSelect = document.getElementById('psmOutcomeSelect');
+
+      const currentT = tSelect?.value;
+      const currentO = oSelect?.value;
+
+      if (tSelect) {
+        tSelect.innerHTML = '';
+        headers.forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h;
+          opt.textContent = h;
+          if (h.toLowerCase().includes('treat') || h === 'treatment_col' || h === 'group') {
+            opt.selected = true;
+          }
+          tSelect.appendChild(opt);
+        });
+        if (currentT && headers.includes(currentT)) tSelect.value = currentT;
+      }
+
+      if (oSelect) {
+        oSelect.innerHTML = '';
+        headers.forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h;
+          opt.textContent = h;
+          if (h.toLowerCase().includes('outcom') || h === 'outcome_col' || h.toLowerCase().includes('los')) {
+            opt.selected = true;
+          }
+          oSelect.appendChild(opt);
+        });
+        if (currentO && headers.includes(currentO)) oSelect.value = currentO;
+      }
+
+      this.updatePsmCovariatesList(headers);
+    }
+
+    updatePsmCovariatesList(headers) {
+      if (!headers) {
+        const csvText = document.getElementById('psmCsvInput')?.value || '';
+        const lines = csvText.trim().split(/\\r?\\n/).filter(l => l.trim().length > 0);
+        if (lines.length < 2) return;
+        const delimiter = lines[0].includes('\\t') ? '\\t' : (lines[0].includes(';') ? ';' : ',');
+        headers = lines[0].split(delimiter).map(h => h.trim().replace(/^["']|["']$/g, ''));
+      }
+
+      const tVal = document.getElementById('psmTreatmentSelect')?.value;
+      const oVal = document.getElementById('psmOutcomeSelect')?.value;
+      const container = document.getElementById('psmCovariatesContainer');
+      if (!container) return;
+
+      const nonCovariates = new Set([tVal, oVal, 'patient_id', 'id', 'subject_id', 'ID', '_rowId']);
+      const availableCovariates = headers.filter(h => !nonCovariates.has(h));
+
+      const checkedSet = new Set();
+      container.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => checkedSet.add(cb.value));
+
+      container.innerHTML = '';
+      availableCovariates.forEach(cov => {
+        const label = document.createElement('label');
+        label.style.display = 'inline-flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '0.3rem';
+        label.style.padding = '0.2rem 0.5rem';
+        label.style.background = 'var(--bg-surface)';
+        label.style.border = '1px solid var(--border-subtle)';
+        label.style.borderRadius = '4px';
+        label.style.fontSize = '0.74rem';
+        label.style.cursor = 'pointer';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = cov;
+        cb.classList.add('psm-cov-cb');
+        cb.style.accentColor = 'var(--cyan-primary)';
+        if (checkedSet.has(cov) || checkedSet.size === 0) {
+          cb.checked = true;
+        }
+
+        cb.addEventListener('change', () => this.updatePsmCovariatesCount());
+
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(cov));
+        container.appendChild(label);
+      });
+
+      this.updatePsmCovariatesCount();
+    }
+
+    updatePsmCovariatesCount() {
+      const container = document.getElementById('psmCovariatesContainer');
+      const countEl = document.getElementById('psmCovariatesCount');
+      if (container && countEl) {
+        const count = container.querySelectorAll('input[type="checkbox"]:checked').length;
+        countEl.innerText = count.toString();
+      }
+    }
+
+    runPsm() {
+      const csvText = document.getElementById('psmCsvInput')?.value || '';
+      const records = Psm.parseClinicalCsv(csvText);
+      if (records.length === 0) {
+        alert('Please provide valid clinical dataset rows in CSV or TSV format.');
+        return;
+      }
+
+      const treatmentCol = document.getElementById('psmTreatmentSelect')?.value;
+      const outcomeCol = document.getElementById('psmOutcomeSelect')?.value;
+
+      const container = document.getElementById('psmCovariatesContainer');
+      const selectedCovariates = [];
+      container?.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+        selectedCovariates.push(cb.value);
+      });
+
+      if (!treatmentCol || !outcomeCol) {
+        alert('Please select both a treatment variable and an outcome variable.');
+        return;
+      }
+
+      if (selectedCovariates.length === 0) {
+        alert('Please select at least one confounding baseline covariate for matching.');
+        return;
+      }
+
+      const caliperMultiplier = parseFloat(document.getElementById('psmCaliperMultiplier')?.value) || 0.20;
+      const enforceCommonSupport = document.getElementById('psmCommonSupportCb')?.checked ?? true;
+
+      const analysis = Psm.executeAnalysis(records, {
+        treatmentCol,
+        outcomeCol,
+        covariateCols: selectedCovariates,
+        caliperMultiplier,
+        enforceCommonSupport
+      });
+
+      if (analysis.error) {
+        alert(`Propensity Score Analysis Error: ${analysis.error}`);
+        return;
+      }
+
+      this.psmLastAnalysis = analysis;
+      if (!this.results) this.results = {};
+      this.results.propensity = analysis;
+
+      // Update Top Metrics
+      const pairsEl = document.getElementById('psmMatchedPairs');
+      const pairsBadge = document.getElementById('psmMatchedPairsBadge');
+      if (pairsEl) pairsEl.innerText = `${analysis.nMatchedPairs} pairs`;
+      if (pairsBadge) {
+        const retainedPct = ((analysis.matchedTreatedN / analysis.unmatchedTreatedN) * 100).toFixed(0);
+        pairsBadge.innerText = `${analysis.nMatchedPairs * 2} patients (${retainedPct}% treated matched)`;
+      }
+
+      const attEl = document.getElementById('psmAttEstimate');
+      const attBadge = document.getElementById('psmAttBadge');
+      const attCiEl = document.getElementById('psmAttCi');
+      const attSeEl = document.getElementById('psmAttSe');
+      const maxSmdEl = document.getElementById('psmMaxSmd');
+      const balanceBadge = document.getElementById('psmBalanceBadge');
+
+      const outcome = analysis.outcome;
+      if (attEl) attEl.innerText = `${outcome.att >= 0 ? '+' : ''}${outcome.att.toFixed(3)}`;
+      if (attBadge) {
+        attBadge.innerText = outcome.isSignificant ? `p < .001 (Significant)` : `p = ${outcome.pValue.toFixed(3)}`;
+        attBadge.className = outcome.isSignificant ? 'badge badge-sig' : 'badge badge-neutral';
+      }
+
+      if (attCiEl) attCiEl.innerText = `[${outcome.ci95[0].toFixed(3)}, ${outcome.ci95[1].toFixed(3)}]`;
+      if (attSeEl) attSeEl.innerText = `SE = ${outcome.se.toFixed(3)}`;
+
+      const maxSmd = analysis.balance.maxAbsSmdPost;
+      if (maxSmdEl) maxSmdEl.innerText = `${maxSmd.toFixed(3)}`;
+      if (balanceBadge) {
+        if (maxSmd < 0.10) {
+          balanceBadge.innerText = 'Excellent Balance (|SMD| < 0.10)';
+          balanceBadge.className = 'badge badge-sig';
+        } else if (maxSmd < 0.20) {
+          balanceBadge.innerText = 'Acceptable Balance (|SMD| < 0.20)';
+          balanceBadge.className = 'badge badge-warn';
+        } else {
+          balanceBadge.innerText = 'Residual Imbalance (|SMD| ≥ 0.20)';
+          balanceBadge.className = 'badge badge-danger';
+        }
+      }
+
+      // Populate Covariate Balance Table
+      const bTableBody = document.getElementById('psmBalanceTableBody');
+      if (bTableBody) {
+        bTableBody.innerHTML = '';
+        analysis.balance.balanceTable.forEach(row => {
+          const tr = document.createElement('tr');
+          const isBalanced = row.absSmdPost <= 0.10;
+          const statusBadge = isBalanced
+            ? `<span class="badge badge-sig" style="font-size: 0.70rem;">✓ Balanced (&lt; 0.10)</span>`
+            : `<span class="badge badge-danger" style="font-size: 0.70rem;">⚠ Imbalance (&gt; 0.10)</span>`;
+
+          tr.innerHTML = `
+            <td style="font-weight: 600;">${row.covariate}</td>
+            <td>${row.meanTreatedPre.toFixed(2)} vs ${row.meanControlPre.toFixed(2)}</td>
+            <td style="color: #f43f5e; font-weight: 600;">${row.smdPre.toFixed(3)}</td>
+            <td>${row.meanTreatedPost.toFixed(2)} vs ${row.meanControlPost.toFixed(2)}</td>
+            <td style="color: #10b981; font-weight: 700;">${row.smdPost.toFixed(3)}</td>
+            <td>${row.varRatioPost.toFixed(2)}</td>
+            <td style="color: ${row.percentReduction >= 0 ? '#10b981' : '#f43f5e'}; font-weight: 600;">${row.percentReduction.toFixed(1)}%</td>
+            <td>${statusBadge}</td>
+          `;
+          bTableBody.appendChild(tr);
+        });
+      }
+
+      // Populate Outcome Comparison Table
+      const oTableBody = document.getElementById('psmOutcomeTableBody');
+      if (oTableBody) {
+        oTableBody.innerHTML = '';
+        const unadj = outcome.unadjustedDiff;
+        const pUnadjStr = unadj.pValue < 0.001 ? '< .001' : unadj.pValue.toFixed(3);
+        const pAttStr = outcome.pValue < 0.001 ? '< .001' : outcome.pValue.toFixed(3);
+
+        const trUnadj = document.createElement('tr');
+        trUnadj.innerHTML = `
+          <td style="font-weight: 600; color: #f43f5e;">Unadjusted (Raw Observational)</td>
+          <td>${unadj.diff >= 0 ? '+' : ''}${unadj.diff.toFixed(3)}</td>
+          <td>${unadj.se.toFixed(3)}</td>
+          <td>t = ${unadj.statistic.toFixed(2)}</td>
+          <td>${pUnadjStr}</td>
+          <td>[${unadj.ci95[0].toFixed(3)}, ${unadj.ci95[1].toFixed(3)}]</td>
+          <td>Confounded by baseline clinical risk</td>
+        `;
+
+        const trAtt = document.createElement('tr');
+        trAtt.style.background = 'rgba(16, 185, 129, 0.08)';
+        trAtt.innerHTML = `
+          <td style="font-weight: 700; color: #10b981;">Matched Causal ATT (1:1 NN Caliper)</td>
+          <td style="font-weight: 700; color: #10b981;">${outcome.att >= 0 ? '+' : ''}${outcome.att.toFixed(3)}</td>
+          <td>${outcome.se.toFixed(3)}</td>
+          <td>${outcome.type === 'continuous' ? `t = ${outcome.statistic.toFixed(2)}` : `z = ${outcome.statistic.toFixed(2)}`}</td>
+          <td style="font-weight: 700;">${pAttStr}</td>
+          <td style="font-weight: 600;">[${outcome.ci95[0].toFixed(3)}, ${outcome.ci95[1].toFixed(3)}]</td>
+          <td>Unconfounded treatment effect on treated</td>
+        `;
+
+        oTableBody.appendChild(trUnadj);
+        oTableBody.appendChild(trAtt);
+      }
+
+      this.renderPsmPlots();
+      this.updatePsmScript();
+
+      const reportEl = document.getElementById('psmReportText');
+      if (reportEl) {
+        reportEl.innerText = analysis.reportText;
+      }
+    }
+
+    renderPsmPlots() {
+      if (!this.psmLastAnalysis) return;
+      const analysis = this.psmLastAnalysis;
+
+      if (this.psmActiveView === 'love') {
+        const engine = this.engines['psmLovePlotCanvas'];
+        if (engine && Plots.renderLovePlot) {
+          Plots.renderLovePlot(engine, analysis.balance, {
+            title: `Love Plot: Baseline Covariate Balance (N = ${analysis.nMatchedPairs} Pairs)`
+          });
+        }
+      } else {
+        const engine = this.engines['psmOverlapCanvas'];
+        if (engine && Plots.renderPsmOverlapPlot) {
+          Plots.renderPsmOverlapPlot(engine, analysis.overlap, {
+            title: `Propensity Score Distribution & Common Support Overlap (Caliper = ${analysis.caliper.width.toFixed(4)})`
+          });
+        }
+      }
+    }
+
+    switchPsmScript(lang) {
+      this.psmCurrentScriptLang = lang;
+      const pyBtn = document.getElementById('psmScriptLangPy');
+      const rBtn = document.getElementById('psmScriptLangR');
+      const stataBtn = document.getElementById('psmScriptLangStata');
+
+      if (pyBtn) {
+        pyBtn.className = lang === 'python' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+      }
+      if (rBtn) {
+        rBtn.className = lang === 'r' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+      }
+      if (stataBtn) {
+        stataBtn.className = lang === 'stata' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+      }
+
+      this.updatePsmScript();
+    }
+
+    updatePsmScript() {
+      if (!this.psmLastAnalysis) return;
+      const analysis = this.psmLastAnalysis;
+      const codeBlock = document.getElementById('psmCodeBlock');
+      if (!codeBlock) return;
+
+      const opts = {
+        treatmentCol: analysis.treatmentCol,
+        outcomeCol: analysis.outcomeCol,
+        covariateCols: analysis.covariateCols,
+        caliperMultiplier: analysis.caliper.multiplier,
+        enforceCommonSupport: analysis.caliper.enforceCommonSupport,
+        isBinaryOutcome: analysis.outcome.type === 'binary'
+      };
+
+      let code = '';
+      if (this.psmCurrentScriptLang === 'python') {
+        code = Psm.generatePythonScript(opts);
+      } else if (this.psmCurrentScriptLang === 'r') {
+        code = Psm.generateRScript(opts);
+      } else if (this.psmCurrentScriptLang === 'stata') {
+        code = Psm.generateStataScript(opts);
+      }
+
+      codeBlock.innerText = code;
+    }
+
+    copyPsmScript() {
+      const codeBlock = document.getElementById('psmCodeBlock');
+      const copyBtn = document.getElementById('psmCopyScriptBtn');
+      if (!codeBlock) return;
+
+      const text = codeBlock.innerText;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          if (copyBtn) {
+            const orig = copyBtn.innerText;
+            copyBtn.innerText = '✓ Copied!';
+            setTimeout(() => { copyBtn.innerText = orig; }, 1800);
+          }
+        });
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (copyBtn) {
+          const orig = copyBtn.innerText;
+          copyBtn.innerText = '✓ Copied!';
+          setTimeout(() => { copyBtn.innerText = orig; }, 1800);
+        }
+      }
+    }
+
+    downloadPsmScript() {
+      const codeBlock = document.getElementById('psmCodeBlock');
+      if (!codeBlock) return;
+      const text = codeBlock.innerText;
+
+      const extMap = { python: 'py', r: 'R', stata: 'do' };
+      const ext = extMap[this.psmCurrentScriptLang] || 'txt';
+      const filename = `psm_clinical_analysis.${ext}`;
+
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
 }
 
 

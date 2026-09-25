@@ -3414,6 +3414,339 @@ export const Plots = {
         ctx.fillText(t.label, xPix, chartY + chartH + 18);
       });
     }
+  },
+
+  /**
+   * Renders the Love Plot for Covariate Balance Assessment in PSM
+   * Shows Absolute Standardized Mean Differences before and after matching
+   * with vertical benchmark cutoffs at |SMD| = 0.10 and |SMD| = 0.05.
+   */
+  renderLovePlot(engine, balanceData, options = {}) {
+    if (!engine) return;
+    engine.lastRenderFn = () => this.renderLovePlot(engine, balanceData, options);
+    engine.clear();
+
+    const b = engine.getPlotBounds ? engine.getPlotBounds() : engine.getBounds();
+    const ctx = engine.ctx;
+    const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const isDark = engine.options.theme !== 'light';
+
+    const textMain = isDark ? '#f8fafc' : '#0f172a';
+    const textMuted = isDark ? '#94a3b8' : '#64748b';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+
+    const table = balanceData?.balanceTable || [];
+    if (table.length === 0) {
+      ctx.fillStyle = textMuted;
+      ctx.font = `500 13px ${font}`;
+      ctx.textAlign = 'center';
+      ctx.fillText('No covariate balance data available for Love Plot', b.x + b.width / 2, b.y + b.height / 2);
+      return;
+    }
+
+    const title = options.title || 'Love Plot: Covariate Balance (Pre- vs. Post-Matching)';
+    const maxVal = Math.max(0.40, ...table.map(d => Math.max(d.absSmdPre || 0, d.absSmdPost || 0))) * 1.15;
+
+    // Margins
+    const labelWidth = Math.min(140, b.width * 0.28);
+    const plotX = b.x + labelWidth;
+    const plotW = b.width - labelWidth - 20;
+    const plotY = b.y + 35;
+    const plotH = b.height - 65;
+
+    const xToPix = (smd) => plotX + (Math.max(0, smd) / maxVal) * plotW;
+    const k = table.length;
+    const yToPix = (idx) => plotY + ((idx + 0.6) / (k + 0.2)) * plotH;
+
+    // Header Title
+    ctx.fillStyle = textMain;
+    ctx.font = `700 13px ${font}`;
+    ctx.textAlign = 'left';
+    ctx.fillText(title, b.x + 10, b.y + 18);
+
+    // Legend
+    ctx.font = `600 11px ${font}`;
+    ctx.textAlign = 'right';
+    const legX = b.x + b.width - 20;
+    // Post match dot
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath(); ctx.arc(legX - 165, b.y + 14, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = textMain;
+    ctx.fillText('Matched (Post)', legX - 85, b.y + 18);
+    // Pre match dot
+    ctx.fillStyle = '#f43f5e';
+    ctx.beginPath(); ctx.arc(legX - 70, b.y + 14, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = textMain;
+    ctx.fillText('Unadjusted (Pre)', legX, b.y + 18);
+
+    // X-Axis Grid & Ticks
+    const xSteps = [0.0, 0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.80, 1.0].filter(v => v <= maxVal);
+    ctx.lineWidth = 1.0;
+    xSteps.forEach(val => {
+      const px = xToPix(val);
+      ctx.strokeStyle = gridColor;
+      ctx.beginPath();
+      ctx.moveTo(px, plotY);
+      ctx.lineTo(px, plotY + plotH);
+      ctx.stroke();
+
+      ctx.fillStyle = textMuted;
+      ctx.font = `500 10px ${font}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(val.toFixed(2), px, plotY + plotH + 16);
+    });
+
+    // X Axis Label
+    ctx.fillStyle = textMain;
+    ctx.font = `600 11px ${font}`;
+    ctx.textAlign = 'center';
+    ctx.fillText('Absolute Standardized Mean Difference (|SMD|)', plotX + plotW / 2, plotY + plotH + 30);
+
+    // Cutoff 0.10 Line (Standard Benchmark)
+    const cut10X = xToPix(0.10);
+    ctx.strokeStyle = '#00d2ff';
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(cut10X, plotY);
+    ctx.lineTo(cut10X, plotY + plotH);
+    ctx.stroke();
+
+    // Cutoff 0.05 Line (Strict Benchmark)
+    if (maxVal >= 0.05) {
+      const cut05X = xToPix(0.05);
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(cut05X, plotY);
+      ctx.lineTo(cut05X, plotY + plotH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else {
+      ctx.setLineDash([]);
+    }
+
+    // Benchmark Cutoff Annotations at top
+    ctx.fillStyle = '#00d2ff';
+    ctx.font = `700 9px ${font}`;
+    ctx.textAlign = 'center';
+    ctx.fillText('0.10 Threshold', cut10X, plotY - 4);
+
+    // Draw Rows for each Covariate
+    table.forEach((row, idx) => {
+      const py = yToPix(idx);
+      const preX = xToPix(row.absSmdPre);
+      const postX = xToPix(row.absSmdPost);
+
+      // Horizontal subtle track line
+      ctx.strokeStyle = gridColor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(plotX, py);
+      ctx.lineTo(plotX + plotW, py);
+      ctx.stroke();
+
+      // Connecting arrow/segment from pre to post
+      ctx.strokeStyle = row.absSmdPost <= 0.10 ? 'rgba(16, 185, 129, 0.45)' : 'rgba(244, 63, 94, 0.45)';
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(preX, py);
+      ctx.lineTo(postX, py);
+      ctx.stroke();
+
+      // Pre-matching Marker (Rose)
+      ctx.fillStyle = '#f43f5e';
+      ctx.strokeStyle = isDark ? '#0f172a' : '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(preX, py, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Post-matching Marker (Emerald)
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.arc(postX, py, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Covariate Name Label
+      ctx.fillStyle = textMain;
+      ctx.font = `600 11px ${font}`;
+      ctx.textAlign = 'right';
+      ctx.fillText(row.covariate, plotX - 10, py + 4);
+
+      // Delta improvement text
+      if (row.percentReduction !== undefined) {
+        ctx.fillStyle = row.absSmdPost <= 0.10 ? '#10b981' : '#f43f5e';
+        ctx.font = `500 9px ${font}`;
+        ctx.textAlign = 'left';
+        ctx.fillText(`${(row.absSmdPost).toFixed(3)}`, Math.max(preX, postX) + 10, py + 3);
+      }
+    });
+  },
+
+  /**
+   * Renders Propensity Score Overlap & Common Support Plot
+   */
+  renderPsmOverlapPlot(engine, overlapData, options = {}) {
+    if (!engine) return;
+    engine.lastRenderFn = () => this.renderPsmOverlapPlot(engine, overlapData, options);
+    engine.clear();
+
+    const b = engine.getPlotBounds ? engine.getPlotBounds() : engine.getBounds();
+    const ctx = engine.ctx;
+    const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const isDark = engine.options.theme !== 'light';
+
+    const textMain = isDark ? '#f8fafc' : '#0f172a';
+    const textMuted = isDark ? '#94a3b8' : '#64748b';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+
+    const bins = overlapData?.bins || [];
+    if (bins.length === 0) return;
+
+    const title = options.title || 'Propensity Score Distribution & Common Support Overlap';
+    const cs = overlapData?.commonSupport || { min: 0, max: 1 };
+
+    const plotX = b.x + 35;
+    const plotW = b.width - 60;
+    const plotY = b.y + 40;
+    const plotH = b.height - 75;
+
+    // Header Title
+    ctx.fillStyle = textMain;
+    ctx.font = `700 13px ${font}`;
+    ctx.textAlign = 'left';
+    ctx.fillText(title, b.x + 10, b.y + 18);
+
+    // Legend
+    ctx.font = `600 11px ${font}`;
+    ctx.textAlign = 'right';
+    const legX = b.x + b.width - 20;
+
+    // Treated legend
+    ctx.fillStyle = '#00d2ff';
+    ctx.fillRect(legX - 180, b.y + 10, 12, 8);
+    ctx.fillStyle = textMain;
+    ctx.fillText('Treated Group', legX - 95, b.y + 18);
+
+    // Control legend
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(legX - 85, b.y + 10, 12, 8);
+    ctx.fillStyle = textMain;
+    ctx.fillText('Control Group', legX, b.y + 18);
+
+    // Find max proportion for Y scaling
+    let maxProp = 0.05;
+    bins.forEach(bin => {
+      maxProp = Math.max(maxProp, bin.preTreated, bin.preControl, bin.postTreated, bin.postControl);
+    });
+    maxProp *= 1.25;
+
+    const xToPix = (p) => plotX + Math.max(0, Math.min(1, p)) * plotW;
+    const yToPix = (prop) => plotY + plotH - (prop / maxProp) * plotH;
+
+    // Common Support Shaded Area
+    const csMinX = xToPix(cs.min);
+    const csMaxX = xToPix(cs.max);
+    ctx.fillStyle = isDark ? 'rgba(0, 210, 255, 0.07)' : 'rgba(0, 210, 255, 0.12)';
+    ctx.fillRect(csMinX, plotY, csMaxX - csMinX, plotH);
+
+    // Common Support Vertical Dashed Lines
+    ctx.strokeStyle = '#00d2ff';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(csMinX, plotY);
+    ctx.lineTo(csMinX, plotY + plotH);
+    ctx.moveTo(csMaxX, plotY);
+    ctx.lineTo(csMaxX, plotY + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Common Support Label
+    ctx.fillStyle = '#00d2ff';
+    ctx.font = `600 10px ${font}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`Common Support [${cs.min.toFixed(2)}, ${cs.max.toFixed(2)}]`, (csMinX + csMaxX) / 2, plotY + 14);
+
+    // X Axis Ticks & Grid
+    [0.0, 0.2, 0.4, 0.6, 0.8, 1.0].forEach(p => {
+      const px = xToPix(p);
+      ctx.strokeStyle = gridColor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(px, plotY);
+      ctx.lineTo(px, plotY + plotH);
+      ctx.stroke();
+
+      ctx.fillStyle = textMuted;
+      ctx.font = `500 10px ${font}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(p.toFixed(1), px, plotY + plotH + 16);
+    });
+
+    ctx.fillStyle = textMain;
+    ctx.font = `600 11px ${font}`;
+    ctx.textAlign = 'center';
+    ctx.fillText('Estimated Propensity Score e(X)', plotX + plotW / 2, plotY + plotH + 30);
+
+    // Draw Treated Distribution (Pre-match, Cyan Area)
+    ctx.fillStyle = 'rgba(0, 210, 255, 0.25)';
+    ctx.strokeStyle = '#00d2ff';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.moveTo(xToPix(bins[0].mid), plotY + plotH);
+    bins.forEach(bin => {
+      ctx.lineTo(xToPix(bin.mid), yToPix(bin.preTreated));
+    });
+    ctx.lineTo(xToPix(bins[bins.length - 1].mid), plotY + plotH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw Control Distribution (Pre-match, Amber Area)
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.moveTo(xToPix(bins[0].mid), plotY + plotH);
+    bins.forEach(bin => {
+      ctx.lineTo(xToPix(bin.mid), yToPix(bin.preControl));
+    });
+    ctx.lineTo(xToPix(bins[bins.length - 1].mid), plotY + plotH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw Matched Treated (Dashed Cyan Line)
+    ctx.strokeStyle = '#00d2ff';
+    ctx.lineWidth = 2.0;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    bins.forEach((bin, i) => {
+      const px = xToPix(bin.mid);
+      const py = yToPix(bin.postTreated);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+
+    // Draw Matched Control (Dashed Emerald Line)
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 2.2;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    bins.forEach((bin, i) => {
+      const px = xToPix(bin.mid);
+      const py = yToPix(bin.postControl);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
 };
 

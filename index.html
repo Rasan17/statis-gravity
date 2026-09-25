@@ -58,6 +58,9 @@
       <button class="tab-btn" data-target="tab-anova">
         🧬 Multi-Group ANOVA
       </button>
+      <button class="tab-btn" data-target="tab-propensity">
+        🎯 Propensity
+      </button>
       <button class="tab-btn" data-target="tab-categorical">
         🏥 2x2 Risk &amp; Contingency
       </button>
@@ -1180,7 +1183,228 @@
         </div>
       </section>
 
-      <!-- 6. Categorical & 2x2 Tab -->
+      <!-- 6. Propensity Score Matching (PSM) Tab -->
+      <section id="tab-propensity" class="tab-pane">
+        <div class="tab-pane-toolbar">
+          <button class="btn btn-primary btn-sm btn-export-docx" data-tab="propensity" title="Export full report, logistic regression parameters, balance diagnostics, and reproducible code to Word (.docx)">📄 Export DOCX</button>
+        </div>
+
+        <div class="analysis-grid">
+          <!-- Left Configuration & Data Column -->
+          <div class="card">
+            <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <h2 class="card-title">🎯 Observational Cohort &amp; PSM Settings</h2>
+                <p class="card-subtitle">Control for baseline confounding in non-randomized clinical studies</p>
+              </div>
+              <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+                <button type="button" id="psmSampleBtn" class="btn btn-secondary btn-sm" title="Load real-world craniofacial surgical cohort (N=120, Endoscopic Strip vs. Open Reconstruction)">Load Clinical Cohort</button>
+                <button type="button" id="psmClearBtn" class="btn btn-secondary btn-sm" title="Clear current dataset">Clear</button>
+              </div>
+            </div>
+
+            <!-- Tabular CSV Input -->
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                <label class="form-label" for="psmCsvInput" style="font-weight: 600; font-size: 0.82rem; margin: 0;">Observational Dataset (CSV / TSV):</label>
+                <span id="psmDatasetBadge" class="badge badge-neutral" style="font-size: 0.72rem;">N = 120 patients</span>
+              </div>
+              <textarea id="psmCsvInput" class="form-control" rows="5" style="font-family: monospace; font-size: 0.74rem; line-height: 1.35;" placeholder="Paste CSV data with headers (e.g. patient_id, treatment_col, outcome_col, age, sex, comorbidity_score, baseline_severity)..."></textarea>
+            </div>
+
+            <!-- Variable Mapping Grid -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.85rem;">
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label" for="psmTreatmentSelect" style="font-weight: 600; font-size: 0.80rem;">Treatment (Binary 0/1):</label>
+                <select id="psmTreatmentSelect" class="form-control" style="font-size: 0.82rem; height: 32px;">
+                  <option value="treatment_col">treatment_col</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label" for="psmOutcomeSelect" style="font-weight: 600; font-size: 0.80rem;">Primary Outcome:</label>
+                <select id="psmOutcomeSelect" class="form-control" style="font-size: 0.82rem; height: 32px;">
+                  <option value="outcome_col">outcome_col</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Baseline Confounders Multi-Select -->
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                <label class="form-label" style="font-weight: 600; font-size: 0.80rem; margin: 0;">Confounding Baseline Covariates:</label>
+                <span style="font-size: 0.72rem; color: var(--text-dim);">Selected: <strong id="psmCovariatesCount">4</strong></span>
+              </div>
+              <div id="psmCovariatesContainer" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.5rem; max-height: 110px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 0.4rem;">
+                <!-- Dynamically populated covariate checkboxes -->
+              </div>
+            </div>
+
+            <!-- Matching Algorithm & Caliper Controls -->
+            <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.75rem 0.85rem; margin-bottom: 1rem;">
+              <div style="font-size: 0.80rem; font-weight: 700; color: var(--cyan-primary); margin-bottom: 0.5rem;">⚙️ Matching Algorithm &amp; Caliper Specifications</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; align-items: center;">
+                <div>
+                  <label class="form-label" for="psmCaliperMultiplier" style="font-size: 0.76rem; font-weight: 600; margin-bottom: 0.25rem;">Caliper Width (× SD logit PS):</label>
+                  <input type="number" id="psmCaliperMultiplier" class="form-control" value="0.20" step="0.05" min="0.05" max="1.0" style="font-size: 0.82rem; height: 30px;">
+                  <span style="font-size: 0.68rem; color: var(--text-dim); display: block; margin-top: 0.2rem;">Austin 2011 standard: 0.20</span>
+                </div>
+                <div>
+                  <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.78rem; font-weight: 600; margin-top: 0.5rem; user-select: none;">
+                    <input type="checkbox" id="psmCommonSupportCb" checked style="accent-color: var(--cyan-primary);">
+                    Enforce Common Support
+                  </label>
+                  <span style="font-size: 0.68rem; color: var(--text-dim); display: block; margin-top: 0.2rem;">Discard off-support tails</span>
+                </div>
+              </div>
+            </div>
+
+            <button id="psmComputeBtn" class="btn btn-primary" style="width: 100%; padding: 0.55rem; font-weight: 700;">⚡ Run Propensity Score Matching</button>
+          </div>
+
+          <!-- Right Results & Causal Output Column -->
+          <div>
+            <!-- Top Summary Metric Cards -->
+            <div class="metrics-grid">
+              <div class="card metric-card">
+                <div class="metric-label">Matched Cohorts</div>
+                <div id="psmMatchedPairs" class="metric-value">--</div>
+                <span id="psmMatchedPairsBadge" class="badge badge-neutral" style="margin-top: 0.25rem;">--</span>
+              </div>
+              <div class="card metric-card">
+                <div id="psmAttLabel" class="metric-label">Causal Effect (ATT)</div>
+                <div id="psmAttEstimate" class="metric-value">--</div>
+                <span id="psmAttBadge" class="badge badge-sig" style="margin-top: 0.25rem;">--</span>
+              </div>
+              <div class="card metric-card">
+                <div class="metric-label">95% Confidence Interval</div>
+                <div id="psmAttCi" class="metric-value" style="font-size: 1.05rem;">--</div>
+                <span id="psmAttSe" class="badge badge-neutral" style="margin-top: 0.25rem;">--</span>
+              </div>
+              <div class="card metric-card">
+                <div class="metric-label">Max Post-Match |SMD|</div>
+                <div id="psmMaxSmd" class="metric-value">--</div>
+                <span id="psmBalanceBadge" class="badge badge-sig" style="margin-top: 0.25rem;">--</span>
+              </div>
+            </div>
+
+            <!-- Visualization Tabs / Dual Canvas Card: Overlap Plot & Love Plot -->
+            <div class="card" style="margin-top: 1.25rem;">
+              <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                  <h3 id="psmPlotTitle" class="card-title">🔬 Balance &amp; Overlap Diagnostics</h3>
+                  <p class="card-subtitle">Love Plot (SMD reduction) &amp; Propensity Score Overlap Distribution</p>
+                </div>
+                <div style="display: flex; gap: 0.4rem; align-items: center;">
+                  <button type="button" id="psmViewLoveBtn" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.2rem 0.6rem;">Love Plot (Balance)</button>
+                  <button type="button" id="psmViewOverlapBtn" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.2rem 0.6rem;">Overlap (Common Support)</button>
+                  <button type="button" class="btn btn-secondary btn-sm btn-save-plot" id="psmSavePlotBtn" data-canvas-id="psmLovePlotCanvas">Save PNG</button>
+                </div>
+              </div>
+
+              <!-- Love Plot Canvas Container -->
+              <div id="psmLovePlotContainer">
+                <canvas id="psmLovePlotCanvas" class="chart-canvas" style="min-height: 280px;"></canvas>
+              </div>
+
+              <!-- Overlap Canvas Container -->
+              <div id="psmOverlapContainer" style="display: none;">
+                <canvas id="psmOverlapCanvas" class="chart-canvas" style="min-height: 280px;"></canvas>
+              </div>
+            </div>
+
+            <!-- Detailed Baseline Covariate Balance Table -->
+            <div class="card" style="margin-top: 1.25rem;">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">📊 Baseline Covariate Balance Diagnostics</h3>
+                  <p class="card-subtitle">Comparison of Unadjusted vs. Matched Standardized Mean Differences (|SMD| &lt; 0.10 threshold)</p>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Baseline Covariate</th>
+                      <th>Unadjusted Means (T vs C)</th>
+                      <th>Pre-Match SMD</th>
+                      <th>Matched Means (T vs C)</th>
+                      <th>Post-Match SMD</th>
+                      <th>Variance Ratio</th>
+                      <th>% Bias Reduction</th>
+                      <th>Balance Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="psmBalanceTableBody">
+                    <tr><td colspan="8" style="text-align: center; color: var(--text-dim);">Run Propensity Score Matching to view covariate balance diagnostics</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Causal Effect (ATT) Summary Table & Unadjusted Comparison Card -->
+            <div class="card" style="margin-top: 1.25rem;">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">⚖️ Causal Treatment Effect (ATT) vs. Unadjusted Estimate</h3>
+                  <p class="card-subtitle">Quantifies confounding bias removed by Propensity Score Matching</p>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Analytical Estimate</th>
+                      <th>Point Estimate</th>
+                      <th>Std. Error</th>
+                      <th>Test Statistic</th>
+                      <th>p-Value</th>
+                      <th>95% Confidence Interval</th>
+                      <th>Clinical Interpretation</th>
+                    </tr>
+                  </thead>
+                  <tbody id="psmOutcomeTableBody">
+                    <tr><td colspan="7" style="text-align: center; color: var(--text-dim);">Run analysis to view causal treatment effect comparison</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Reproducible Script Generator Panel [Python / R / Stata] -->
+            <div class="card" style="margin-top: 1.25rem; border-color: rgba(0, 210, 255, 0.3);">
+              <div class="card-header" style="flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                  <h3 class="card-title">💻 Reproducible Statistical Code Scripts</h3>
+                  <p class="card-subtitle">Expert production-grade scripts with full methodology and inline biostatistical comments</p>
+                </div>
+                <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+                  <button type="button" id="psmScriptLangPy" class="btn btn-primary btn-sm" style="font-size: 0.74rem; padding: 0.2rem 0.65rem;">🐍 Python</button>
+                  <button type="button" id="psmScriptLangR" class="btn btn-secondary btn-sm" style="font-size: 0.74rem; padding: 0.2rem 0.65rem;">📊 R</button>
+                  <button type="button" id="psmScriptLangStata" class="btn btn-secondary btn-sm" style="font-size: 0.74rem; padding: 0.2rem 0.65rem;">📈 Stata</button>
+                  <button type="button" id="psmCopyScriptBtn" class="btn btn-secondary btn-sm" style="font-size: 0.74rem; padding: 0.2rem 0.65rem;">📋 Copy</button>
+                  <button type="button" id="psmDownloadScriptBtn" class="btn btn-secondary btn-sm" style="font-size: 0.74rem; padding: 0.2rem 0.65rem;">💾 Download</button>
+                </div>
+              </div>
+              <div style="position: relative;">
+                <pre id="psmCodeBlock" style="background: var(--bg-surface-elevated); color: #38bdf8; padding: 1rem 1.1rem; border-radius: 6px; border: 1px solid var(--border-subtle); font-family: 'SF Mono', Consolas, Monaco, monospace; font-size: 0.78rem; line-height: 1.5; max-height: 380px; overflow-y: auto; white-space: pre; margin: 0;"># Select a language tab above to generate full reproducible code...</pre>
+              </div>
+            </div>
+
+            <!-- Clinical / Academic Summary Report Narrative -->
+            <div class="report-box" style="margin-top: 1.25rem;">
+              <div class="report-title">
+                <span>Causal Inference &amp; STROBE Observational Summary</span>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button class="btn btn-secondary btn-sm btn-copy-report" data-report-id="psmReportText">Copy</button>
+                  <button class="btn btn-primary btn-sm btn-export-docx" data-tab="propensity" title="Export full report, results, balance diagnostics, and code to Word (.docx)">📄 Export DOCX</button>
+                </div>
+              </div>
+              <p id="psmReportText" class="report-text">--</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. Categorical & 2x2 Tab -->
       <section id="tab-categorical" class="tab-pane">
         <div class="tab-pane-toolbar">
           <button class="btn btn-primary btn-sm btn-export-docx" data-tab="categorical" title="Export full report, results, test selection rationale, and background knowledge to Word (.docx)">📄 Export DOCX</button>

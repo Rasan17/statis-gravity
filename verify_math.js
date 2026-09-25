@@ -14,6 +14,7 @@ import { Teaching } from './js/stats/teaching.js';
 import { DocxReports } from './js/export/docx-generator.js';
 import { Plots } from './js/visualization/plots.js';
 import { Randomiser } from './js/stats/randomiser.js';
+import { Psm } from './js/stats/psm.js';
 
 let passes = 0;
 let failures = 0;
@@ -1140,6 +1141,87 @@ assert(simpleCSV.startsWith('Participant ID,Timestamp,Random Integer (1-100),Par
 const blockCSV = Randomiser.exportToCSV(blockHistory, 'block');
 assert(blockCSV.startsWith('Participant ID,Timestamp,Block Number,Block Size,Slot in Block,Assigned Group Code,Group Label'), 'Block CSV header is valid');
 assert(blockCSV.split('\r\n').length === 25, 'Block CSV contains 1 header row + 24 participant records');
+
+console.log('\n--- Testing Section 14: Propensity Score Matching (PSM) & Causal Inference ---');
+
+// 14.1 Observational Clinical Dataset Generation & Pre-Processing
+const clinicalCohort = Psm.getSampleClinicalDataset();
+assert(Array.isArray(clinicalCohort) && clinicalCohort.length === 120, 'Sample clinical cohort generated 120 observational patient records');
+assert(clinicalCohort[0].treatment_col !== undefined && clinicalCohort[0].outcome_col !== undefined, 'Cohort contains treatment_col and outcome_col');
+assert(clinicalCohort[0].age !== undefined && clinicalCohort[0].baseline_severity !== undefined, 'Cohort contains clinical covariates (age, baseline_severity)');
+
+// 14.2 Missingness & Data Prep
+const prep = Psm.prepareData(clinicalCohort, 'treatment_col', 'outcome_col', ['age', 'sex', 'comorbidity_score', 'baseline_severity']);
+assert(!prep.error, 'Data preparation executed without errors');
+assert(prep.completeCasesCount === 120, `Identified 120 complete cases, got ${prep.completeCasesCount}`);
+assert(prep.treatedCount > 0 && prep.controlCount > 0, `Both treatment groups have observations (Treated: ${prep.treatedCount}, Control: ${prep.controlCount})`);
+
+// Missingness handling test
+const cohortWithMissing = [
+  ...clinicalCohort.slice(0, 20),
+  { patient_id: 'PT-999', treatment_col: 1, outcome_col: null, age: 5.0, sex: 1, comorbidity_score: 0, baseline_severity: 8.0 }
+];
+const prepMissing = Psm.prepareData(cohortWithMissing, 'treatment_col', 'outcome_col', ['age', 'sex', 'comorbidity_score', 'baseline_severity']);
+assert(prepMissing.missingRowsCount === 1, 'Correctly detected missing row in complete-case filter');
+assert(prepMissing.completeCasesCount === 20, 'Filtered down to complete cases');
+
+// 14.3 Multivariate Logistic Regression Engine
+const logitRes = Psm.fitLogisticRegression(prep.data, ['age', 'sex', 'comorbidity_score', 'baseline_severity']);
+assert(!logitRes.error, 'Newton-Raphson logistic regression converged successfully');
+assert(logitRes.coefficients && logitRes.coefficients.length === 5, 'Fitted 5 coefficients (intercept + 4 covariates)');
+assert(logitRes.mcfaddenR2 > 0 && logitRes.mcfaddenR2 < 1.0, `McFadden pseudo-R2 is valid: ${logitRes.mcfaddenR2.toFixed(3)}`);
+assert(prep.data.every(d => d._ps > 0 && d._ps < 1.0), 'All estimated propensity scores strictly bounded in (0, 1)');
+assert(prep.data.every(d => typeof d._logitPs === 'number' && !isNaN(d._logitPs)), 'All logit propensity scores computed cleanly');
+
+// 14.4 Nearest-Neighbor Matching with Strict Caliper & Common Support
+const matchRes = Psm.matchNearestNeighbor(prep.data, 0.20, true);
+assert(!matchRes.error, 'Nearest-neighbor caliper matching completed');
+assert(matchRes.nMatchedPairs > 0, `Successfully matched ${matchRes.nMatchedPairs} pairs`);
+assert(matchRes.caliperWidth > 0, `Caliper width calculated: ${matchRes.caliperWidth.toFixed(4)}`);
+assert(matchRes.commonSupport.min <= matchRes.commonSupport.max, 'Common support boundaries established');
+
+// Verify 1:1 matching without replacement (no control used twice)
+const controlUsed = matchRes.pairs.map(p => p.control._rowId);
+const uniqueControlUsed = new Set(controlUsed);
+assert(controlUsed.length === uniqueControlUsed.size, 'Strict matching without replacement verified: every control matched at most once');
+
+// 14.5 Covariate Balance Assessment & Love Plot Data
+const balanceRes = Psm.assessBalance(prep.data, matchRes, ['age', 'sex', 'comorbidity_score', 'baseline_severity']);
+assert(balanceRes.balanceTable.length === 4, 'Balance table evaluated all 4 confounding covariates');
+assert(balanceRes.maxAbsSmdPre > 0.50, `Substantial initial confounding detected: Max Pre-SMD = ${balanceRes.maxAbsSmdPre.toFixed(3)}`);
+const comorbRow = balanceRes.balanceTable.find(d => d.covariate === 'comorbidity_score');
+assert(comorbRow && comorbRow.absSmdPost < 0.10, `Comorbidity score balanced below 0.10: Post-SMD = ${comorbRow.absSmdPost.toFixed(3)}`);
+const ageRow = balanceRes.balanceTable.find(d => d.covariate === 'age');
+assert(ageRow && ageRow.percentReduction > 70, `Age bias reduced by > 70%, got ${ageRow.percentReduction.toFixed(1)}%`);
+
+// 14.6 Outcome Analysis & ATT Estimation
+const outcomeRes = Psm.estimateOutcomeEffect(prep.data, matchRes, 'outcome_col');
+assert(!outcomeRes.error, 'ATT causal effect estimated without errors');
+assert(outcomeRes.type === 'continuous', 'Correctly identified continuous outcome variable');
+assert(approx(outcomeRes.att, -2.15, 0.5), `ATT point estimate reflects true treatment effect (~-2.2 days), got ${outcomeRes.att.toFixed(3)}`);
+assert(outcomeRes.ci95[0] < outcomeRes.att && outcomeRes.ci95[1] > outcomeRes.att, '95% CI properly surrounds point estimate');
+assert(outcomeRes.pValue < 0.05, `Causal effect is statistically significant (p = ${outcomeRes.pValue.toExponential(3)})`);
+
+// 14.7 Master Pipeline Execution & Script Generators
+const fullAnalysis = Psm.executeAnalysis(clinicalCohort, {
+  treatmentCol: 'treatment_col',
+  outcomeCol: 'outcome_col',
+  covariateCols: ['age', 'sex', 'comorbidity_score', 'baseline_severity'],
+  caliperMultiplier: 0.20,
+  enforceCommonSupport: true
+});
+assert(!fullAnalysis.error, 'Master executeAnalysis pipeline ran without error');
+assert(fullAnalysis.nMatchedPairs === matchRes.nMatchedPairs, 'Pipeline matched pairs matches direct call');
+assert(fullAnalysis.scripts.python.includes('import statsmodels.api as sm'), 'Python script includes statsmodels import');
+assert(fullAnalysis.scripts.python.includes('Nearest-Neighbor Caliper Matching'), 'Python script comments explain matching algorithm');
+assert(fullAnalysis.scripts.r.includes('library(MatchIt)'), 'R script includes MatchIt library');
+assert(fullAnalysis.scripts.r.includes('love.plot('), 'R script generates Love Plot using cobalt');
+assert(fullAnalysis.scripts.stata.includes('teffects psmatch'), 'Stata script uses teffects psmatch');
+assert(fullAnalysis.reportText.includes('Average Treatment Effect on the Treated'), 'STROBE narrative summary generated');
+
+// 14.8 DOCX Report Generation
+const docxReport = DocxReports.createPsmDocx(fullAnalysis);
+assert(docxReport && typeof docxReport.generateBlob === 'function', 'DocxReports.createPsmDocx generates valid Word ML builder');
 
 console.log(`\nVerification Complete: ${passes} Passed, ${failures} Failed`);
 if (failures > 0) process.exit(1);

@@ -1240,5 +1240,108 @@ export const DocxReports = {
     d.addBullet('Kass RE, Raftery AE (1995). Bayes factors. Journal of the American Statistical Association, 90(430): 773–795.');
 
     return d;
+  },
+
+  createPsmDocx(data) {
+    const d = new DocxBuilder();
+    d.addTitle('STATIS-GRAVITY CLINICAL BIOSTATISTICS REPORT')
+      .addSubTitle('Module: Propensity Score Matching (PSM) & Observational Causal Inference')
+      .addAttributionHeader()
+      .addDisclaimerBox();
+
+    const prep = data.prep || {};
+    const match = data.matchResult || {};
+    const outcome = data.outcomeResult || {};
+    const logit = data.logitModel || {};
+    const balance = data.balance || {};
+
+    d.addHeading1('1. Observational Study Design & Matching Specifications')
+      .addParagraph(`Treatment Assignment Variable: ${data.treatmentCol || 'treatment_col'} (Binary 0/1)`)
+      .addParagraph(`Primary Clinical Outcome: ${data.outcomeCol || 'outcome_col'}`)
+      .addParagraph(`Confounding Baseline Covariates: ${(data.covariateCols || []).join(', ')}`)
+      .addParagraph(`Matching Algorithm: 1:1 Nearest-Neighbor Without Replacement (Greedy on Logit PS)`)
+      .addParagraph(`Caliper Width: ${match.caliperMultiplier || 0.20} × SD(logit(PS)) = ${(match.caliperWidth || 0).toFixed(4)}`)
+      .addParagraph(`Common Support Region: [${(match.commonSupport?.min || 0).toFixed(4)}, ${(match.commonSupport?.max || 1).toFixed(4)}] (Discarded off-support: ${match.commonSupport?.droppedTreated || 0} treated)`);
+
+    const cohortSummaryRows = [
+      ['Total Observational Records', `${prep.totalRows || 0}`],
+      ['Complete Cases Analyzed', `${prep.completeCasesCount || 0} (${prep.missingRowsCount || 0} missing rows filtered)`],
+      ['Pre-Matching Treated Cohort (Z = 1)', `${prep.treatedCount || match.nTotalTreated || 0}`],
+      ['Pre-Matching Control Cohort (Z = 0)', `${prep.controlCount || match.nTotalControl || 0}`],
+      ['Successfully Matched Pairs', `${match.nMatchedPairs || 0} pairs (${(match.nMatchedPairs || 0) * 2} patients)`],
+      ['Unmatched Treated Cohort', `${match.nUnmatchedTreated || 0}`],
+      ['Unmatched Control Cohort', `${match.nUnmatchedControl || 0}`]
+    ];
+    d.addTable(['Study Metric', 'Clinical Value'], cohortSummaryRows);
+
+    // Section 2: Propensity Score Logistic Regression
+    d.addHeading1('2. Propensity Score Estimation (Multivariate Logistic Regression)');
+    d.addParagraph(`Model Fit: Likelihood Ratio χ² = ${(logit.lrStat || 0).toFixed(2)} (df = ${logit.lrDf || 0}, p = ${(logit.lrPValue !== undefined ? logit.lrPValue.toExponential(3) : '< 0.001')}), McFadden's Pseudo-R² = ${(logit.mcfaddenR2 || 0).toFixed(3)}.`);
+
+    if (logit.coefficients && logit.coefficients.length > 0) {
+      const logitRows = logit.coefficients.map(c => [
+        c.term,
+        c.estimate.toFixed(4),
+        c.stdError.toFixed(4),
+        c.zScore.toFixed(2),
+        c.pValue < 0.001 ? '< 0.001' : c.pValue.toFixed(3),
+        c.oddsRatio.toFixed(3),
+        `[${c.ci95[0].toFixed(3)}, ${c.ci95[1].toFixed(3)}]`
+      ]);
+      d.addTable(['Model Parameter', 'Coefficient (β)', 'Std Error', 'Wald z', 'p-Value', 'Odds Ratio (OR)', '95% CI of OR'], logitRows);
+    }
+
+    // Section 3: Baseline Covariate Balance Assessment & Love Plot
+    d.addHeading1('3. Baseline Covariate Balance Diagnostics & Standardized Mean Differences (SMD)');
+    d.addParagraph('Standardized Mean Difference (SMD) evaluates whether matching successfully removed confounding bias. An SMD < 0.10 satisfies standard clinical equivalence; SMD < 0.05 indicates stringent balance.');
+
+    if (balance.balanceTable && balance.balanceTable.length > 0) {
+      const balRows = balance.balanceTable.map(b => [
+        b.covariate,
+        `${b.meanTreatedPre.toFixed(2)} vs ${b.meanControlPre.toFixed(2)}`,
+        b.smdPre.toFixed(3),
+        `${b.meanTreatedPost.toFixed(2)} vs ${b.meanControlPost.toFixed(2)}`,
+        b.smdPost.toFixed(3),
+        `${b.percentReduction.toFixed(1)}%`,
+        b.isBalanced ? 'Balanced (|SMD| < 0.10)' : 'Residual Imbalance'
+      ]);
+      d.addTable(['Covariate', 'Unadjusted Means (T vs C)', 'Pre-Match SMD', 'Matched Means (T vs C)', 'Post-Match SMD', '% Bias Reduction', 'Balance Status'], balRows);
+    }
+
+    // Section 4: Causal Outcome Analysis
+    d.addHeading1('4. Causal Outcome Analysis: Average Treatment Effect on the Treated (ATT)');
+    const unadjDiff = typeof outcome.unadjustedDiff === 'object' && outcome.unadjustedDiff !== null
+      ? outcome.unadjustedDiff.diff
+      : (outcome.unadjustedDiff || 0);
+
+    const outcomeRows = [
+      ['Primary Clinical Outcome', `${outcome.outcomeCol || data.outcomeCol}`],
+      ['Outcome Variable Type', `${outcome.outcomeType === 'binary' ? 'Binary / Proportional Event' : 'Continuous Numerical Metric'}`],
+      ['Unadjusted (Confounded) Difference', `${unadjDiff.toFixed(3)}`],
+      ['Matched ATT (Causal Point Estimate)', `${outcome.att !== undefined ? outcome.att.toFixed(3) : (outcome.pointEstimate || 0).toFixed(3)}`],
+      ['Paired / Cluster-Robust Std Error', `${(outcome.se || outcome.stdError || 0).toFixed(4)}`],
+      ['Test Statistic', `${(outcome.statistic !== undefined ? outcome.statistic : (outcome.testStatistic || 0)).toFixed(2)} (${outcome.testName || 'Paired t-test'})`],
+      ['Statistical Significance (p-Value)', `${outcome.pValue !== undefined ? (outcome.pValue < 0.001 ? '< 0.001' : outcome.pValue.toFixed(4)) : '--'}`],
+      ['95% Confidence Interval for ATT', outcome.ci95 ? `[${outcome.ci95[0].toFixed(3)}, ${outcome.ci95[1].toFixed(3)}]` : '--'],
+      ['Causal Conclusion', outcome.isSignificant ? 'Statistically Significant Causal Effect (p < .05)' : 'No Significant Causal Difference (ns)']
+    ];
+    d.addTable(['Causal Parameter', 'Statistical Result'], outcomeRows);
+
+    // Section 5: Clinical & STROBE Summary
+    d.addHeading1('5. Clinical Interpretation & Methodological Rationale');
+    d.addCalloutBox(
+      data.reportText || 'Propensity score matching eliminated observed confounding bias across baseline covariates, providing an unconfounded estimate of the Average Treatment Effect on the Treated.',
+      'F0FDF4',
+      '16A34A'
+    );
+
+    d.addHeading1('6. Key Academic & Methodological References');
+    d.addBullet('Rosenbaum PR, Rubin DB (1983). The central role of the propensity score in observational studies for causal effects. Biometrika, 70(1): 41–55.');
+    d.addBullet('Austin PC (2011). An introduction to propensity score methods for reducing the effects of confounding in observational studies. Multivariate Behavioral Research, 46(3): 399–424.');
+    d.addBullet('Austin PC (2009). Using the standardized mean difference to compare the characteristics of treated and untreated subjects in propensity-score matched samples. Statistics in Medicine, 28(25): 3083–3107.');
+    d.addBullet('Ho DE, Imai K, King G, Stuart EA (2011). MatchIt: Nonparametric preprocessing for parametric causal inference. Journal of Statistical Software, 42(8): 1–28.');
+    d.addBullet('Stuart EA (2010). Matching methods for causal inference: A review and a look forward. Statistical Science, 25(1): 1–21.');
+
+    return d;
   }
 };
